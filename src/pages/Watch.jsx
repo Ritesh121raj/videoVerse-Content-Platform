@@ -1,9 +1,11 @@
 import { useParams } from "react-router-dom";
+import { useState } from "react";
 import {
   ThumbsUp,
   ThumbsDown,
   Share2,
   Download,
+  Bookmark,
 } from "lucide-react";
 
 function Watch() {
@@ -80,6 +82,64 @@ function Watch() {
 
   const video = videos[id];
 
+    const [liked, setLiked] = useState(() => {
+      const likedVideos =
+        JSON.parse(localStorage.getItem("likedVideos")) || [];
+
+      return likedVideos.some(
+        (item) => item.id === id
+      );
+    });
+        const handleLike = () => {
+      const likedVideos =
+        JSON.parse(localStorage.getItem("likedVideos")) || [];
+
+      if (liked) {
+        const updatedVideos = likedVideos.filter(
+          (item) => item.id !== video.id
+        );
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(updatedVideos)
+        );
+
+        setLiked(false);
+      } else {
+        likedVideos.unshift(video);
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(likedVideos)
+        );
+
+        setLiked(true);
+      }
+    };
+  const saveToWatchLater = () => {
+
+  const saved =
+    JSON.parse(localStorage.getItem("watchLater")) || [];
+
+  const alreadySaved = saved.some(
+    (item) => item.id === id
+  );
+
+  if (alreadySaved) {
+    alert("Video is already in Watch Later!");
+    return;
+  }
+
+  saved.unshift(video);
+
+  localStorage.setItem(
+    "watchLater",
+    JSON.stringify(saved)
+  );
+
+  alert("Video saved to Watch Later!");
+};
+
   // If video doesn't exist
   if (!video) {
     return (
@@ -145,9 +205,16 @@ function Watch() {
 
         <div className="watch-actions">
 
-          <button>
-            <ThumbsUp size={20} />
-            Like
+          <button
+            onClick={handleLike}
+            className={liked ? "liked-button" : ""}
+          >
+            <ThumbsUp
+              size={20}
+              fill={liked ? "currentColor" : "none"}
+            />
+
+            {liked ? "Liked" : "Like"}
           </button>
 
           <button>
@@ -163,6 +230,11 @@ function Watch() {
           <button>
             <Download size={20} />
             Download
+          </button>
+
+          <button onClick={saveToWatchLater}>
+            <Bookmark size={20} />
+            Save
           </button>
 
         </div>
