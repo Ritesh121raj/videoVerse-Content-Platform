@@ -1,4 +1,5 @@
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
+
 import {
   Home,
   Flame,
@@ -10,60 +11,124 @@ import {
   Music2,
 } from "lucide-react";
 
+
 function Sidebar() {
+
+  const getClassName = ({ isActive }) =>
+    isActive
+      ? "sidebar-item active"
+      : "sidebar-item";
+
+
   return (
     <aside className="sidebar">
 
-      <Link to="/" className="sidebar-item">
+
+      {/* HOME */}
+
+      <NavLink
+        to="/"
+        className={getClassName}
+        end
+      >
         <Home size={22} />
         <span>Home</span>
-      </Link>
+      </NavLink>
 
-      <Link to="/trending" className="sidebar-item">
+
+      {/* TRENDING */}
+
+      <NavLink
+        to="/trending"
+        className={getClassName}
+      >
         <Flame size={22} />
         <span>Trending</span>
-      </Link>
+      </NavLink>
 
-      <Link to="/subscriptions" className="sidebar-item">
+
+      {/* SUBSCRIPTIONS */}
+
+      <NavLink
+        to="/subscriptions"
+        className={getClassName}
+      >
         <PlaySquare size={22} />
         <span>Subscriptions</span>
-      </Link>
+      </NavLink>
+
 
       <hr />
 
-      <Link to="/history" className="sidebar-item">
+
+      {/* HISTORY */}
+
+      <NavLink
+        to="/history"
+        className={getClassName}
+      >
         <History size={22} />
         <span>History</span>
-      </Link>
+      </NavLink>
 
-      <Link to="/watch-later" className="sidebar-item">
+
+      {/* WATCH LATER */}
+
+      <NavLink
+        to="/watch-later"
+        className={getClassName}
+      >
         <Clock size={22} />
         <span>Watch later</span>
-      </Link>
+      </NavLink>
 
-      <Link to="/liked" className="sidebar-item">
+
+      {/* LIKED */}
+
+      <NavLink
+        to="/liked"
+        className={getClassName}
+      >
         <ThumbsUp size={22} />
         <span>Liked videos</span>
-      </Link>
+      </NavLink>
+
 
       <hr />
+
+
+      {/* EXPLORE */}
 
       <h3 className="sidebar-title">
         Explore
       </h3>
 
-      <Link to="/shorts" className="sidebar-item">
+
+      {/* SHORTS */}
+
+      <NavLink
+        to="/shorts"
+        className={getClassName}
+      >
         <Video size={22} />
         <span>Shorts</span>
-      </Link>
+      </NavLink>
 
-      <Link to="/music" className="sidebar-item">
+
+      {/* MUSIC */}
+
+      <NavLink
+        to="/music"
+        className={getClassName}
+      >
         <Music2 size={22} />
         <span>Music</span>
-      </Link>
+      </NavLink>
+
 
     </aside>
   );
 }
+
 
 export default Sidebar;

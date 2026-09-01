@@ -1,5 +1,7 @@
+import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
-import { useState } from "react";
+import videos from "../data/videos";
+
 import {
   ThumbsUp,
   ThumbsDown,
@@ -9,138 +11,128 @@ import {
 } from "lucide-react";
 
 function Watch() {
-
   const { id } = useParams();
 
-  const videos = {
-    cpp: {
-      title: "Learn C++ Programming From Scratch",
-      channel: "Code Academy",
-      views: "1.2M",
-      time: "2 weeks ago",
-      subscribers: "500K",
-      description:
-        "Learn C++ programming from scratch. This complete tutorial covers the fundamentals of C++ programming.",
-      videoUrl: "https://www.youtube.com/embed/vLnPwxZdW4Y",
-    },
+  // Find the video using URL id
+  const video = videos.find((item) => item.id === id);
 
-    react: {
-      title: "Complete React JS Tutorial",
-      channel: "Web Dev",
-      views: "850K",
-      time: "1 month ago",
-      subscribers: "320K",
-      description:
-        "Learn React JS from the basics and build modern web applications.",
-      videoUrl: "https://www.youtube.com/embed/SqcY0GlETPk",
-    },
+  // Like state
+  const [liked, setLiked] = useState(false);
 
-    dsa: {
-      title: "Master Data Structures & Algorithms",
-      channel: "DSA World",
-      views: "2.4M",
-      time: "3 months ago",
-      subscribers: "900K",
-      description:
-        "Learn important Data Structures and Algorithms concepts and improve your problem-solving skills.",
-      videoUrl: "https://www.youtube.com/embed/8hly31xKli0",
-    },
+  // Subscribe state
+  const [subscribed, setSubscribed] = useState(false);
 
-    fullstack: {
-      title: "Build a Full Stack Website",
-      channel: "Programming Hub",
-      views: "540K",
-      time: "5 days ago",
-      subscribers: "250K",
-      description:
-        "Learn how to build a complete full-stack website using modern technologies.",
-      videoUrl: "https://www.youtube.com/embed/nu_pCVPKzTk",
-    },
+  // Check saved Like and Subscribe data
+  useEffect(() => {
+    if (!video) return;
 
-    javascript: {
-      title: "JavaScript Projects for Beginners",
-      channel: "Code With Me",
-      views: "720K",
-      time: "2 weeks ago",
-      subscribers: "400K",
-      description:
-        "Build useful JavaScript projects and improve your programming skills.",
-      videoUrl: "https://www.youtube.com/embed/PkZNo7MFNFg",
-    },
+    // Check Like
+    const likedIds =
+      JSON.parse(localStorage.getItem("likedVideos")) || [];
 
-    competitive: {
-      title: "How to Get Better at Competitive Programming",
-      channel: "CP Master",
-      views: "430K",
-      time: "1 week ago",
-      subscribers: "180K",
-      description:
-        "Learn strategies and techniques to improve your competitive programming skills.",
-      videoUrl: "https://www.youtube.com/embed/m5E9J1qWw1Y",
-    },
+    setLiked(likedIds.includes(id));
+
+    // Check Subscribe
+    const subscribedChannels =
+      JSON.parse(
+        localStorage.getItem("subscribedChannels")
+      ) || [];
+
+    setSubscribed(
+      subscribedChannels.includes(video.channel)
+    );
+  }, [id, video]);
+
+  // ---------------- LIKE ----------------
+
+  const handleLike = () => {
+    const likedIds =
+      JSON.parse(localStorage.getItem("likedVideos")) || [];
+
+    if (likedIds.includes(id)) {
+      // Remove Like
+      const updatedIds = likedIds.filter(
+        (videoId) => videoId !== id
+      );
+
+      localStorage.setItem(
+        "likedVideos",
+        JSON.stringify(updatedIds)
+      );
+
+      setLiked(false);
+    } else {
+      // Add Like
+      likedIds.unshift(id);
+
+      localStorage.setItem(
+        "likedVideos",
+        JSON.stringify(likedIds)
+      );
+
+      setLiked(true);
+    }
   };
 
-  const video = videos[id];
+  // ---------------- WATCH LATER ----------------
 
-    const [liked, setLiked] = useState(() => {
-      const likedVideos =
-        JSON.parse(localStorage.getItem("likedVideos")) || [];
-
-      return likedVideos.some(
-        (item) => item.id === id
-      );
-    });
-        const handleLike = () => {
-      const likedVideos =
-        JSON.parse(localStorage.getItem("likedVideos")) || [];
-
-      if (liked) {
-        const updatedVideos = likedVideos.filter(
-          (item) => item.id !== video.id
-        );
-
-        localStorage.setItem(
-          "likedVideos",
-          JSON.stringify(updatedVideos)
-        );
-
-        setLiked(false);
-      } else {
-        likedVideos.unshift(video);
-
-        localStorage.setItem(
-          "likedVideos",
-          JSON.stringify(likedVideos)
-        );
-
-        setLiked(true);
-      }
-    };
   const saveToWatchLater = () => {
+    const savedIds =
+      JSON.parse(localStorage.getItem("watchLater")) || [];
 
-  const saved =
-    JSON.parse(localStorage.getItem("watchLater")) || [];
+    if (savedIds.includes(id)) {
+      alert("Video is already in Watch Later!");
+      return;
+    }
 
-  const alreadySaved = saved.some(
-    (item) => item.id === id
-  );
+    savedIds.unshift(id);
 
-  if (alreadySaved) {
-    alert("Video is already in Watch Later!");
-    return;
-  }
+    localStorage.setItem(
+      "watchLater",
+      JSON.stringify(savedIds)
+    );
 
-  saved.unshift(video);
+    alert("Video saved to Watch Later!");
+  };
 
-  localStorage.setItem(
-    "watchLater",
-    JSON.stringify(saved)
-  );
+  // ---------------- SUBSCRIBE ----------------
 
-  alert("Video saved to Watch Later!");
-};
+  const handleSubscribe = () => {
+    if (!video) return;
 
-  // If video doesn't exist
+    const subscribedChannels =
+      JSON.parse(
+        localStorage.getItem("subscribedChannels")
+      ) || [];
+
+    if (subscribedChannels.includes(video.channel)) {
+      // Unsubscribe
+      const updatedChannels =
+        subscribedChannels.filter(
+          (channel) => channel !== video.channel
+        );
+
+      localStorage.setItem(
+        "subscribedChannels",
+        JSON.stringify(updatedChannels)
+      );
+
+      setSubscribed(false);
+    } else {
+      // Subscribe
+      subscribedChannels.unshift(video.channel);
+
+      localStorage.setItem(
+        "subscribedChannels",
+        JSON.stringify(subscribedChannels)
+      );
+
+      setSubscribed(true);
+    }
+  };
+
+  // ---------------- VIDEO NOT FOUND ----------------
+
   if (!video) {
     return (
       <div className="watch-page">
@@ -152,10 +144,8 @@ function Watch() {
   return (
     <div className="watch-page">
 
-      {/* Video Player */}
-
+      {/* VIDEO PLAYER */}
       <div className="player">
-
         <iframe
           width="100%"
           height="100%"
@@ -165,21 +155,15 @@ function Watch() {
           allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
           allowFullScreen
         ></iframe>
-
       </div>
 
+      {/* VIDEO TITLE */}
+      <h1>{video.title}</h1>
 
-      {/* Title */}
-
-      <h1>
-        {video.title}
-      </h1>
-
-
-      {/* Channel + Buttons */}
-
+      {/* CHANNEL + ACTIONS */}
       <div className="watch-info">
 
+        {/* CHANNEL DETAILS */}
         <div className="channel-details">
 
           <div className="channel-logo large">
@@ -187,24 +171,30 @@ function Watch() {
           </div>
 
           <div>
-            <h3>
-              {video.channel}
-            </h3>
+            <h3>{video.channel}</h3>
 
             <p>
-              {video.subscribers} subscribers
+              {video.subscribers || "500K"} subscribers
             </p>
           </div>
 
-          <button className="subscribe">
-            Subscribe
+          {/* SUBSCRIBE BUTTON */}
+          <button
+            className={
+              subscribed
+                ? "subscribe subscribed"
+                : "subscribe"
+            }
+            onClick={handleSubscribe}
+          >
+            {subscribed ? "Subscribed" : "Subscribe"}
           </button>
-
         </div>
 
-
+        {/* ACTION BUTTONS */}
         <div className="watch-actions">
 
+          {/* LIKE */}
           <button
             onClick={handleLike}
             className={liked ? "liked-button" : ""}
@@ -217,33 +207,34 @@ function Watch() {
             {liked ? "Liked" : "Like"}
           </button>
 
+          {/* DISLIKE */}
           <button>
             <ThumbsDown size={20} />
             Dislike
           </button>
 
+          {/* SHARE */}
           <button>
             <Share2 size={20} />
             Share
           </button>
 
+          {/* DOWNLOAD */}
           <button>
             <Download size={20} />
             Download
           </button>
 
+          {/* WATCH LATER */}
           <button onClick={saveToWatchLater}>
             <Bookmark size={20} />
             Save
           </button>
 
         </div>
-
       </div>
 
-
-      {/* Description */}
-
+      {/* DESCRIPTION */}
       <div className="description">
 
         <strong>
@@ -251,20 +242,16 @@ function Watch() {
         </strong>
 
         <p>
-          {video.description}
+          {video.description ||
+            "Watch this video and learn something new."}
         </p>
 
       </div>
 
-
-      {/* Comments */}
-
+      {/* COMMENTS */}
       <div className="comments">
 
-        <h2>
-          Comments
-        </h2>
-
+        <h2>Comments</h2>
 
         <div className="comment">
 
@@ -273,9 +260,7 @@ function Watch() {
           </div>
 
           <div>
-            <strong>
-              Alex
-            </strong>
+            <strong>Alex</strong>
 
             <p>
               Great video! 🔥
@@ -284,7 +269,6 @@ function Watch() {
 
         </div>
 
-
         <div className="comment">
 
           <div className="comment-avatar">
@@ -292,9 +276,7 @@ function Watch() {
           </div>
 
           <div>
-            <strong>
-              Rahul
-            </strong>
+            <strong>Rahul</strong>
 
             <p>
               Very useful video!
@@ -304,7 +286,6 @@ function Watch() {
         </div>
 
       </div>
-
     </div>
   );
 }

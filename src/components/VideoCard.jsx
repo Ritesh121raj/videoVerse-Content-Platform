@@ -1,32 +1,36 @@
 import { Link } from "react-router-dom";
 import { MoreVertical } from "lucide-react";
 
-function VideoCard({ id, image, title, channel, views, time }) {
+function VideoCard({
+  id,
+  image,
+  title,
+  channel,
+  views,
+  time,
+  duration,
+}) {
+
+  // =========================
+  // SAVE VIDEO TO HISTORY
+  // =========================
 
   const saveToHistory = () => {
-
-    const video = {
-      id,
-      image,
-      title,
-      channel,
-      views,
-      time,
-    };
 
     const oldHistory =
       JSON.parse(localStorage.getItem("history")) || [];
 
-    // Remove duplicate video if already present
+    // Remove duplicate
     const newHistory = oldHistory.filter(
-      (item) => item.id !== id
+      (item) => item !== id
     );
 
-    // Put latest video at the beginning
-    newHistory.unshift(video);
+    // Add latest video at beginning
+    newHistory.unshift(id);
 
     // Keep only last 20 videos
-    const limitedHistory = newHistory.slice(0, 20);
+    const limitedHistory =
+      newHistory.slice(0, 20);
 
     localStorage.setItem(
       "history",
@@ -36,6 +40,7 @@ function VideoCard({ id, image, title, channel, views, time }) {
 
 
   return (
+
     <Link
       to={`/watch/${id}`}
       className="video-link"
@@ -43,6 +48,11 @@ function VideoCard({ id, image, title, channel, views, time }) {
     >
 
       <div className="video-card">
+
+
+        {/* =========================
+            THUMBNAIL
+        ========================= */}
 
         <div className="thumbnail-container">
 
@@ -53,18 +63,27 @@ function VideoCard({ id, image, title, channel, views, time }) {
           />
 
           <span className="duration">
-            10:25
+            {duration || "10:25"}
           </span>
 
         </div>
 
 
+        {/* =========================
+            VIDEO INFORMATION
+        ========================= */}
+
         <div className="video-info">
 
+
+          {/* CHANNEL LOGO */}
+
           <div className="channel-logo">
-            {channel.charAt(0)}
+            {channel?.charAt(0)}
           </div>
 
+
+          {/* TEXT */}
 
           <div className="video-text">
 
@@ -83,10 +102,18 @@ function VideoCard({ id, image, title, channel, views, time }) {
           </div>
 
 
-          <MoreVertical
-            size={20}
-            className="more-icon"
-          />
+          {/* MORE BUTTON */}
+
+          <button
+            className="more-button"
+            onClick={(e) => {
+              e.preventDefault();
+              e.stopPropagation();
+            }}
+          >
+            <MoreVertical size={20} />
+          </button>
+
 
         </div>
 

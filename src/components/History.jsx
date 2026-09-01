@@ -1,38 +1,35 @@
 import { useEffect, useState } from "react";
 import VideoGrid from "./VideoGrid";
+import videos from "../data/videos";
 
 function History() {
-
-  const [history, setHistory] = useState([]);
-
+  const [historyVideos, setHistoryVideos] = useState([]);
 
   useEffect(() => {
-
-    const savedHistory =
+    const historyIds =
       JSON.parse(localStorage.getItem("history")) || [];
 
-    setHistory(savedHistory);
+    const list = historyIds
+      .map((id) =>
+        videos.find((video) => video.id === id)
+      )
+      .filter(Boolean);
 
+    setHistoryVideos(list);
   }, []);
 
-
   return (
-    <>
+    <div className="page-container">
       <h1>History</h1>
 
-      {history.length === 0 ? (
-
+      {historyVideos.length === 0 ? (
         <p className="page-message">
           You haven't watched any videos yet.
         </p>
-
       ) : (
-
-        <VideoGrid videos={history} />
-
+        <VideoGrid videos={historyVideos} />
       )}
-
-    </>
+    </div>
   );
 }
 

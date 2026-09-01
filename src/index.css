@@ -293,10 +293,11 @@ body {
 
 .video-card:hover .more-icon {
   opacity: 1;
-}/* SHORTS */
+}
+/* SHORTS */
 
 .shorts-section {
-  margin-bottom: 40px;
+  margin: 30px 0 40px;
 }
 
 .shorts-heading {
@@ -307,27 +308,28 @@ body {
 }
 
 .shorts-heading h2 {
-  font-size: 22px;
+  font-size: 24px;
   margin: 0;
 }
 
 .shorts-container {
   display: grid;
   grid-template-columns: repeat(5, 1fr);
-  gap: 16px;
+  gap: 18px;
 }
 
 .short-card {
   position: relative;
-  border-radius: 10px;
+  height: 400px;
+  border-radius: 12px;
   overflow: hidden;
-  cursor: pointer;
   background: #181818;
+  cursor: pointer;
 }
 
 .short-card img {
   width: 100%;
-  height: 360px;
+  height: 100%;
   object-fit: cover;
   display: block;
 }
@@ -338,7 +340,7 @@ body {
   left: 0;
   right: 0;
 
-  padding: 35px 12px 12px;
+  padding: 50px 14px 14px;
 
   background: linear-gradient(
     transparent,
@@ -349,12 +351,13 @@ body {
 }
 
 .short-info h3 {
-  font-size: 15px;
-  margin: 0 0 5px;
+  font-size: 16px;
+  line-height: 1.3;
+  margin: 0 0 8px;
 }
 
 .short-info p {
-  font-size: 13px;
+  font-size: 14px;
   margin: 0;
 }
 .sidebar-item {
@@ -385,4 +388,70 @@ body {
 .page-message {
   margin-top: 15px;
   color: #666;
+}
+.video-link {
+  text-decoration: none;
+  color: inherit;
+  display: block;
+}
+
+.video-link:visited {
+  color: inherit;
+}
+.search-result {
+  margin: 20px 0;
+}
+
+.search-result h2 {
+  margin-bottom: 5px;
+}
+
+.search-result p {
+  color: #606060;
+}
+
+.no-results {
+  text-align: center;
+  margin-top: 80px;
+}
+
+.no-results h2 {
+  margin-bottom: 10px;
+}
+
+.no-results p {
+  color: #606060;
+}
+.sidebar-item.active {
+  background-color: #e5e5e5;
+  font-weight: 600;
+}
+
+.sidebar-item.active svg {
+  stroke-width: 2.5;
+}
+.sidebar-item:hover {
+  background-color: #f2f2f2;
+}
+.subscribe {
+  background: #0f0f0f;
+  color: white;
+  border: none;
+  padding: 10px 18px;
+  border-radius: 20px;
+  cursor: pointer;
+  font-weight: 600;
+}
+
+.subscribe:hover {
+  background: #272727;
+}
+
+.subscribe.subscribed {
+  background: #e5e5e5;
+  color: #0f0f0f;
+}
+
+.subscribe.subscribed:hover {
+  background: #d0d0d0;
 }
