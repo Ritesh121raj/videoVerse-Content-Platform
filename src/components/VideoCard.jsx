@@ -4,105 +4,155 @@ import { MoreVertical } from "lucide-react";
 function VideoCard({
   id,
   image,
+  thumbnail,
   title,
   channel,
   views,
   time,
+  publishedAt,
   duration,
+  channelImage,
 }) {
-
-  // =========================
-  // SAVE VIDEO TO HISTORY
-  // =========================
-
   const saveToHistory = () => {
-
     const oldHistory =
       JSON.parse(localStorage.getItem("history")) || [];
 
-    // Remove duplicate
     const newHistory = oldHistory.filter(
       (item) => item !== id
     );
 
-    // Add latest video at beginning
     newHistory.unshift(id);
-
-    // Keep only last 20 videos
-    const limitedHistory =
-      newHistory.slice(0, 20);
 
     localStorage.setItem(
       "history",
-      JSON.stringify(limitedHistory)
+      JSON.stringify(newHistory.slice(0, 20))
     );
   };
 
+  const formatViews = (views) => {
+    const number = Number(views);
+
+    if (isNaN(number)) return views || "0";
+
+    if (number >= 1000000000) {
+      return (number / 1000000000).toFixed(1) + "B";
+    }
+
+    if (number >= 1000000) {
+      return (number / 1000000).toFixed(1) + "M";
+    }
+
+    if (number >= 1000) {
+      return (number / 1000).toFixed(1) + "K";
+    }
+
+    return number.toLocaleString();
+  };
+
+  const formatDate = (date) => {
+    if (!date) return "";
+
+    const uploadedDate = new Date(date);
+    const now = new Date();
+
+    const diff = Math.floor(
+      (now - uploadedDate) /
+        (1000 * 60 * 60 * 24)
+    );
+
+    if (diff < 1) return "today";
+
+    if (diff === 1) {
+      return "1 day ago";
+    }
+
+    if (diff < 30) {
+      return `${diff} days ago`;
+    }
+
+    const months = Math.floor(diff / 30);
+
+    if (months === 1) {
+      return "1 month ago";
+    }
+
+    if (months < 12) {
+      return `${months} months ago`;
+    }
+
+    const years = Math.floor(months / 12);
+
+    if (years === 1) {
+      return "1 year ago";
+    }
+
+    return `${years} years ago`;
+  };
+
+  // Support both old and new API property names
+  const videoThumbnail = thumbnail || image;
+  const uploadDate = publishedAt || time;
 
   return (
-
     <Link
       to={`/watch/${id}`}
       className="video-link"
       onClick={saveToHistory}
     >
-
       <div className="video-card">
 
-
-        {/* =========================
-            THUMBNAIL
-        ========================= */}
+        {/* ================= THUMBNAIL ================= */}
 
         <div className="thumbnail-container">
-
           <img
-            src={image}
+            src={videoThumbnail}
             alt={title}
             className="thumbnail"
           />
 
-          <span className="duration">
-            {duration || "10:25"}
-          </span>
-
+          {duration && (
+            <span className="duration">
+              {duration}
+            </span>
+          )}
         </div>
 
-
-        {/* =========================
-            VIDEO INFORMATION
-        ========================= */}
+        {/* ================= VIDEO INFORMATION ================= */}
 
         <div className="video-info">
 
-
-          {/* CHANNEL LOGO */}
+          {/* Channel Logo */}
 
           <div className="channel-logo">
-            {channel?.charAt(0)}
+            {channelImage ? (
+              <img
+                src={channelImage}
+                alt={channel}
+              />
+            ) : (
+              <div className="channel-letter">
+                {channel?.charAt(0)?.toUpperCase() || "C"}
+              </div>
+            )}
           </div>
 
-
-          {/* TEXT */}
+          {/* Text */}
 
           <div className="video-text">
 
-            <h3>
-              {title}
-            </h3>
+            <h3>{title}</h3>
+
+            <p>{channel}</p>
 
             <p>
-              {channel}
-            </p>
-
-            <p>
-              {views} views • {time}
+              {formatViews(views)} views
+              {uploadDate && " • "}
+              {formatDate(uploadDate)}
             </p>
 
           </div>
 
-
-          {/* MORE BUTTON */}
+          {/* More Button */}
 
           <button
             className="more-button"
@@ -114,11 +164,8 @@ function VideoCard({
             <MoreVertical size={20} />
           </button>
 
-
         </div>
-
       </div>
-
     </Link>
   );
 }

@@ -1,7 +1,12 @@
 import { Menu, Search, Mic, UserCircle } from "lucide-react";
 import { useState } from "react";
 
-function Navbar({ search, setSearch }) {
+function Navbar({
+  search,
+  setSearch,
+  onSearch,
+  onKeyDown,
+})  {
 
   return (
     <nav className="navbar">
@@ -25,9 +30,10 @@ function Navbar({ search, setSearch }) {
           placeholder="Search"
           value={search}
           onChange={(e) => setSearch(e.target.value)}
+          onKeyDown={onKeyDown}
         />
 
-        <button>
+        <button onClick={onSearch}>
           <Search size={22} />
         </button>
 

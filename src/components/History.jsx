@@ -1,28 +1,49 @@
 import { useEffect, useState } from "react";
 import VideoGrid from "./VideoGrid";
-import videos from "../data/videos";
+import { getVideoById } from "../services/videoApi";
 
 function History() {
   const [historyVideos, setHistoryVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const historyIds =
-      JSON.parse(localStorage.getItem("history")) || [];
+    const loadHistory = async () => {
+      const historyIds =
+        JSON.parse(localStorage.getItem("history")) || [];
 
-    const list = historyIds
-      .map((id) =>
-        videos.find((video) => video.id === id)
-      )
-      .filter(Boolean);
+      if (historyIds.length === 0) {
+        setHistoryVideos([]);
+        setLoading(false);
+        return;
+      }
 
-    setHistoryVideos(list);
+      try {
+        const videos = await Promise.all(
+          historyIds.map((id) => getVideoById(id))
+        );
+
+        setHistoryVideos(
+          videos.filter((video) => video !== null)
+        );
+      } catch (error) {
+        console.error("History error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadHistory();
   }, []);
 
   return (
     <div className="page-container">
       <h1>History</h1>
 
-      {historyVideos.length === 0 ? (
+      {loading ? (
+        <p className="page-message">
+          Loading history...
+        </p>
+      ) : historyVideos.length === 0 ? (
         <p className="page-message">
           You haven't watched any videos yet.
         </p>

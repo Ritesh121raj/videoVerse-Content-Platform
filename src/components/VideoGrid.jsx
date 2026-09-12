@@ -7,11 +7,20 @@ function VideoGrid({ videos }) {
         <VideoCard
           key={video.id}
           id={video.id}
-          image={video.image}
+
+          // Support both old local data and YouTube API data
+          image={video.image || video.thumbnail}
+          thumbnail={video.thumbnail || video.image}
+
           title={video.title}
           channel={video.channel}
+          channelImage={video.channelImage}
+
           views={video.views}
-          time={video.time}
+
+          time={video.time || video.publishedAt}
+          publishedAt={video.publishedAt || video.time}
+
           duration={video.duration}
         />
       ))}

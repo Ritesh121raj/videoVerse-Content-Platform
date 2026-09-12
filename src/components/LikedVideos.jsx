@@ -1,36 +1,49 @@
 import { useEffect, useState } from "react";
 import VideoGrid from "./VideoGrid";
-import videos from "../data/videos";
+import { getVideoById } from "../services/videoApi";
 
 function LikedVideos() {
   const [likedVideos, setLikedVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const saved =
-      JSON.parse(localStorage.getItem("likedVideos")) || [];
+    const loadLikedVideos = async () => {
+      const likedIds =
+        JSON.parse(localStorage.getItem("likedVideos")) || [];
 
-    // Get only the IDs
-    const likedIds = saved.map((item) => {
-      if (typeof item === "string") {
-        return item;
+      if (likedIds.length === 0) {
+        setLikedVideos([]);
+        setLoading(false);
+        return;
       }
 
-      return item.id;
-    });
+      try {
+        const videos = await Promise.all(
+          likedIds.map((id) => getVideoById(id))
+        );
 
-    // Get latest video information from videos.js
-    const updatedVideos = likedIds
-      .map((id) => videos.find((video) => video.id === id))
-      .filter(Boolean);
+        setLikedVideos(
+          videos.filter((video) => video !== null)
+        );
+      } catch (error) {
+        console.error("Liked videos error:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-    setLikedVideos(updatedVideos);
+    loadLikedVideos();
   }, []);
 
   return (
     <div className="page-container">
-      <h1>Liked Videos 👍</h1>
+      <h1>Liked Videos</h1>
 
-      {likedVideos.length === 0 ? (
+      {loading ? (
+        <p className="page-message">
+          Loading liked videos...
+        </p>
+      ) : likedVideos.length === 0 ? (
         <p className="page-message">
           You haven't liked any videos yet.
         </p>
