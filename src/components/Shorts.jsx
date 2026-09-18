@@ -1,81 +1,113 @@
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import { Play } from "lucide-react";
+import { getShortsVideos } from "../services/videoApi";
 
 function Shorts() {
-  const shorts = [
-    {
-      id: 1,
-      image:
-        "https://images.unsplash.com/photo-1516321318423-f06f85e504b3?w=500&h=800&fit=crop",
-      title: "C++ Trick You Should Know",
-      views: "2.4M",
-    },
+  const [shorts, setShorts] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-    {
-      id: 2,
-      image:
-        "https://images.unsplash.com/photo-1633356122544-f134324a6cee?w=500&h=800&fit=crop",
-      title: "React in 30 Seconds",
-      views: "1.8M",
-    },
+  useEffect(() => {
+    const loadShorts = async () => {
+      try {
+        setLoading(true);
 
-    {
-      id: 3,
-      image:
-        "https://images.unsplash.com/photo-1555949963-aa79dcee981c?w=500&h=800&fit=crop",
-      title: "DSA Interview Trick",
-      views: "950K",
-    },
+        const data = await getShortsVideos();
 
-    {
-      id: 4,
-      image:
-        "https://images.unsplash.com/photo-1498050108023-c5249f4df085?w=500&h=800&fit=crop",
-      title: "JavaScript Amazing Trick",
-      views: "3.2M",
-    },
+        setShorts(data);
+      } catch (error) {
+        console.error(
+          "Shorts loading error:",
+          error
+        );
 
-    {
-      id: 5,
-      image:
-        "https://images.unsplash.com/photo-1518770660439-4636190af475?w=500&h=800&fit=crop",
-      title: "Learn Coding Faster",
-      views: "720K",
-    },
-  ];
+        setShorts([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadShorts();
+  }, []);
 
   return (
     <section className="shorts-section">
 
+      {/* Heading */}
       <div className="shorts-heading">
-        <Play size={24} fill="currentColor" />
+        <Play
+          size={24}
+          fill="currentColor"
+        />
+
         <h2>Shorts</h2>
       </div>
 
-      <div className="shorts-container">
+      {/* Loading */}
+      {loading ? (
+        <p className="page-message">
+          Loading Shorts...
+        </p>
+      ) : shorts.length === 0 ? (
+        <p className="page-message">
+          No Shorts found.
+        </p>
+      ) : (
+        <div className="shorts-container">
 
-        {shorts.map((short) => (
-          <div
-            className="short-card"
-            key={short.id}
-          >
+          {shorts.map((short) => (
+            <Link
+              to={`/watch/${short.id}`}
+              className="short-card-link"
+              key={short.id}
+            >
 
-            <img
-              src={short.image}
-              alt={short.title}
-            />
+              <div className="short-card">
 
-            <div className="short-info">
+                {/* Thumbnail */}
+                <div className="short-thumbnail">
 
-              <h3>{short.title}</h3>
+                  <img
+                    src={short.thumbnail}
+                    alt={short.title}
+                  />
 
-              <p>{short.views} views</p>
+                  <div className="short-play">
+                    <Play
+                      size={28}
+                      fill="white"
+                    />
+                  </div>
 
-            </div>
+                </div>
 
-          </div>
-        ))}
+                {/* Information */}
+                <div className="short-info">
 
-      </div>
+                  <h3>
+                    {short.title}
+                  </h3>
+
+                  <p>
+                    {short.channel}
+                  </p>
+
+                  <p>
+                    {Number(
+                      short.views
+                    ).toLocaleString()}{" "}
+                    views
+                  </p>
+
+                </div>
+
+              </div>
+
+            </Link>
+          ))}
+
+        </div>
+      )}
 
     </section>
   );

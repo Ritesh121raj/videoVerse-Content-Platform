@@ -2,20 +2,23 @@ const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
 
-/* --------------------------------------------------
-   FORMAT DURATION
--------------------------------------------------- */
 
-export function formatDuration(duration) {
-  if (!duration) return "0:00";
+// ======================================================
+// Format YouTube Duration
+// ======================================================
 
-  const match = duration.match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+function formatDuration(duration) {
+  if (!duration) return "";
 
-  if (!match) return "0:00";
+  const match = duration.match(
+    /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/
+  );
 
-  const hours = parseInt(match[1] || "0");
-  const minutes = parseInt(match[2] || "0");
-  const seconds = parseInt(match[3] || "0");
+  if (!match) return "";
+
+  const hours = parseInt(match[1] || 0);
+  const minutes = parseInt(match[2] || 0);
+  const seconds = parseInt(match[3] || 0);
 
   if (hours > 0) {
     return `${hours}:${String(minutes).padStart(2, "0")}:${String(
@@ -25,92 +28,234 @@ export function formatDuration(duration) {
 
   return `${minutes}:${String(seconds).padStart(2, "0")}`;
 }
+function getDurationInSeconds(duration) {
+  if (!duration) {
+    return 0;
+  }
 
-/* --------------------------------------------------
-   GET VIDEOS
--------------------------------------------------- */
+  const match = duration.match(
+    /PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/
+  );
+
+  if (!match) {
+    return 0;
+  }
+
+  const hours = parseInt(match[1] || 0);
+  const minutes = parseInt(match[2] || 0);
+  const seconds = parseInt(match[3] || 0);
+
+  return (
+    hours * 3600 +
+    minutes * 60 +
+    seconds
+  );
+}
+
+
+// ======================================================
+// Get Home Videos
+// ======================================================
 
 export async function getVideos() {
   try {
-    const url =
-      `${BASE_URL}/videos?part=snippet,contentDetails,statistics` +
-      `&chart=mostPopular` +
-      `&regionCode=IN` +
+    // Step 1: Search videos
+    const searchUrl =
+      `${BASE_URL}/search?part=snippet` +
+      `&q=programming` +
+      `&type=video` +
       `&maxResults=20` +
       `&key=${API_KEY}`;
 
-    const response = await fetch(url);
+    const searchResponse = await fetch(searchUrl);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
+    if (!searchResponse.ok) {
+      throw new Error(
+        `HTTP error: ${searchResponse.status}`
+      );
     }
 
-    const data = await response.json();
+    const searchData = await searchResponse.json();
 
-    return (data.items || []).map((video) => ({
-      id: video.id,
+    const videoIds = (searchData.items || [])
+      .map((item) => item.id?.videoId)
+      .filter(Boolean);
 
-      title: video.snippet?.title || "Untitled Video",
+    if (videoIds.length === 0) {
+      return [];
+    }
 
-      channel: video.snippet?.channelTitle || "Unknown Channel",
+    // Step 2: Get video details
+    const detailsUrl =
+      `${BASE_URL}/videos?part=snippet,contentDetails,statistics` +
+      `&id=${videoIds.join(",")}` +
+      `&key=${API_KEY}`;
 
-      channelId: video.snippet?.channelId || "",
+    const detailsResponse = await fetch(detailsUrl);
 
-      channelImage: "",
+    if (!detailsResponse.ok) {
+      throw new Error(
+        `HTTP error: ${detailsResponse.status}`
+      );
+    }
 
-      thumbnail:
-        video.snippet?.thumbnails?.high?.url ||
-        video.snippet?.thumbnails?.medium?.url ||
-        video.snippet?.thumbnails?.default?.url ||
-        "",
+    const detailsData = await detailsResponse.json();
 
-      duration: formatDuration(video.contentDetails?.duration),
+    // Step 3: Create details lookup
+    const detailsMap = {};
 
-      views: video.statistics?.viewCount || "0",
+    (detailsData.items || []).forEach((video) => {
+      detailsMap[video.id] = video;
+    });
 
-      publishedAt: video.snippet?.publishedAt || "",
-    }));
+    // Step 4: Combine search + details
+    return (searchData.items || []).map((item) => {
+      const videoId = item.id.videoId;
+      const details = detailsMap[videoId];
+
+      return {
+        id: videoId,
+
+        title:
+          item.snippet?.title ||
+          "Untitled Video",
+
+        channel:
+          item.snippet?.channelTitle ||
+          "Unknown Channel",
+
+        channelId:
+          item.snippet?.channelId ||
+          "",
+
+        channelImage:
+          item.snippet?.thumbnails?.default?.url ||
+          "",
+
+        thumbnail:
+          item.snippet?.thumbnails?.high?.url ||
+          item.snippet?.thumbnails?.medium?.url ||
+          item.snippet?.thumbnails?.default?.url ||
+          "",
+
+        duration:
+          formatDuration(
+            details?.contentDetails?.duration
+          ),
+
+        views:
+          details?.statistics?.viewCount ||
+          "0",
+
+        publishedAt:
+          item.snippet?.publishedAt ||
+          "",
+      };
+    });
   } catch (error) {
-    console.error("Error fetching videos:", error);
+    console.error(
+      "Error fetching videos:",
+      error
+    );
+
     return [];
   }
 }
 
-/* --------------------------------------------------
-   GET VIDEO BY ID
--------------------------------------------------- */
+
+// ======================================================
+// Get Video By ID
+// ======================================================
 
 export async function getVideoById(videoId) {
   try {
-    const url =
+    // ==========================================
+    // Get Video Details
+    // ==========================================
+
+    const videoUrl =
       `${BASE_URL}/videos?part=snippet,contentDetails,statistics` +
       `&id=${videoId}` +
       `&key=${API_KEY}`;
 
-    const response = await fetch(url);
+    const videoResponse = await fetch(videoUrl);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
+    if (!videoResponse.ok) {
+      throw new Error(
+        `Video API error: ${videoResponse.status}`
+      );
     }
 
-    const data = await response.json();
+    const videoData = await videoResponse.json();
 
-    if (!data.items || data.items.length === 0) {
+    if (
+      !videoData.items ||
+      videoData.items.length === 0
+    ) {
       return null;
     }
 
-    const video = data.items[0];
+    const video = videoData.items[0];
+
+    // ==========================================
+    // Get Channel Details
+    // ==========================================
+
+    const channelId =
+      video.snippet?.channelId;
+
+    let channelData = null;
+
+    if (channelId) {
+      const channelUrl =
+        `${BASE_URL}/channels?part=snippet,statistics` +
+        `&id=${channelId}` +
+        `&key=${API_KEY}`;
+
+      const channelResponse =
+        await fetch(channelUrl);
+
+      if (channelResponse.ok) {
+        const channelResult =
+          await channelResponse.json();
+
+        if (
+          channelResult.items &&
+          channelResult.items.length > 0
+        ) {
+          channelData =
+            channelResult.items[0];
+        }
+      }
+    }
+
+    // ==========================================
+    // Return Complete Video Data
+    // ==========================================
 
     return {
       id: video.id,
 
-      title: video.snippet?.title || "Untitled Video",
+      title:
+        video.snippet?.title ||
+        "Untitled",
 
-      channel: video.snippet?.channelTitle || "Unknown Channel",
+      channel:
+        video.snippet?.channelTitle ||
+        "Unknown Channel",
 
-      channelId: video.snippet?.channelId || "",
+      channelId:
+        channelId || "",
 
-      channelImage: "",
+      channelImage:
+        channelData?.snippet?.thumbnails?.high?.url ||
+        channelData?.snippet?.thumbnails?.medium?.url ||
+        channelData?.snippet?.thumbnails?.default?.url ||
+        "",
+
+      subscribers:
+        channelData?.statistics?.subscriberCount ||
+        "0",
 
       thumbnail:
         video.snippet?.thumbnails?.high?.url ||
@@ -118,128 +263,178 @@ export async function getVideoById(videoId) {
         video.snippet?.thumbnails?.default?.url ||
         "",
 
-      duration: formatDuration(video.contentDetails?.duration),
+      duration:
+        formatDuration(
+          video.contentDetails?.duration
+        ),
 
-      views: video.statistics?.viewCount || "0",
+      views:
+        video.statistics?.viewCount ||
+        "0",
 
-      publishedAt: video.snippet?.publishedAt || "",
+      likes:
+        video.statistics?.likeCount ||
+        "0",
 
-      description: video.snippet?.description || "",
+      publishedAt:
+        video.snippet?.publishedAt ||
+        "",
     };
+
   } catch (error) {
-    console.error("Error fetching video:", error);
+    console.error(
+      "Error fetching video:",
+      error
+    );
+
     return null;
   }
 }
 
-/* --------------------------------------------------
-   SEARCH VIDEOS
--------------------------------------------------- */
+
+// ======================================================
+// Search Videos
+// ======================================================
 
 export async function searchVideos(query) {
   try {
-    if (!query || !query.trim()) {
-      return [];
-    }
-
-    const url =
+    // Step 1: Search videos
+    const searchUrl =
       `${BASE_URL}/search?part=snippet` +
       `&q=${encodeURIComponent(query)}` +
       `&type=video` +
       `&maxResults=20` +
       `&key=${API_KEY}`;
 
-    const response = await fetch(url);
+    const searchResponse = await fetch(searchUrl);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
+    if (!searchResponse.ok) {
+      throw new Error(
+        `HTTP error: ${searchResponse.status}`
+      );
     }
 
-    const data = await response.json();
+    const searchData = await searchResponse.json();
 
-    return (data.items || []).map((item) => ({
-      id: item.id.videoId,
+    const videoIds = (searchData.items || [])
+      .map((item) => item.id?.videoId)
+      .filter(Boolean);
 
-      title: item.snippet?.title || "Untitled Video",
+    if (videoIds.length === 0) {
+      return [];
+    }
 
-      channel: item.snippet?.channelTitle || "Unknown Channel",
-
-      channelId: item.snippet?.channelId || "",
-
-      channelImage: "",
-
-      thumbnail:
-        item.snippet?.thumbnails?.high?.url ||
-        item.snippet?.thumbnails?.medium?.url ||
-        item.snippet?.thumbnails?.default?.url ||
-        "",
-
-      duration: "",
-
-      views: "0",
-
-      publishedAt: item.snippet?.publishedAt || "",
-    }));
-  } catch (error) {
-    console.error("Error searching videos:", error);
-    return [];
-  }
-}
-
-/* --------------------------------------------------
-   GET CATEGORY VIDEOS
--------------------------------------------------- */
-
-export async function getCategoryVideos(category) {
-  try {
-    const url =
-      `${BASE_URL}/search?part=snippet` +
-      `&q=${encodeURIComponent(category)}` +
-      `&type=video` +
-      `&maxResults=20` +
-      `&order=relevance` +
+    // Step 2: Get duration + views
+    const detailsUrl =
+      `${BASE_URL}/videos?part=contentDetails,statistics` +
+      `&id=${videoIds.join(",")}` +
       `&key=${API_KEY}`;
 
-    const response = await fetch(url);
+    const detailsResponse = await fetch(detailsUrl);
 
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
+    if (!detailsResponse.ok) {
+      throw new Error(
+        `HTTP error: ${detailsResponse.status}`
+      );
     }
 
-    const data = await response.json();
+    const detailsData = await detailsResponse.json();
 
-    return (data.items || []).map((item) => ({
-      id: item.id.videoId,
+    // Step 3: Create a lookup for video details
+    const detailsMap = {};
 
-      title: item.snippet?.title || "Untitled Video",
+    (detailsData.items || []).forEach((video) => {
+      detailsMap[video.id] = video;
+    });
 
-      channel: item.snippet?.channelTitle || "Unknown Channel",
+    // Step 4: Combine search data + details
+    return (searchData.items || []).map((item) => {
+      const videoId = item.id.videoId;
+      const details = detailsMap[videoId];
 
-      channelId: item.snippet?.channelId || "",
+      const rawDuration =
+        details?.contentDetails?.duration || "";
 
-      channelImage: "",
+      /*
+       * Detect Shorts.
+       *
+       * Primary check:
+       * - #shorts in title
+       *
+       * Secondary check:
+       * - video duration <= 180 seconds
+       *
+       * This allows the Search page to separate
+       * normal videos and Shorts without another API call.
+       */
+      const isShort =
+        /#shorts/i.test(
+          item.snippet?.title || ""
+        ) ||
+        getDurationInSeconds(rawDuration) <= 180;
 
-      thumbnail:
-        item.snippet?.thumbnails?.high?.url ||
-        item.snippet?.thumbnails?.medium?.url ||
-        item.snippet?.thumbnails?.default?.url ||
-        "",
+      return {
+        id: videoId,
 
-      duration: "",
+        title:
+          item.snippet?.title ||
+          "Untitled Video",
 
-      views: "0",
+        channel:
+          item.snippet?.channelTitle ||
+          "Unknown Channel",
 
-      publishedAt: item.snippet?.publishedAt || "",
-    }));
+        channelId:
+          item.snippet?.channelId ||
+          "",
+
+        channelImage:
+          item.snippet?.thumbnails?.default?.url ||
+          "",
+
+        thumbnail:
+          item.snippet?.thumbnails?.high?.url ||
+          item.snippet?.thumbnails?.medium?.url ||
+          item.snippet?.thumbnails?.default?.url ||
+          "",
+
+        duration:
+          formatDuration(rawDuration),
+
+        views:
+          details?.statistics?.viewCount ||
+          "0",
+
+        publishedAt:
+          item.snippet?.publishedAt ||
+          "",
+
+        // Used by Search page filters
+        isShort,
+      };
+    });
   } catch (error) {
-    console.error("Error fetching category videos:", error);
+    console.error(
+      "Error searching videos:",
+      error
+    );
+
     return [];
   }
 }
 
-/* --------------------------------------------------
-   GET TRENDING VIDEOS
--------------------------------------------------- */
+// ======================================================
+// Category Videos
+// ======================================================
+
+export async function getCategoryVideos(category) {
+  return searchVideos(category);
+}
+
+
+// ======================================================
+// Trending Videos
+// ======================================================
 
 export async function getTrendingVideos() {
   try {
@@ -258,16 +453,64 @@ export async function getTrendingVideos() {
 
     const data = await response.json();
 
-    return (data.items || []).map((video) => ({
+    const videos = data.items || [];
+
+    if (videos.length === 0) {
+      return [];
+    }
+
+    // Get unique channel IDs
+    const channelIds = [
+      ...new Set(
+        videos
+          .map((video) => video.snippet?.channelId)
+          .filter(Boolean)
+      ),
+    ];
+
+    // Get channel profile images
+    let channelImages = {};
+
+    if (channelIds.length > 0) {
+      const channelUrl =
+        `${BASE_URL}/channels?part=snippet` +
+        `&id=${channelIds.join(",")}` +
+        `&key=${API_KEY}`;
+
+      const channelResponse = await fetch(channelUrl);
+
+      if (channelResponse.ok) {
+        const channelData =
+          await channelResponse.json();
+
+        (channelData.items || []).forEach((channel) => {
+          channelImages[channel.id] =
+            channel.snippet?.thumbnails?.default?.url ||
+            channel.snippet?.thumbnails?.medium?.url ||
+            channel.snippet?.thumbnails?.high?.url ||
+            "";
+        });
+      }
+    }
+
+    return videos.map((video) => ({
       id: video.id,
 
-      title: video.snippet?.title || "Untitled Video",
+      title:
+        video.snippet?.title ||
+        "Untitled Video",
 
-      channel: video.snippet?.channelTitle || "Unknown Channel",
+      channel:
+        video.snippet?.channelTitle ||
+        "Unknown Channel",
 
-      channelId: video.snippet?.channelId || "",
+      channelId:
+        video.snippet?.channelId ||
+        "",
 
-      channelImage: "",
+      channelImage:
+        channelImages[video.snippet?.channelId] ||
+        "",
 
       thumbnail:
         video.snippet?.thumbnails?.high?.url ||
@@ -275,54 +518,263 @@ export async function getTrendingVideos() {
         video.snippet?.thumbnails?.default?.url ||
         "",
 
-      duration: formatDuration(video.contentDetails?.duration),
+      duration:
+        formatDuration(
+          video.contentDetails?.duration
+        ),
 
-      views: video.statistics?.viewCount || "0",
+      views:
+        video.statistics?.viewCount ||
+        "0",
 
-      publishedAt: video.snippet?.publishedAt || "",
+      publishedAt:
+        video.snippet?.publishedAt ||
+        "",
     }));
   } catch (error) {
-    console.error("Error fetching trending videos:", error);
+    console.error(
+      "Error fetching trending videos:",
+      error
+    );
+
+    return [];
+  }
+}
+// ======================================================
+// ⭐ GET CHANNEL DETAILS
+// ======================================================
+
+export async function getChannelDetails(channelId) {
+  try {
+    const url =
+      `${BASE_URL}/channels?part=snippet,statistics,brandingSettings` +
+      `&id=${channelId}` +
+      `&key=${API_KEY}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP error: ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    console.log(
+      "CHANNEL DETAILS:",
+      data
+    );
+
+    if (
+      !data.items ||
+      data.items.length === 0
+    ) {
+      return null;
+    }
+
+    const channel = data.items[0];
+
+    const snippet =
+      channel.snippet || {};
+
+    const statistics =
+      channel.statistics || {};
+
+    const imageSettings =
+      channel.brandingSettings?.image || {};
+
+    // =========================================
+    // PROFILE IMAGE
+    // =========================================
+
+    const profileImage =
+      snippet.thumbnails?.high?.url ||
+      snippet.thumbnails?.medium?.url ||
+      snippet.thumbnails?.default?.url ||
+      "";
+
+
+    // =========================================
+    // BANNER
+    // =========================================
+    //
+    // YouTube may return different banner URLs.
+    // Some channels may only have bannerExternalUrl.
+    //
+
+    const banner =
+      imageSettings.bannerImageUrl ||
+      imageSettings.bannerTabletExtraHdImageUrl ||
+      imageSettings.bannerTabletHdImageUrl ||
+      imageSettings.bannerTabletImageUrl ||
+      imageSettings.bannerMobileExtraHdImageUrl ||
+      imageSettings.bannerMobileHdImageUrl ||
+      imageSettings.bannerMobileImageUrl ||
+      imageSettings.bannerExternalUrl ||
+      "";
+
+
+    // =========================================
+    // RETURN CHANNEL DATA
+    // =========================================
+
+    return {
+      id: channel.id,
+
+      name:
+        snippet.title ||
+        "Channel",
+
+      description:
+        snippet.description ||
+        "",
+
+      customUrl:
+        snippet.customUrl ||
+        "",
+
+      publishedAt:
+        snippet.publishedAt ||
+        "",
+
+      country:
+        snippet.country ||
+        "",
+
+      profileImage:
+        profileImage,
+
+      banner:
+        banner,
+
+      subscribers:
+        statistics.subscriberCount ||
+        "0",
+
+      totalViews:
+        statistics.viewCount ||
+        "0",
+
+      videoCount:
+        statistics.videoCount ||
+        "0",
+    };
+
+  } catch (error) {
+    console.error(
+      "Error fetching channel details:",
+      error
+    );
+
+    return null;
+  }
+}
+export async function getChannelVideos(channelId, channelImage = "") {
+  try {
+    // First get videos from this channel
+    const searchUrl =
+      `${BASE_URL}/search?part=snippet` +
+      `&channelId=${channelId}` +
+      `&type=video` +
+      `&order=date` +
+      `&maxResults=20` +
+      `&key=${API_KEY}`;
+
+    const searchResponse = await fetch(searchUrl);
+
+    if (!searchResponse.ok) {
+      throw new Error(
+        `HTTP error: ${searchResponse.status}`
+      );
+    }
+
+    const searchData = await searchResponse.json();
+
+    const videoIds = (searchData.items || [])
+      .map((item) => item.id?.videoId)
+      .filter(Boolean);
+
+    if (videoIds.length === 0) {
+      return [];
+    }
+
+    // Get duration, views, etc.
+    const detailsUrl =
+      `${BASE_URL}/videos?part=contentDetails,statistics,snippet` +
+      `&id=${videoIds.join(",")}` +
+      `&key=${API_KEY}`;
+
+    const detailsResponse = await fetch(detailsUrl);
+
+    if (!detailsResponse.ok) {
+      throw new Error(
+        `HTTP error: ${detailsResponse.status}`
+      );
+    }
+
+    const detailsData = await detailsResponse.json();
+
+    return (detailsData.items || []).map((video) => ({
+      id: video.id,
+
+      title:
+        video.snippet?.title ||
+        "Untitled Video",
+
+      channel:
+        video.snippet?.channelTitle ||
+        "Unknown Channel",
+
+      channelId:
+        video.snippet?.channelId ||
+        channelId,
+
+      channelImage: channelImage,
+
+      thumbnail:
+        video.snippet?.thumbnails?.high?.url ||
+        video.snippet?.thumbnails?.medium?.url ||
+        video.snippet?.thumbnails?.default?.url ||
+        "",
+
+      duration: formatDuration(
+        video.contentDetails?.duration
+      ),
+
+      views:
+        video.statistics?.viewCount ||
+        "0",
+
+      publishedAt:
+        video.snippet?.publishedAt ||
+        "",
+    }));
+
+  } catch (error) {
+    console.error(
+      "Error fetching channel videos:",
+      error
+    );
+
     return [];
   }
 }
 
-/* --------------------------------------------------
-   GET CHANNEL VIDEOS
--------------------------------------------------- */
 
-export async function getChannelVideos(channelId) {
+// ======================================================
+// Get Channel Shorts
+// ======================================================
+
+export async function getChannelShorts(
+  channelId,
+  channelImage = ""
+) {
   try {
-    /* Get channel information first */
-
-    const channelUrl =
-      `${BASE_URL}/channels?part=snippet,statistics` +
-      `&id=${channelId}` +
-      `&key=${API_KEY}`;
-
-    const channelResponse = await fetch(channelUrl);
-
-    if (!channelResponse.ok) {
-      throw new Error(`HTTP error: ${channelResponse.status}`);
-    }
-
-    const channelData = await channelResponse.json();
-
-    const channel = channelData.items?.[0];
-
-    const channelImage =
-      channel?.snippet?.thumbnails?.high?.url ||
-      channel?.snippet?.thumbnails?.medium?.url ||
-      channel?.snippet?.thumbnails?.default?.url ||
-      "";
-
-    const subscribers = channel?.statistics?.subscriberCount || "0";
-
-    /* Get channel videos */
-
     const searchUrl =
       `${BASE_URL}/search?part=snippet` +
       `&channelId=${channelId}` +
+      `&q=%23shorts` +
       `&type=video` +
       `&order=date` +
       `&maxResults=20` +
@@ -337,253 +789,233 @@ export async function getChannelVideos(channelId) {
     const data = await response.json();
 
     const videoIds = (data.items || [])
-      .map((item) => item.id?.videoId)
+      .map((video) => video.id?.videoId)
       .filter(Boolean);
 
     if (videoIds.length === 0) {
       return [];
     }
 
-    /* Get duration + statistics */
-
     const detailsUrl =
-      `${BASE_URL}/videos?part=contentDetails,statistics` +
+      `${BASE_URL}/videos?part=snippet,contentDetails,statistics` +
       `&id=${videoIds.join(",")}` +
       `&key=${API_KEY}`;
 
     const detailsResponse = await fetch(detailsUrl);
 
     if (!detailsResponse.ok) {
-      throw new Error(`HTTP error: ${detailsResponse.status}`);
+      throw new Error(
+        `HTTP error: ${detailsResponse.status}`
+      );
     }
 
     const detailsData = await detailsResponse.json();
 
-    const detailsMap = {};
-
-    (detailsData.items || []).forEach((video) => {
-      detailsMap[video.id] = video;
-    });
-
-    return (data.items || []).map((item) => {
-      const videoId = item.id.videoId;
-
-      const details = detailsMap[videoId];
-
-      return {
-        id: videoId,
-
-        title: item.snippet?.title || "Untitled Video",
-
-        channel: item.snippet?.channelTitle || "Unknown Channel",
-
-        channelId: item.snippet?.channelId || channelId,
-
-        channelImage: channelImage,
-
-        subscribers: subscribers,
-
-        thumbnail:
-          item.snippet?.thumbnails?.high?.url ||
-          item.snippet?.thumbnails?.medium?.url ||
-          item.snippet?.thumbnails?.default?.url ||
-          "",
-
-        duration: formatDuration(details?.contentDetails?.duration),
-
-        views: details?.statistics?.viewCount || "0",
-
-        publishedAt: item.snippet?.publishedAt || "",
-      };
-    });
-  } catch (error) {
-    console.error("Error fetching channel videos:", error);
-    return [];
-  }
-}
-
-/* --------------------------------------------------
-   GET CHANNEL DETAILS
--------------------------------------------------- */
-
-export async function getChannelDetails(channelId) {
-  try {
-    const url =
-      `${BASE_URL}/channels?part=snippet,statistics,brandingSettings` +
-      `&id=${channelId}` +
-      `&key=${API_KEY}`;
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    if (!data.items || data.items.length === 0) {
-      return null;
-    }
-
-    const channel = data.items[0];
-
-    return {
-      id: channel.id,
-
-      name: channel.snippet?.title || "Channel",
-
-      description: channel.snippet?.description || "",
-
-      customUrl: channel.snippet?.customUrl || "",
-
-      publishedAt: channel.snippet?.publishedAt || "",
-
-      country: channel.snippet?.country || "",
-
-      profileImage:
-        channel.snippet?.thumbnails?.high?.url ||
-        channel.snippet?.thumbnails?.medium?.url ||
-        channel.snippet?.thumbnails?.default?.url ||
-        "",
-
-      banner: channel.brandingSettings?.image?.bannerExternalUrl || "",
-
-      subscribers: channel.statistics?.subscriberCount || "0",
-
-      totalViews: channel.statistics?.viewCount || "0",
-
-      videoCount: channel.statistics?.videoCount || "0",
-    };
-  } catch (error) {
-    console.error("Error fetching channel details:", error);
-    return null;
-  }
-}
-
-/* --------------------------------------------------
-   GET CHANNEL SHORTS
--------------------------------------------------- */
-
-export async function getChannelShorts(channelId) {
-  try {
-    const url =
-      `${BASE_URL}/search?part=snippet` +
-      `&channelId=${channelId}` +
-      `&type=video` +
-      `&q=%23shorts` +
-      `&order=date` +
-      `&maxResults=20` +
-      `&key=${API_KEY}`;
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    const videoIds = (data.items || [])
-      .map((item) => item.id?.videoId)
-      .filter(Boolean);
-
-    if (videoIds.length === 0) {
-      return [];
-    }
-
-    /* Get video details */
-
-    const detailsUrl =
-      `${BASE_URL}/videos?part=contentDetails,statistics` +
-      `&id=${videoIds.join(",")}` +
-      `&key=${API_KEY}`;
-
-    const detailsResponse = await fetch(detailsUrl);
-
-    if (!detailsResponse.ok) {
-      throw new Error(`HTTP error: ${detailsResponse.status}`);
-    }
-
-    const detailsData = await detailsResponse.json();
-
-    const detailsMap = {};
-
-    (detailsData.items || []).forEach((video) => {
-      detailsMap[video.id] = video;
-    });
-
-    return (data.items || []).map((item) => {
-      const videoId = item.id.videoId;
-
-      const details = detailsMap[videoId];
-
-      return {
-        id: videoId,
-
-        title: item.snippet?.title || "Untitled Short",
-
-        channel: item.snippet?.channelTitle || "Unknown Channel",
-
-        channelId: item.snippet?.channelId || channelId,
-
-        channelImage: "",
-
-        thumbnail:
-          item.snippet?.thumbnails?.high?.url ||
-          item.snippet?.thumbnails?.medium?.url ||
-          item.snippet?.thumbnails?.default?.url ||
-          "",
-
-        duration: formatDuration(details?.contentDetails?.duration),
-
-        views: details?.statistics?.viewCount || "0",
-
-        publishedAt: item.snippet?.publishedAt || "",
-
-        isShort: true,
-      };
-    });
-  } catch (error) {
-    console.error("Error fetching channel shorts:", error);
-    return [];
-  }
-}
-export async function getShortsVideos() {
-  try {
-    const url =
-      `${BASE_URL}/search?part=snippet` +
-      `&q=%23shorts` +
-      `&type=video` +
-      `&maxResults=20` +
-      `&order=date` +
-      `&key=${API_KEY}`;
-
-    const response = await fetch(url);
-
-    if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
-    }
-
-    const data = await response.json();
-
-    return (data.items || []).map((video) => ({
-      id: video.id.videoId,
+    return (detailsData.items || []).map((video) => ({
+      id: video.id,
       title: video.snippet?.title || "Short",
-      channel: video.snippet?.channelTitle || "Unknown Channel",
-      channelId: video.snippet?.channelId || "",
+      channel:
+        video.snippet?.channelTitle ||
+        "Unknown Channel",
+      channelId:
+        video.snippet?.channelId ||
+        channelId,
       channelImage: "",
       thumbnail:
         video.snippet?.thumbnails?.high?.url ||
         video.snippet?.thumbnails?.medium?.url ||
         video.snippet?.thumbnails?.default?.url ||
         "",
-      duration: "",
-      views: "0",
-      publishedAt: video.snippet?.publishedAt || "",
+      duration: formatDuration(
+        video.contentDetails?.duration
+      ),
+      views: video.statistics?.viewCount || "0",
+      publishedAt:
+        video.snippet?.publishedAt || "",
       isShort: true,
     }));
   } catch (error) {
-    console.error("Error fetching Shorts:", error);
+    console.error(
+      "Error fetching channel shorts:",
+      error
+    );
+
     return [];
+  }
+}
+
+
+// ======================================================
+// Get Shorts
+// ======================================================
+
+export async function getShortsVideos() {
+  try {
+    // Step 1: Search Shorts
+    const searchUrl =
+      `${BASE_URL}/search?part=snippet` +
+      `&q=%23shorts` +
+      `&type=video` +
+      `&maxResults=20` +
+      `&order=date` +
+      `&key=${API_KEY}`;
+
+    const response = await fetch(searchUrl);
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP error: ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    const videoIds = (data.items || [])
+      .map((video) => video.id?.videoId)
+      .filter(Boolean);
+
+    if (videoIds.length === 0) {
+      return [];
+    }
+
+    // Step 2: Get duration + views
+    const detailsUrl =
+      `${BASE_URL}/videos?part=contentDetails,statistics` +
+      `&id=${videoIds.join(",")}` +
+      `&key=${API_KEY}`;
+
+    const detailsResponse = await fetch(detailsUrl);
+
+    if (!detailsResponse.ok) {
+      throw new Error(
+        `HTTP error: ${detailsResponse.status}`
+      );
+    }
+
+    const detailsData =
+      await detailsResponse.json();
+
+    // Step 3: Create lookup
+    const detailsMap = {};
+
+    (detailsData.items || []).forEach((video) => {
+      detailsMap[video.id] = video;
+    });
+
+    // Step 4: Combine search + details
+    return (data.items || []).map((video) => {
+      const videoId = video.id?.videoId;
+      const details = detailsMap[videoId];
+
+      const rawDuration =
+        details?.contentDetails?.duration || "";
+
+      return {
+        id: videoId,
+
+        title:
+          video.snippet?.title ||
+          "Short",
+
+        channel:
+          video.snippet?.channelTitle ||
+          "Unknown Channel",
+
+        channelId:
+          video.snippet?.channelId ||
+          "",
+
+        channelImage:
+          video.snippet?.thumbnails?.default?.url ||
+          "",
+
+        thumbnail:
+          video.snippet?.thumbnails?.high?.url ||
+          video.snippet?.thumbnails?.medium?.url ||
+          video.snippet?.thumbnails?.default?.url ||
+          "",
+
+        duration:
+          formatDuration(rawDuration),
+
+        views:
+          details?.statistics?.viewCount ||
+          "0",
+
+        publishedAt:
+          video.snippet?.publishedAt ||
+          "",
+
+        isShort: true,
+      };
+    });
+
+  } catch (error) {
+    console.error(
+      "Error fetching Shorts:",
+      error
+    );
+
+    return [];
+  }
+}
+export async function getChannelImages(channelIds) {
+  try {
+    if (!channelIds || channelIds.length === 0) {
+      return {};
+    }
+
+    const url =
+      `${BASE_URL}/channels?part=snippet` +
+      `&id=${channelIds.join(",")}` +
+      `&key=${API_KEY}`;
+
+    const response = await fetch(url);
+
+    if (!response.ok) {
+      throw new Error(
+        `HTTP error: ${response.status}`
+      );
+    }
+
+    const data = await response.json();
+
+    const channelImages = {};
+
+    (data.items || []).forEach((channel) => {
+      const thumbnails =
+        channel.snippet?.thumbnails;
+
+      if (!thumbnails) {
+        channelImages[channel.id] = "";
+        return;
+      }
+
+      // Prefer medium instead of high.
+      // YouTube documents medium as 240x240
+      // for channel thumbnails.
+      const image =
+        thumbnails.medium?.url ||
+        thumbnails.default?.url ||
+        thumbnails.high?.url ||
+        "";
+
+      channelImages[channel.id] = image;
+    });
+
+    console.log(
+      "FRESH CHANNEL IMAGES:",
+      channelImages
+    );
+
+    return channelImages;
+
+  } catch (error) {
+    console.error(
+      "Error fetching channel images:",
+      error
+    );
+
+    return {};
   }
 }

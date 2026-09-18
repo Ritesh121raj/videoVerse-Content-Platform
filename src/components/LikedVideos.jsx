@@ -1,4 +1,5 @@
 import { useEffect, useState } from "react";
+import { Trash2 } from "lucide-react";
 import VideoGrid from "./VideoGrid";
 import { getVideoById } from "../services/videoApi";
 
@@ -35,20 +36,76 @@ function LikedVideos() {
     loadLikedVideos();
   }, []);
 
+  const removeFromLiked = (videoId) => {
+    const likedIds =
+      JSON.parse(localStorage.getItem("likedVideos")) || [];
+
+    const updatedIds = likedIds.filter(
+      (id) => id !== videoId
+    );
+
+    localStorage.setItem(
+      "likedVideos",
+      JSON.stringify(updatedIds)
+    );
+
+    setLikedVideos((prevVideos) =>
+      prevVideos.filter(
+        (video) => video.id !== videoId
+      )
+    );
+  };
+
   return (
     <div className="page-container">
-      <h1>Liked Videos</h1>
+      <div className="liked-videos-header">
+        <div>
+          <h1>Liked Videos</h1>
+
+          {!loading && likedVideos.length > 0 && (
+            <p className="liked-videos-count">
+              {likedVideos.length}{" "}
+              {likedVideos.length === 1
+                ? "video"
+                : "videos"}{" "}
+              liked
+            </p>
+          )}
+        </div>
+      </div>
 
       {loading ? (
         <p className="page-message">
           Loading liked videos...
         </p>
       ) : likedVideos.length === 0 ? (
-        <p className="page-message">
-          You haven't liked any videos yet.
-        </p>
+        <div className="liked-videos-empty">
+          <h2>No liked videos</h2>
+          <p>
+            Videos you like will appear here.
+          </p>
+        </div>
       ) : (
-        <VideoGrid videos={likedVideos} />
+        <div className="liked-videos-content">
+          {likedVideos.map((video) => (
+            <div
+              className="liked-video-item"
+              key={video.id}
+            >
+              <VideoGrid videos={[video]} />
+
+              <button
+                className="liked-video-remove"
+                onClick={() =>
+                  removeFromLiked(video.id)
+                }
+              >
+                <Trash2 size={16} />
+                Unlike
+              </button>
+            </div>
+          ))}
+        </div>
       )}
     </div>
   );

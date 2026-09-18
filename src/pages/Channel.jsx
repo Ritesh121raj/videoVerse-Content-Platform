@@ -1,207 +1,389 @@
 import { useEffect, useState } from "react";
 import { useParams } from "react-router-dom";
 
+import Navbar from "../components/Navbar";
+import Sidebar from "../components/Sidebar";
+import VideoGrid from "../components/VideoGrid";
+
 import {
   getChannelVideos,
   getChannelDetails,
   getChannelShorts,
 } from "../services/videoApi";
 
-import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
-import VideoGrid from "../components/VideoGrid";
+
+// ======================================================
+// Format Numbers Like YouTube
+// ======================================================
+
+function formatNumber(number) {
+  const num = Number(number || 0);
+
+  if (num >= 1000000000) {
+    return (num / 1000000000).toFixed(1).replace(".0", "") + "B";
+  }
+
+  if (num >= 1000000) {
+    return (num / 1000000).toFixed(1).replace(".0", "") + "M";
+  }
+
+  if (num >= 1000) {
+    return (num / 1000).toFixed(1).replace(".0", "") + "K";
+  }
+
+  return num.toString();
+}
+
+
+// ======================================================
+// Channel Page
+// ======================================================
 
 function Channel() {
   const { id } = useParams();
 
   const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("videos");
   const [shorts, setShorts] = useState([]);
 
   const [channelName, setChannelName] = useState("");
   const [channelImage, setChannelImage] = useState("");
   const [banner, setBanner] = useState("");
+
   const [description, setDescription] = useState("");
+
   const [subscribers, setSubscribers] = useState("0");
   const [totalViews, setTotalViews] = useState("0");
+  const [videoCount, setVideoCount] = useState("0");
+
+  const [activeTab, setActiveTab] = useState("Videos");
+
+  const [loading, setLoading] = useState(true);
+  const [shortsLoading, setShortsLoading] = useState(false);
 
   const [subscribed, setSubscribed] = useState(false);
 
+  const [bannerError, setBannerError] = useState(false);
+  const [channelImageError, setChannelImageError] = useState(false);
+
+
+  // ======================================================
+  // Load Channel Data
+  // ======================================================
+
   useEffect(() => {
-      const loadChannel = async () => {
-        try {
-          setLoading(true);
+    const loadChannel = async () => {
+      try {
+        setLoading(true);
 
-          const [videoData, channelData] = await Promise.all([
-            getChannelVideos(id),
-            getChannelDetails(id),
-          ]);
+        // ------------------------------------------
+        // Get Channel Details First
+        // ------------------------------------------
 
-          setVideos(videoData);
+        const channelData = await getChannelDetails(id);
 
-          if (channelData) {
-            setChannelName(channelData.name || "Channel");
-            setChannelImage(channelData.profileImage || "");
-            setBanner(channelData.banner || "");
-            setDescription(channelData.description || "");
-            setSubscribers(channelData.subscribers || "0");
-            setTotalViews(channelData.totalViews || "0");
-          }
+        if (!channelData) {
+          setVideos([]);
+          return;
+        }
 
-          const oldSubscriptions =
-            JSON.parse(
-              localStorage.getItem("subscribedChannels")
-            ) || [];
+        console.log("CHANNEL DATA:", channelData);
 
-          const alreadySubscribed = oldSubscriptions.some(
-            (channel) => channel.id === id
+        // ------------------------------------------
+        // Set Channel Information
+        // ------------------------------------------
+
+        setChannelName(channelData.name || "Channel");
+
+        setChannelImage(
+          channelData.profileImage || ""
+        );
+
+        setBanner(
+          channelData.banner || ""
+        );
+
+        setDescription(
+          channelData.description || ""
+        );
+
+        setSubscribers(
+          channelData.subscribers || "0"
+        );
+
+        setTotalViews(
+          channelData.totalViews || "0"
+        );
+
+        setVideoCount(
+          channelData.videoCount || "0"
+        );
+
+
+        // ------------------------------------------
+        // Check Subscription
+        // ------------------------------------------
+
+        const savedSubscriptions =
+          JSON.parse(
+            localStorage.getItem(
+              "subscribedChannels"
+            )
+          ) || [];
+
+        const alreadySubscribed =
+          savedSubscriptions.some(
+            (channel) =>
+              channel.id === id
           );
 
-          setSubscribed(alreadySubscribed);
-        } catch (error) {
-          console.error("Error loading channel:", error);
-        } finally {
-          setLoading(false);
-        }
-      };
+        setSubscribed(alreadySubscribed);
 
+
+        // ------------------------------------------
+        // Get Channel Videos
+        // ------------------------------------------
+
+        const channelVideos =
+          await getChannelVideos(
+            id,
+            channelData.profileImage || ""
+          );
+
+        setVideos(channelVideos);
+
+      } catch (error) {
+        console.error(
+          "Error loading channel:",
+          error
+        );
+
+        setVideos([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    if (id) {
       loadChannel();
-    }, [id]);
-    useEffect(() => {
-        const loadShorts = async () => {
-          try {
-            const shortsData = await getChannelShorts(id);
-            setShorts(shortsData);
-          } catch (error) {
-            console.error("Error loading shorts:", error);
-          }
-        };
+    }
+  }, [id]);
 
-        loadShorts();
-      }, [id]);
+
+  // ======================================================
+  // Load Shorts Only When Shorts Tab Opens
+  // ======================================================
+
+  useEffect(() => {
+    if (
+      activeTab !== "Shorts" ||
+      !id ||
+      !channelImage
+    ) {
+      return;
+    }
+
+    const loadShorts = async () => {
+      try {
+        setShortsLoading(true);
+
+        const data =
+          await getChannelShorts(
+            id,
+            channelImage
+          );
+
+        setShorts(data);
+
+      } catch (error) {
+        console.error(
+          "Error loading channel shorts:",
+          error
+        );
+
+        setShorts([]);
+
+      } finally {
+        setShortsLoading(false);
+      }
+    };
+
+    loadShorts();
+
+  }, [activeTab, id, channelImage]);
+
+
+  // ======================================================
+  // Subscribe / Unsubscribe
+  // ======================================================
 
   const handleSubscribe = () => {
     const oldSubscriptions =
       JSON.parse(
-        localStorage.getItem(
-          "subscribedChannels"
-        )
+        localStorage.getItem("subscribedChannels")
       ) || [];
 
-    let updatedSubscriptions;
-
     if (subscribed) {
-      updatedSubscriptions =
+      // Unsubscribe
+      const updatedSubscriptions =
         oldSubscriptions.filter(
           (channel) => channel.id !== id
         );
-    } else {
-      updatedSubscriptions = [
-        ...oldSubscriptions,
-        {
-          id: id,
-          name: channelName,
-        },
-      ];
+
+      localStorage.setItem(
+        "subscribedChannels",
+        JSON.stringify(updatedSubscriptions)
+      );
+
+      setSubscribed(false);
+      return;
     }
+
+    // Subscribe
+    const channelData = {
+      id: id,
+      name: channelName,
+      image: channelImage,
+      profileImage: channelImage,
+    };
+
+    const updatedSubscriptions = [
+      ...oldSubscriptions.filter(
+        (channel) => channel.id !== id
+      ),
+      channelData,
+    ];
 
     localStorage.setItem(
       "subscribedChannels",
       JSON.stringify(updatedSubscriptions)
     );
 
-    setSubscribed(!subscribed);
+    setSubscribed(true);
   };
 
-  const formatNumber = (value) => {
-    const number = Number(value);
 
-    if (number >= 1000000000) {
-      return `${(number / 1000000000).toFixed(1)}B`;
-    }
+  // ======================================================
+  // Loading
+  // ======================================================
 
-    if (number >= 1000000) {
-      return `${(number / 1000000).toFixed(1)}M`;
-    }
+  if (loading) {
+    return (
+      <>
+        <Navbar />
+        <Sidebar />
 
-    if (number >= 1000) {
-      return `${(number / 1000).toFixed(1)}K`;
-    }
+        <main className="main-content channel-page">
+          <p className="page-message">
+            Loading channel...
+          </p>
+        </main>
+      </>
+    );
+  }
 
-    return number.toString();
-  };
 
-  const formatSubscribers = (count) => {
-    return `${formatNumber(count)} subscribers`;
-  };
+  // ======================================================
+  // Main UI
+  // ======================================================
 
   return (
     <>
       <Navbar />
       <Sidebar />
 
-      <main className="main-content">
+      <main className="main-content channel-page">
 
-        {/* ================= CHANNEL BANNER ================= */}
+        {/* ==================================================
+            CHANNEL BANNER
+        ================================================== */}
 
         <div className="channel-banner">
-          {banner ? (
+
+          {!bannerError && banner ? (
             <img
               src={banner}
-              alt="Channel banner"
+              alt={`${channelName} banner`}
+              onError={() =>
+                setBannerError(true)
+              }
             />
           ) : (
-            <div className="default-banner"></div>
+            <div className="default-banner">
+              <span>
+                {channelName}
+              </span>
+            </div>
           )}
+
         </div>
 
-        {/* ================= CHANNEL INFO ================= */}
+
+        {/* ==================================================
+            CHANNEL HEADER
+        ================================================== */}
 
         <div className="channel-header">
 
-          {/* PROFILE IMAGE */}
+          {/* Profile Image */}
 
           <div className="channel-avatar">
-            {channelImage ? (
+
+            {!channelImageError &&
+            channelImage ? (
+
               <img
                 src={channelImage}
                 alt={channelName}
+                onError={() =>
+                  setChannelImageError(true)
+                }
               />
+
             ) : (
-              <div>
+
+              <div className="channel-avatar-fallback">
                 {channelName
                   ? channelName
                       .charAt(0)
                       .toUpperCase()
                   : "C"}
               </div>
+
             )}
+
           </div>
 
-          {/* CHANNEL DETAILS */}
+
+          {/* Channel Information */}
 
           <div className="channel-info">
 
             <h1>
-              {channelName || "Channel"}
+              {channelName}
             </h1>
 
-            <p>
-              {formatSubscribers(
-                subscribers
-              )}
+            <p className="channel-handle">
+              {channelName}
             </p>
 
-            <p>
-              {videos.length} videos
+            <p className="channel-sub-info">
+              {formatNumber(subscribers)}
+              {" "}
+              subscribers
+              {" • "}
+              {formatNumber(videoCount)}
+              {" "}
+              videos
             </p>
+
+
+            {/* Subscribe Button */}
 
             <button
               className={
                 subscribed
-                  ? "subscribe subscribed"
-                  : "subscribe"
+                  ? "subscribe-btn subscribed"
+                  : "subscribe-btn"
               }
               onClick={handleSubscribe}
             >
@@ -211,154 +393,277 @@ function Channel() {
             </button>
 
           </div>
+
         </div>
 
-        {/* ================= CHANNEL STATS ================= */}
+
+        {/* ==================================================
+            CHANNEL STATS
+        ================================================== */}
 
         <div className="channel-stats">
 
-          <div>
+          <div className="stat-item">
+
             <strong>
-              {formatNumber(subscribers)}
+              {formatNumber(
+                subscribers
+              )}
             </strong>
-            <span>Subscribers</span>
+
+            <span>
+              Subscribers
+            </span>
+
           </div>
 
-          <div>
+
+          <div className="stat-item">
+
             <strong>
-              {formatNumber(totalViews)}
+              {formatNumber(
+                totalViews
+              )}
             </strong>
-            <span>Total Views</span>
+
+            <span>
+              Total Views
+            </span>
+
           </div>
 
-          <div>
+
+          <div className="stat-item">
+
             <strong>
-              {videos.length}
+              {formatNumber(
+                videoCount
+              )}
             </strong>
-            <span>Videos</span>
+
+            <span>
+              Videos
+            </span>
+
           </div>
 
         </div>
 
-        {/* ================= ABOUT ================= */}
 
-        {description && (
-          <div className="channel-about">
-
-            <h2>About</h2>
-
-            <p>
-              {description}
-            </p>
-
-          </div>
-        )}
-
-        {/* ================= TABS ================= */}
+        {/* ==================================================
+            TABS
+        ================================================== */}
 
         <div className="channel-tabs">
 
           <button
             className={
-              activeTab === "videos"
-                ? "channel-tab active"
-                : "channel-tab"
+              activeTab === "Videos"
+                ? "active"
+                : ""
             }
-            onClick={() => setActiveTab("videos")}
+            onClick={() =>
+              setActiveTab("Videos")
+            }
           >
             Videos
           </button>
 
+
           <button
             className={
-              activeTab === "shorts"
-                ? "channel-tab active"
-                : "channel-tab"
+              activeTab === "Shorts"
+                ? "active"
+                : ""
             }
-            onClick={() => setActiveTab("shorts")}
+            onClick={() =>
+              setActiveTab("Shorts")
+            }
           >
             Shorts
           </button>
 
+
           <button
             className={
-              activeTab === "about"
-                ? "channel-tab active"
-                : "channel-tab"
+              activeTab === "About"
+                ? "active"
+                : ""
             }
-            onClick={() => setActiveTab("about")}
+            onClick={() =>
+              setActiveTab("About")
+            }
           >
             About
           </button>
 
         </div>
 
-        <hr />
 
-        {/* ================= VIDEOS ================= */}
+        {/* ==================================================
+            VIDEOS TAB
+        ================================================== */}
 
-        {activeTab === "videos" && (
-  <>
-            <h2 className="channel-videos-title">
-              Videos
+        {activeTab === "Videos" && (
+
+          <section className="channel-section">
+
+            {videos.length === 0 ? (
+
+              <p className="page-message">
+                No videos available.
+              </p>
+
+            ) : (
+
+              <VideoGrid
+                videos={videos}
+              />
+
+            )}
+
+          </section>
+
+        )}
+
+
+        {/* ==================================================
+            SHORTS TAB
+        ================================================== */}
+
+        {activeTab === "Shorts" && (
+
+          <section className="channel-section">
+
+            {shortsLoading ? (
+
+              <p className="page-message">
+                Loading Shorts...
+              </p>
+
+            ) : shorts.length === 0 ? (
+
+              <p className="page-message">
+                No Shorts available.
+              </p>
+
+            ) : (
+
+              <div className="channel-shorts-grid">
+
+                {shorts.map(
+                  (short) => (
+
+                    <div
+                      className="channel-short-card"
+                      key={short.id}
+                    >
+
+                      <a
+                        href={`/watch/${short.id}`}
+                        className="channel-short-link"
+                      >
+
+                        <div className="channel-short-thumbnail">
+
+                          <img
+                            src={
+                              short.thumbnail
+                            }
+                            alt={
+                              short.title
+                            }
+                          />
+
+                        </div>
+
+
+                        <h3>
+                          {short.title}
+                        </h3>
+
+                        <p>
+                          {short.channel}
+                        </p>
+
+                      </a>
+
+                    </div>
+
+                  )
+                )}
+
+              </div>
+
+            )}
+
+          </section>
+
+        )}
+
+
+        {/* ==================================================
+            ABOUT TAB
+        ================================================== */}
+
+        {activeTab === "About" && (
+
+          <section className="channel-about">
+
+            <h2>
+              About
             </h2>
 
-            {loading ? (
-              <p className="page-message">
-                Loading channel videos...
-              </p>
-            ) : videos.length === 0 ? (
-              <p className="page-message">
-                No videos available from this channel.
-              </p>
-            ) : (
-              <VideoGrid videos={videos} />
-            )}
-          </>
-        )}
-
-        {activeTab === "shorts" && (
-          <div className="channel-tab-content">
-            <h2>Shorts</h2>
-
-            {shorts.length === 0 ? (
-              <p className="page-message">
-                No Shorts available from this channel.
-              </p>
-            ) : (
-              <VideoGrid videos={shorts} />
-            )}
-          </div>
-        )}
-
-        {activeTab === "about" && (
-          <div className="channel-tab-content">
-            <h2>About</h2>
-
-            <p className="channel-description">
+            <p>
               {description ||
                 "No channel description available."}
             </p>
 
-            <div className="about-details">
 
-              <p>
-                <strong>Subscribers:</strong>{" "}
-                {formatNumber(subscribers)}
-              </p>
+            <div className="about-stats">
 
-              <p>
-                <strong>Total views:</strong>{" "}
-                {formatNumber(totalViews)}
-              </p>
+              <div>
+                <strong>
+                  Subscribers
+                </strong>
 
-              <p>
-                <strong>Total videos:</strong>{" "}
-                {videos.length}
-              </p>
+                <span>
+                  {formatNumber(
+                    subscribers
+                  )}
+                </span>
+              </div>
+
+
+              <div>
+                <strong>
+                  Total Views
+                </strong>
+
+                <span>
+                  {formatNumber(
+                    totalViews
+                  )}
+                </span>
+              </div>
+
+
+              <div>
+                <strong>
+                  Videos
+                </strong>
+
+                <span>
+                  {formatNumber(
+                    videoCount
+                  )}
+                </span>
+              </div>
 
             </div>
-          </div>
+
+          </section>
+
         )}
 
       </main>

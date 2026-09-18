@@ -32,18 +32,23 @@ function VideoCard({
   const formatViews = (views) => {
     const number = Number(views);
 
-    if (isNaN(number)) return views || "0";
+    if (isNaN(number)) {
+      return views || "0";
+    }
 
     if (number >= 1000000000) {
-      return (number / 1000000000).toFixed(1) + "B";
+      const value = number / 1000000000;
+      return `${value % 1 === 0 ? value : value.toFixed(1)}B`;
     }
 
     if (number >= 1000000) {
-      return (number / 1000000).toFixed(1) + "M";
+      const value = number / 1000000;
+      return `${value % 1 === 0 ? value : value.toFixed(1)}M`;
     }
 
     if (number >= 1000) {
-      return (number / 1000).toFixed(1) + "K";
+      const value = number / 1000;
+      return `${value % 1 === 0 ? value : value.toFixed(1)}K`;
     }
 
     return number.toLocaleString();
@@ -53,6 +58,11 @@ function VideoCard({
     if (!date) return "";
 
     const uploadedDate = new Date(date);
+
+    if (isNaN(uploadedDate.getTime())) {
+      return "";
+    }
+
     const now = new Date();
 
     const diff = Math.floor(
@@ -60,7 +70,13 @@ function VideoCard({
         (1000 * 60 * 60 * 24)
     );
 
-    if (diff < 1) return "today";
+    if (diff < 0) {
+      return "just now";
+    }
+
+    if (diff === 0) {
+      return "today";
+    }
 
     if (diff === 1) {
       return "1 day ago";
