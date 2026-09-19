@@ -6,6 +6,7 @@ import {
   Share2,
   Download,
   Trash2,
+  Clock,
 } from "lucide-react";
 
 import {
@@ -22,12 +23,17 @@ function Watch() {
 
   const [video, setVideo] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const [recommendedVideos, setRecommendedVideos] =
     useState([]);
 
+  const [recommendedError, setRecommendedError] =
+    useState(null);
+
   const [liked, setLiked] = useState(false);
   const [disliked, setDisliked] = useState(false);
+  const [watchLater, setWatchLater] = useState(false);
 
   const [likeCount, setLikeCount] =
     useState(1200);
@@ -78,130 +84,183 @@ function Watch() {
   // Load Video
   // ==================================================
 
-  useEffect(() => {
-    const loadVideo = async () => {
+  const loadVideo = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const data =
+        await getVideoById(id);
+
+      if (!data) {
+        setVideo(null);
+
+        setError(
+          "Video information could not be loaded."
+        );
+
+        return;
+      }
+
+      setVideo(data);
+
+      // ============================================
+      // Load Recommended Videos
+      // ============================================
+
       try {
-        setLoading(true);
+        setRecommendedError(null);
 
-        const data =
-          await getVideoById(id);
-
-        if (!data) {
-          setVideo(null);
-          return;
-        }
-
-        setVideo(data);
-
-
-        // ============================================
-        // Load Recommended Videos
-        // ============================================
-
-        try {
-          const recommended =
-            await searchVideos(
-              data.title
-            );
-
-          setRecommendedVideos(
-            recommended.filter(
-              (item) =>
-                item.id !== id
-            )
-          );
-        } catch (error) {
-          console.error(
-            "Error loading recommendations:",
-            error
+        const recommended =
+          await searchVideos(
+            data.title
           );
 
-          setRecommendedVideos([]);
-        }
-
-
-        // ============================================
-        // Check Subscription
-        // ============================================
-
-        const subscriptions =
-          JSON.parse(
-            localStorage.getItem(
-              "subscribedChannels"
-            )
-          ) || [];
-
-        const isSubscribed =
-          subscriptions.some(
-            (channel) =>
-              channel.id ===
-              data.channelId
-          );
-
-        setSubscribed(
-          isSubscribed
-        );
-
-
-        // ============================================
-        // Check Like / Dislike
-        // ============================================
-
-        const likedVideos =
-          JSON.parse(
-            localStorage.getItem(
-              "likedVideos"
-            )
-          ) || [];
-
-        const dislikedVideos =
-          JSON.parse(
-            localStorage.getItem(
-              "dislikedVideos"
-            )
-          ) || [];
-
-        setLiked(
-          likedVideos.some(
+        setRecommendedVideos(
+          recommended.filter(
             (item) =>
-              item.id === data.id
+              item.id !== id
           )
         );
-
-        setDisliked(
-          dislikedVideos.some(
-            (item) =>
-              item.id === data.id
-          )
-        );
-
-
-        // ============================================
-        // Load Comments
-        // ============================================
-
-        const savedComments =
-          JSON.parse(
-            localStorage.getItem(
-              `comments_${id}`
-            )
-          ) || [];
-
-        setComments(
-          savedComments
-        );
-
       } catch (error) {
         console.error(
-          "Error loading video:",
+          "Error loading recommendations:",
           error
         );
-      } finally {
-        setLoading(false);
-      }
-    };
 
-    loadVideo();
+        setRecommendedVideos([]);
+
+        setRecommendedError(
+          error?.message ||
+            "Unable to load recommended videos."
+        );
+      }
+
+
+      // ============================================
+      // Check Subscription
+      // ============================================
+
+      const subscriptions =
+        JSON.parse(
+          localStorage.getItem(
+            "subscribedChannels"
+          )
+        ) || [];
+
+      const isSubscribed =
+        subscriptions.some(
+          (channel) =>
+            channel.id ===
+            data.channelId
+        );
+
+      setSubscribed(
+        isSubscribed
+      );
+
+
+      // ============================================
+      // Check Like / Dislike
+      // ============================================
+
+      const likedVideos =
+        JSON.parse(
+          localStorage.getItem(
+            "likedVideos"
+          )
+        ) || [];
+
+      const dislikedVideos =
+        JSON.parse(
+          localStorage.getItem(
+            "dislikedVideos"
+          )
+        ) || [];
+
+      const getVideoId = (item) => {
+        if (typeof item === "string") {
+          return item;
+        }
+
+        return item?.id;
+      };
+
+      setLiked(
+        likedVideos.some(
+          (item) =>
+            getVideoId(item) === data.id
+        )
+      );
+
+
+      // ============================================
+      // Check Watch Later
+      // ============================================
+
+      const savedWatchLater =
+        JSON.parse(
+          localStorage.getItem("watchLater")
+        ) || [];
+
+      const isWatchLater =
+        savedWatchLater.some((item) => {
+          if (typeof item === "string") {
+            return item === data.id;
+          }
+
+          return item?.id === data.id;
+        });
+
+      setWatchLater(isWatchLater);
+
+
+      setDisliked(
+        dislikedVideos.some(
+          (item) =>
+            getVideoId(item) === data.id
+        )
+      );
+
+
+      // ============================================
+      // Load Comments
+      // ============================================
+
+      const savedComments =
+        JSON.parse(
+          localStorage.getItem(
+            `comments_${id}`
+          )
+        ) || [];
+
+      setComments(
+        savedComments
+      );
+
+    } catch (error) {
+      console.error(
+        "Error loading video:",
+        error
+      );
+
+      setVideo(null);
+
+      setError(
+        error?.message ||
+          "Unable to load video. Please try again."
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  useEffect(() => {
+    if (id) {
+      loadVideo();
+    }
   }, [id]);
 
 
@@ -212,92 +271,96 @@ function Watch() {
   const handleLike = () => {
     const likedVideos =
       JSON.parse(
-        localStorage.getItem(
-          "likedVideos"
-        )
+        localStorage.getItem("likedVideos")
       ) || [];
 
     const dislikedVideos =
       JSON.parse(
-        localStorage.getItem(
-          "dislikedVideos"
-        )
+        localStorage.getItem("dislikedVideos")
       ) || [];
 
+    const getVideoId = (item) => {
+      if (typeof item === "string") {
+        return item;
+      }
+
+      return item?.id;
+    };
 
     if (liked) {
-      // Remove Like
-
-      const updated =
+      const updatedLikedVideos =
         likedVideos.filter(
           (item) =>
-            item.id !== video.id
+            getVideoId(item) !== video.id
         );
 
       localStorage.setItem(
         "likedVideos",
-        JSON.stringify(updated)
+        JSON.stringify(updatedLikedVideos)
       );
 
       setLiked(false);
 
-      setLikeCount(
-        (prev) =>
-          Math.max(0, prev - 1)
+      setLikeCount((prev) =>
+        Math.max(0, prev - 1)
       );
-
     } else {
-      // Add Like
-
-      const updated =
+      const alreadyLiked =
         likedVideos.some(
           (item) =>
-            item.id === video.id
-        )
-          ? likedVideos
-          : [
-              ...likedVideos,
-              {
-                ...video,
-                image:
-                  video.thumbnail,
-              },
-            ];
+            getVideoId(item) === video.id
+        );
+
+      let updatedLikedVideos;
+
+      if (alreadyLiked) {
+        updatedLikedVideos = likedVideos;
+      } else {
+        updatedLikedVideos = [
+          {
+            ...video,
+            image:
+              video.thumbnail ||
+              video.image,
+          },
+          ...likedVideos.filter(
+            (item) =>
+              getVideoId(item) !== video.id
+          ),
+        ];
+      }
 
       localStorage.setItem(
         "likedVideos",
-        JSON.stringify(updated)
+        JSON.stringify(updatedLikedVideos)
       );
 
       setLiked(true);
 
-      setLikeCount(
-        (prev) =>
+      if (!alreadyLiked) {
+        setLikeCount((prev) =>
           prev + 1
-      );
+        );
+      }
 
-
-      // Remove Dislike
       if (disliked) {
-        const updatedDisliked =
+        const updatedDislikedVideos =
           dislikedVideos.filter(
             (item) =>
-              item.id !==
-              video.id
+              getVideoId(item) !== video.id
           );
 
         localStorage.setItem(
           "dislikedVideos",
           JSON.stringify(
-            updatedDisliked
+            updatedDislikedVideos
           )
         );
 
         setDisliked(false);
 
-        setDislikeCount(
-          (prev) =>
-            Math.max(0, prev - 1)
+        setDislikeCount((prev) =>
+          Math.max(0, prev - 1)
         );
       }
     }
@@ -323,10 +386,7 @@ function Watch() {
         )
       ) || [];
 
-
     if (disliked) {
-      // Remove Dislike
-
       const updated =
         dislikedVideos.filter(
           (item) =>
@@ -346,8 +406,6 @@ function Watch() {
       );
 
     } else {
-      // Add Dislike
-
       const updated =
         dislikedVideos.some(
           (item) =>
@@ -375,8 +433,6 @@ function Watch() {
           prev + 1
       );
 
-
-      // Remove Like
       if (liked) {
         const updatedLiked =
           likedVideos.filter(
@@ -415,10 +471,7 @@ function Watch() {
         )
       ) || [];
 
-
     if (subscribed) {
-      // Unsubscribe
-
       const updated =
         subscriptions.filter(
           (channel) =>
@@ -434,8 +487,6 @@ function Watch() {
       setSubscribed(false);
 
     } else {
-      // Subscribe
-
       const alreadyExists =
         subscriptions.some(
           (channel) =>
@@ -500,6 +551,76 @@ function Watch() {
 
 
   // ==================================================
+  // Watch Later
+  // ==================================================
+
+  const handleWatchLater = () => {
+    const savedWatchLater =
+      JSON.parse(
+        localStorage.getItem("watchLater")
+      ) || [];
+
+    const getVideoId = (item) => {
+      if (typeof item === "string") {
+        return item;
+      }
+
+      return item?.id;
+    };
+
+    if (watchLater) {
+      const updatedWatchLater =
+        savedWatchLater.filter(
+          (item) =>
+            getVideoId(item) !== video.id
+        );
+
+      localStorage.setItem(
+        "watchLater",
+        JSON.stringify(updatedWatchLater)
+      );
+
+      setWatchLater(false);
+
+      alert(
+        "Removed from Watch Later"
+      );
+    } else {
+      const alreadySaved =
+        savedWatchLater.some(
+          (item) =>
+            getVideoId(item) === video.id
+        );
+
+      if (!alreadySaved) {
+        const updatedWatchLater = [
+          {
+            ...video,
+            image:
+              video.thumbnail ||
+              video.image,
+          },
+          ...savedWatchLater,
+        ];
+
+        localStorage.setItem(
+          "watchLater",
+          JSON.stringify(
+            updatedWatchLater
+          )
+        );
+      }
+
+      setWatchLater(true);
+
+      alert(
+        "Added to Watch Later"
+      );
+    }
+  };
+
+
+  // ==================================================
   // Add Comment
   // ==================================================
 
@@ -510,14 +631,10 @@ function Watch() {
 
     const newComment = {
       id: Date.now(),
-
       name: "You",
-
       text: commentText.trim(),
-
       date: new Date().toLocaleString(),
     };
-
 
     const updatedComments = [
       newComment,
@@ -586,6 +703,51 @@ function Watch() {
 
 
   // ==================================================
+  // API Error
+  // ==================================================
+
+  if (error) {
+    return (
+      <div className="watch-page">
+
+        <Navbar />
+
+        <main className="main-content">
+
+          <div className="page-message">
+
+            <h2>
+              Something went wrong
+            </h2>
+
+            <p>
+              {error}
+            </p>
+
+            <button
+              onClick={loadVideo}
+              style={{
+                marginTop: "15px",
+                padding: "10px 18px",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "600",
+              }}
+            >
+              Try Again
+            </button>
+
+          </div>
+
+        </main>
+
+      </div>
+    );
+  }
+
+
+  // ==================================================
   // Video Not Found
   // ==================================================
 
@@ -618,6 +780,7 @@ function Watch() {
 
   return (
     <div className="watch-page">
+
       <Navbar />
 
       <main className="watch-content">
@@ -635,25 +798,41 @@ function Watch() {
           <div className="watch-left">
 
             {/* Video Player */}
+
             <div className="video-player">
+
               <iframe
-                src={`https://www.youtube.com/embed/${video.id}?autoplay=1&rel=0`}
+                src={`https://www.youtube.com/embed/${video.id}?autoplay=${
+                  localStorage.getItem("autoplay") !== "false"
+                    ? "1"
+                    : "0"
+                }&mute=${
+                  localStorage.getItem("defaultMute") === "true"
+                    ? "1"
+                    : "0"
+                }&rel=0`}
                 title={video.title}
                 frameBorder="0"
                 allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
                 allowFullScreen
               />
+
             </div>
 
+
             {/* Video Title */}
+
             <h1 className="watch-title">
               {video.title}
             </h1>
 
+
             {/* Channel + Actions */}
+
             <div className="watch-info">
 
               {/* Channel */}
+
               <div className="watch-channel">
 
                 <Link
@@ -662,6 +841,7 @@ function Watch() {
                 >
 
                   <div className="watch-channel-avatar">
+
                     {video.channelImage ? (
                       <img
                         src={video.channelImage}
@@ -678,7 +858,9 @@ function Watch() {
                           .toUpperCase() || "C"}
                       </div>
                     )}
+
                   </div>
+
 
                   <div className="watch-channel-details">
 
@@ -697,6 +879,7 @@ function Watch() {
 
                 </Link>
 
+
                 <button
                   className={
                     subscribed
@@ -712,7 +895,9 @@ function Watch() {
 
               </div>
 
+
               {/* Actions */}
+
               <div className="watch-actions">
 
                 <button
@@ -730,6 +915,7 @@ function Watch() {
                   </span>
                 </button>
 
+
                 <button
                   onClick={handleDislike}
                   className={
@@ -745,6 +931,7 @@ function Watch() {
                   </span>
                 </button>
 
+
                 <button
                   onClick={handleShare}
                   className="action-btn"
@@ -755,6 +942,7 @@ function Watch() {
                     Share
                   </span>
                 </button>
+
 
                 <button
                   onClick={handleDownload}
@@ -767,11 +955,31 @@ function Watch() {
                   </span>
                 </button>
 
+
+                <button
+                  onClick={handleWatchLater}
+                  className={
+                    watchLater
+                      ? "action-btn active"
+                      : "action-btn"
+                  }
+                >
+                  <Clock size={22} />
+
+                  <span>
+                    {watchLater
+                      ? "Saved"
+                      : "Watch later"}
+                  </span>
+                </button>
+
               </div>
 
             </div>
 
+
             {/* Video Information */}
+
             <div className="video-description">
 
               <strong>
@@ -798,14 +1006,28 @@ function Watch() {
               Recommended Videos
             </h2>
 
-            {recommendedVideos.length === 0 ? (
+            {recommendedError ? (
+
+              <div className="page-message">
+
+                <p>
+                  {recommendedError}
+                </p>
+
+              </div>
+
+            ) : recommendedVideos.length === 0 ? (
+
               <p className="page-message">
                 No recommended videos available.
               </p>
+
             ) : (
+
               <VideoGrid
                 videos={recommendedVideos}
               />
+
             )}
 
           </aside>
@@ -823,7 +1045,9 @@ function Watch() {
             Comments
           </h2>
 
+
           {/* Add Comment */}
+
           <div className="comment-input">
 
             <input
@@ -848,15 +1072,21 @@ function Watch() {
 
           </div>
 
+
           {/* Comment List */}
+
           <div className="comment-list">
 
             {comments.length === 0 ? (
+
               <p className="page-message">
                 No comments yet.
               </p>
+
             ) : (
+
               comments.map((comment) => (
+
                 <div
                   className="comment"
                   key={comment.id}
@@ -899,7 +1129,9 @@ function Watch() {
                   </div>
 
                 </div>
+
               ))
+
             )}
 
           </div>

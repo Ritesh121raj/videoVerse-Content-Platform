@@ -3,19 +3,19 @@ import { Trash2 } from "lucide-react";
 import VideoCard from "./VideoCard";
 import { getVideoById } from "../services/videoApi";
 
-function WatchLater() {
-  const [watchLaterVideos, setWatchLaterVideos] = useState([]);
+function DislikedVideos() {
+  const [dislikedVideos, setDislikedVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadWatchLater = async () => {
+    const loadDislikedVideos = async () => {
       const savedVideos =
         JSON.parse(
-          localStorage.getItem("watchLater")
+          localStorage.getItem("dislikedVideos")
         ) || [];
 
       if (savedVideos.length === 0) {
-        setWatchLaterVideos([]);
+        setDislikedVideos([]);
         setLoading(false);
         return;
       }
@@ -23,7 +23,6 @@ function WatchLater() {
       try {
         const videos = await Promise.all(
           savedVideos.map(async (item) => {
-            // New format: complete video object
             if (
               typeof item === "object" &&
               item?.id
@@ -31,7 +30,6 @@ function WatchLater() {
               return item;
             }
 
-            // Old format: only video ID
             if (typeof item === "string") {
               return await getVideoById(item);
             }
@@ -40,29 +38,30 @@ function WatchLater() {
           })
         );
 
-        setWatchLaterVideos(
+        setDislikedVideos(
           videos.filter(
             (video) => video !== null
           )
         );
       } catch (error) {
         console.error(
-          "Watch Later error:",
+          "Disliked videos error:",
           error
         );
-        setWatchLaterVideos([]);
+
+        setDislikedVideos([]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadWatchLater();
+    loadDislikedVideos();
   }, []);
 
-  const removeFromWatchLater = (videoId) => {
+  const removeFromDisliked = (videoId) => {
     const savedVideos =
       JSON.parse(
-        localStorage.getItem("watchLater")
+        localStorage.getItem("dislikedVideos")
       ) || [];
 
     const updatedVideos =
@@ -75,45 +74,45 @@ function WatchLater() {
       });
 
     localStorage.setItem(
-      "watchLater",
+      "dislikedVideos",
       JSON.stringify(updatedVideos)
     );
 
-    setWatchLaterVideos((prevVideos) =>
+    setDislikedVideos((prevVideos) =>
       prevVideos.filter(
         (video) => video.id !== videoId
       )
     );
   };
 
-  const clearAllWatchLater = () => {
-    localStorage.removeItem("watchLater");
-    setWatchLaterVideos([]);
+  const clearAllDislikedVideos = () => {
+    localStorage.removeItem("dislikedVideos");
+    setDislikedVideos([]);
   };
 
   return (
     <div className="page-container">
-      <div className="watch-later-header">
+      <div className="disliked-videos-header">
         <div>
-          <h1>Watch Later</h1>
+          <h1>Disliked Videos</h1>
 
           {!loading &&
-            watchLaterVideos.length > 0 && (
-              <p className="watch-later-count">
-                {watchLaterVideos.length}{" "}
-                {watchLaterVideos.length === 1
+            dislikedVideos.length > 0 && (
+              <p className="disliked-videos-count">
+                {dislikedVideos.length}{" "}
+                {dislikedVideos.length === 1
                   ? "video"
                   : "videos"}{" "}
-                saved
+                disliked
               </p>
             )}
         </div>
 
         {!loading &&
-          watchLaterVideos.length > 0 && (
+          dislikedVideos.length > 0 && (
             <button
-              className="clear-watch-later-btn"
-              onClick={clearAllWatchLater}
+              className="clear-disliked-btn"
+              onClick={clearAllDislikedVideos}
             >
               <Trash2 size={16} />
               Clear all
@@ -123,21 +122,21 @@ function WatchLater() {
 
       {loading ? (
         <p className="page-message">
-          Loading watch later...
+          Loading disliked videos...
         </p>
-      ) : watchLaterVideos.length === 0 ? (
-        <div className="watch-later-empty">
-          <h2>No saved videos</h2>
+      ) : dislikedVideos.length === 0 ? (
+        <div className="disliked-videos-empty">
+          <h2>No disliked videos</h2>
 
           <p>
-            Videos you save will appear here.
+            Videos you dislike will appear here.
           </p>
         </div>
       ) : (
-        <div className="watch-later-grid">
-          {watchLaterVideos.map((video) => (
+        <div className="disliked-videos-grid">
+          {dislikedVideos.map((video) => (
             <div
-              className="watch-later-card"
+              className="disliked-video-card"
               key={video.id}
             >
               <VideoCard
@@ -168,9 +167,9 @@ function WatchLater() {
               />
 
               <button
-                className="watch-later-remove"
+                className="disliked-video-remove"
                 onClick={() =>
-                  removeFromWatchLater(
+                  removeFromDisliked(
                     video.id
                   )
                 }
@@ -186,4 +185,4 @@ function WatchLater() {
   );
 }
 
-export default WatchLater;
+export default DislikedVideos;

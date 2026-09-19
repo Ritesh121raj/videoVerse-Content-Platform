@@ -1,33 +1,35 @@
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
-import VideoGrid from "./VideoGrid";
-import { getVideoById } from "../services/videoApi";
+import VideoCard from "./VideoCard";
 
 function LikedVideos() {
   const [likedVideos, setLikedVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadLikedVideos = async () => {
-      const likedIds =
-        JSON.parse(localStorage.getItem("likedVideos")) || [];
-
-      if (likedIds.length === 0) {
-        setLikedVideos([]);
-        setLoading(false);
-        return;
-      }
-
+    const loadLikedVideos = () => {
       try {
-        const videos = await Promise.all(
-          likedIds.map((id) => getVideoById(id))
+        const savedLikedVideos =
+          JSON.parse(
+            localStorage.getItem("likedVideos")
+          ) || [];
+
+        const validVideos =
+          savedLikedVideos.filter(
+            (video) =>
+              video &&
+              typeof video === "object" &&
+              video.id
+          );
+
+        setLikedVideos(validVideos);
+      } catch (error) {
+        console.error(
+          "Liked videos error:",
+          error
         );
 
-        setLikedVideos(
-          videos.filter((video) => video !== null)
-        );
-      } catch (error) {
-        console.error("Liked videos error:", error);
+        setLikedVideos([]);
       } finally {
         setLoading(false);
       }
@@ -37,16 +39,23 @@ function LikedVideos() {
   }, []);
 
   const removeFromLiked = (videoId) => {
-    const likedIds =
-      JSON.parse(localStorage.getItem("likedVideos")) || [];
+    const savedLikedVideos =
+      JSON.parse(
+        localStorage.getItem("likedVideos")
+      ) || [];
 
-    const updatedIds = likedIds.filter(
-      (id) => id !== videoId
-    );
+    const updatedVideos =
+      savedLikedVideos.filter((video) => {
+        if (typeof video === "string") {
+          return video !== videoId;
+        }
+
+        return video?.id !== videoId;
+      });
 
     localStorage.setItem(
       "likedVideos",
-      JSON.stringify(updatedIds)
+      JSON.stringify(updatedVideos)
     );
 
     setLikedVideos((prevVideos) =>
@@ -56,22 +65,39 @@ function LikedVideos() {
     );
   };
 
+  const clearAllLikedVideos = () => {
+    localStorage.removeItem("likedVideos");
+    setLikedVideos([]);
+  };
+
   return (
     <div className="page-container">
       <div className="liked-videos-header">
         <div>
           <h1>Liked Videos</h1>
 
-          {!loading && likedVideos.length > 0 && (
-            <p className="liked-videos-count">
-              {likedVideos.length}{" "}
-              {likedVideos.length === 1
-                ? "video"
-                : "videos"}{" "}
-              liked
-            </p>
-          )}
+          {!loading &&
+            likedVideos.length > 0 && (
+              <p className="liked-videos-count">
+                {likedVideos.length}{" "}
+                {likedVideos.length === 1
+                  ? "video"
+                  : "videos"}{" "}
+                liked
+              </p>
+            )}
         </div>
+
+        {!loading &&
+          likedVideos.length > 0 && (
+            <button
+              className="clear-liked-btn"
+              onClick={clearAllLikedVideos}
+            >
+              <Trash2 size={16} />
+              Clear all liked videos
+            </button>
+          )}
       </div>
 
       {loading ? (
@@ -81,18 +107,44 @@ function LikedVideos() {
       ) : likedVideos.length === 0 ? (
         <div className="liked-videos-empty">
           <h2>No liked videos</h2>
+
           <p>
             Videos you like will appear here.
           </p>
         </div>
       ) : (
-        <div className="liked-videos-content">
+        <div className="liked-videos-grid">
           {likedVideos.map((video) => (
             <div
-              className="liked-video-item"
+              className="liked-video-card"
               key={video.id}
             >
-              <VideoGrid videos={[video]} />
+              <VideoCard
+                id={video.id}
+                image={
+                  video.image ||
+                  video.thumbnail
+                }
+                thumbnail={
+                  video.thumbnail ||
+                  video.image
+                }
+                title={video.title}
+                channel={video.channel}
+                channelImage={
+                  video.channelImage
+                }
+                views={video.views}
+                time={
+                  video.time ||
+                  video.publishedAt
+                }
+                publishedAt={
+                  video.publishedAt ||
+                  video.time
+                }
+                duration={video.duration}
+              />
 
               <button
                 className="liked-video-remove"

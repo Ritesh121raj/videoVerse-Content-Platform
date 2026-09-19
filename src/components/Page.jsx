@@ -1,49 +1,53 @@
 import { useEffect, useState } from "react";
-import Navbar from "../components/Navbar";
-import Sidebar from "../components/Sidebar";
-import VideoGrid from "../components/VideoGrid";
-import { getTrendingVideos } from "../services/videoApi";
+import VideoGrid from "./VideoGrid";
+import { getCategoryVideos } from "../services/videoApi";
 
-function Trending() {
+function Page({ title, message }) {
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    const loadTrendingVideos = async () => {
+    const loadVideos = async () => {
       try {
-        const data = await getTrendingVideos();
+        setLoading(true);
+
+        const data = await getCategoryVideos(title);
+
         setVideos(data);
       } catch (error) {
-        console.error("Error loading trending videos:", error);
+        console.error(
+          `${title} videos error:`,
+          error
+        );
+
+        setVideos([]);
       } finally {
         setLoading(false);
       }
     };
 
-    loadTrendingVideos();
-  }, []);
+    if (title) {
+      loadVideos();
+    }
+  }, [title]);
 
   return (
-    <>
-      <Navbar />
+    <div className="page-container">
+      <h1>{title}</h1>
 
-      <Sidebar />
-
-      <main className="main-content">
-        <h1>Trending</h1>
-
-        {loading ? (
-          <p className="page-message">Loading trending videos...</p>
-        ) : videos.length === 0 ? (
-          <p className="page-message">
-            No trending videos available.
-          </p>
-        ) : (
-          <VideoGrid videos={videos} />
-        )}
-      </main>
-    </>
+      {loading ? (
+        <p className="page-message">
+          Loading {title.toLowerCase()} videos...
+        </p>
+      ) : videos.length === 0 ? (
+        <p className="page-message">
+          {message || `No ${title.toLowerCase()} videos available.`}
+        </p>
+      ) : (
+        <VideoGrid videos={videos} />
+      )}
+    </div>
   );
 }
 
-export default Trending;
+export default Page;

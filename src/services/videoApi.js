@@ -1,6 +1,32 @@
 const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
+const getApiErrorMessage = (status) => {
+  switch (status) {
+    case 400:
+      return "Invalid YouTube API request.";
+
+    case 401:
+      return "YouTube API authentication failed.";
+
+    case 403:
+      return "YouTube API access denied or quota exceeded.";
+
+    case 404:
+      return "Requested YouTube resource was not found.";
+
+    case 429:
+      return "YouTube API quota exceeded. Please try again later.";
+
+    case 500:
+    case 502:
+    case 503:
+      return "YouTube service is temporarily unavailable.";
+
+    default:
+      return `YouTube API error (${status}).`;
+  }
+};
 
 
 // ======================================================
@@ -57,80 +83,81 @@ function getDurationInSeconds(duration) {
 // Get Home Videos
 // ======================================================
 
-export async function getVideos() {
+export const getVideos = async () => {
   try {
-    // Step 1: Search videos
-    const searchUrl =
-      `${BASE_URL}/search?part=snippet` +
-      `&q=programming` +
-      `&type=video` +
-      `&maxResults=20` +
-      `&key=${API_KEY}`;
-
-    const searchResponse = await fetch(searchUrl);
+    const searchResponse = await fetch(
+      `${BASE_URL}/search?part=snippet&q=programming&type=video&maxResults=20&key=${API_KEY}`
+    );
 
     if (!searchResponse.ok) {
-      throw new Error(
-        `HTTP error: ${searchResponse.status}`
+      const errorData = await searchResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(searchResponse.status)
       );
+
+      error.status = searchResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const searchData = await searchResponse.json();
 
-    const videoIds = (searchData.items || [])
-      .map((item) => item.id?.videoId)
-      .filter(Boolean);
-
-    if (videoIds.length === 0) {
+    if (!searchData.items || searchData.items.length === 0) {
       return [];
     }
 
-    // Step 2: Get video details
-    const detailsUrl =
-      `${BASE_URL}/videos?part=snippet,contentDetails,statistics` +
-      `&id=${videoIds.join(",")}` +
-      `&key=${API_KEY}`;
+    const videoIds = searchData.items
+      .map((item) => item.id?.videoId)
+      .filter(Boolean)
+      .join(",");
 
-    const detailsResponse = await fetch(detailsUrl);
+    if (!videoIds) {
+      return [];
+    }
+
+    const detailsResponse = await fetch(
+      `${BASE_URL}/videos?part=contentDetails,statistics,snippet&id=${videoIds}&key=${API_KEY}`
+    );
 
     if (!detailsResponse.ok) {
-      throw new Error(
-        `HTTP error: ${detailsResponse.status}`
+      const errorData = await detailsResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(detailsResponse.status)
       );
+
+      error.status = detailsResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const detailsData = await detailsResponse.json();
 
-    // Step 3: Create details lookup
-    const detailsMap = {};
-
-    (detailsData.items || []).forEach((video) => {
-      detailsMap[video.id] = video;
-    });
-
-    // Step 4: Combine search + details
-    return (searchData.items || []).map((item) => {
-      const videoId = item.id.videoId;
-      const details = detailsMap[videoId];
+    const videos = detailsData.items.map((item) => {
+      const searchItem = searchData.items.find(
+        (search) =>
+          search.id?.videoId === item.id
+      );
 
       return {
-        id: videoId,
+        id: item.id,
 
-        title:
-          item.snippet?.title ||
-          "Untitled Video",
+        title: item.snippet?.title || "",
 
         channel:
-          item.snippet?.channelTitle ||
-          "Unknown Channel",
+          item.snippet?.channelTitle || "",
 
         channelId:
-          item.snippet?.channelId ||
-          "",
+          item.snippet?.channelId || "",
 
-        channelImage:
-          item.snippet?.thumbnails?.default?.url ||
-          "",
+        channelImage: "",
 
         thumbnail:
           item.snippet?.thumbnails?.high?.url ||
@@ -138,30 +165,42 @@ export async function getVideos() {
           item.snippet?.thumbnails?.default?.url ||
           "",
 
+        image:
+          item.snippet?.thumbnails?.high?.url ||
+          item.snippet?.thumbnails?.medium?.url ||
+          item.snippet?.thumbnails?.default?.url ||
+          "",
+
         duration:
           formatDuration(
-            details?.contentDetails?.duration
+            item.contentDetails?.duration || ""
           ),
 
         views:
-          details?.statistics?.viewCount ||
-          "0",
+          item.statistics?.viewCount || "0",
 
         publishedAt:
-          item.snippet?.publishedAt ||
-          "",
+          item.snippet?.publishedAt || "",
+
+        description:
+          item.snippet?.description || "",
+
+        categoryId:
+          item.snippet?.categoryId || "",
+
+        searchItem,
       };
     });
+
+    return videos;
   } catch (error) {
-    console.error(
-      "Error fetching videos:",
-      error
-    );
+    console.error("getVideos error:", error);
 
-    return [];
+    // Error ko silently [] me convert nahi karenge.
+    // Caller ko actual error milega.
+    throw error;
   }
-}
-
+};
 
 // ======================================================
 // Get Video By ID
@@ -181,9 +220,19 @@ export async function getVideoById(videoId) {
     const videoResponse = await fetch(videoUrl);
 
     if (!videoResponse.ok) {
-      throw new Error(
-        `Video API error: ${videoResponse.status}`
+      const errorData =
+        await videoResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(videoResponse.status)
       );
+
+      error.status = videoResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const videoData = await videoResponse.json();
@@ -215,17 +264,31 @@ export async function getVideoById(videoId) {
       const channelResponse =
         await fetch(channelUrl);
 
-      if (channelResponse.ok) {
-        const channelResult =
-          await channelResponse.json();
+      if (!channelResponse.ok) {
+        const errorData =
+          await channelResponse.json().catch(() => null);
 
-        if (
-          channelResult.items &&
-          channelResult.items.length > 0
-        ) {
-          channelData =
-            channelResult.items[0];
-        }
+        const error = new Error(
+          errorData?.error?.message ||
+            getApiErrorMessage(channelResponse.status)
+        );
+
+        error.status = channelResponse.status;
+        error.reason =
+          errorData?.error?.errors?.[0]?.reason || null;
+
+        throw error;
+      }
+
+      const channelResult =
+        await channelResponse.json();
+
+      if (
+        channelResult.items &&
+        channelResult.items.length > 0
+      ) {
+        channelData =
+          channelResult.items[0];
       }
     }
 
@@ -287,10 +350,11 @@ export async function getVideoById(videoId) {
       error
     );
 
-    return null;
+    // Important:
+    // API error ko silently null me convert nahi karenge.
+    throw error;
   }
 }
-
 
 // ======================================================
 // Search Videos
@@ -309,9 +373,19 @@ export async function searchVideos(query) {
     const searchResponse = await fetch(searchUrl);
 
     if (!searchResponse.ok) {
-      throw new Error(
-        `HTTP error: ${searchResponse.status}`
+      const errorData =
+        await searchResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(searchResponse.status)
       );
+
+      error.status = searchResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const searchData = await searchResponse.json();
@@ -333,9 +407,19 @@ export async function searchVideos(query) {
     const detailsResponse = await fetch(detailsUrl);
 
     if (!detailsResponse.ok) {
-      throw new Error(
-        `HTTP error: ${detailsResponse.status}`
+      const errorData =
+        await detailsResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(detailsResponse.status)
       );
+
+      error.status = detailsResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const detailsData = await detailsResponse.json();
@@ -363,9 +447,6 @@ export async function searchVideos(query) {
        *
        * Secondary check:
        * - video duration <= 180 seconds
-       *
-       * This allows the Search page to separate
-       * normal videos and Shorts without another API call.
        */
       const isShort =
         /#shorts/i.test(
@@ -419,7 +500,8 @@ export async function searchVideos(query) {
       error
     );
 
-    return [];
+    // Pass the actual API error to the caller
+    throw error;
   }
 }
 
@@ -448,7 +530,19 @@ export async function getTrendingVideos() {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
+      const errorData =
+        await response.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(response.status)
+      );
+
+      error.status = response.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const data = await response.json();
@@ -477,20 +571,35 @@ export async function getTrendingVideos() {
         `&id=${channelIds.join(",")}` +
         `&key=${API_KEY}`;
 
-      const channelResponse = await fetch(channelUrl);
+      const channelResponse =
+        await fetch(channelUrl);
 
-      if (channelResponse.ok) {
-        const channelData =
-          await channelResponse.json();
+      if (!channelResponse.ok) {
+        const errorData =
+          await channelResponse.json().catch(() => null);
 
-        (channelData.items || []).forEach((channel) => {
-          channelImages[channel.id] =
-            channel.snippet?.thumbnails?.default?.url ||
-            channel.snippet?.thumbnails?.medium?.url ||
-            channel.snippet?.thumbnails?.high?.url ||
-            "";
-        });
+        const error = new Error(
+          errorData?.error?.message ||
+            getApiErrorMessage(channelResponse.status)
+        );
+
+        error.status = channelResponse.status;
+        error.reason =
+          errorData?.error?.errors?.[0]?.reason || null;
+
+        throw error;
       }
+
+      const channelData =
+        await channelResponse.json();
+
+      (channelData.items || []).forEach((channel) => {
+        channelImages[channel.id] =
+          channel.snippet?.thumbnails?.default?.url ||
+          channel.snippet?.thumbnails?.medium?.url ||
+          channel.snippet?.thumbnails?.high?.url ||
+          "";
+      });
     }
 
     return videos.map((video) => ({
@@ -537,7 +646,7 @@ export async function getTrendingVideos() {
       error
     );
 
-    return [];
+    throw error;
   }
 }
 // ======================================================
@@ -554,9 +663,19 @@ export async function getChannelDetails(channelId) {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(
-        `HTTP error: ${response.status}`
+      const errorData =
+        await response.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(response.status)
       );
+
+      error.status = response.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const data = await response.json();
@@ -594,14 +713,9 @@ export async function getChannelDetails(channelId) {
       snippet.thumbnails?.default?.url ||
       "";
 
-
     // =========================================
     // BANNER
     // =========================================
-    //
-    // YouTube may return different banner URLs.
-    // Some channels may only have bannerExternalUrl.
-    //
 
     const banner =
       imageSettings.bannerImageUrl ||
@@ -613,7 +727,6 @@ export async function getChannelDetails(channelId) {
       imageSettings.bannerMobileImageUrl ||
       imageSettings.bannerExternalUrl ||
       "";
-
 
     // =========================================
     // RETURN CHANNEL DATA
@@ -667,10 +780,13 @@ export async function getChannelDetails(channelId) {
       error
     );
 
-    return null;
+    throw error;
   }
 }
-export async function getChannelVideos(channelId, channelImage = "") {
+export async function getChannelVideos(
+  channelId,
+  channelImage = ""
+) {
   try {
     // First get videos from this channel
     const searchUrl =
@@ -684,12 +800,23 @@ export async function getChannelVideos(channelId, channelImage = "") {
     const searchResponse = await fetch(searchUrl);
 
     if (!searchResponse.ok) {
-      throw new Error(
-        `HTTP error: ${searchResponse.status}`
+      const errorData =
+        await searchResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(searchResponse.status)
       );
+
+      error.status = searchResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
-    const searchData = await searchResponse.json();
+    const searchData =
+      await searchResponse.json();
 
     const videoIds = (searchData.items || [])
       .map((item) => item.id?.videoId)
@@ -705,51 +832,65 @@ export async function getChannelVideos(channelId, channelImage = "") {
       `&id=${videoIds.join(",")}` +
       `&key=${API_KEY}`;
 
-    const detailsResponse = await fetch(detailsUrl);
+    const detailsResponse =
+      await fetch(detailsUrl);
 
     if (!detailsResponse.ok) {
-      throw new Error(
-        `HTTP error: ${detailsResponse.status}`
+      const errorData =
+        await detailsResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(detailsResponse.status)
       );
+
+      error.status = detailsResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
-    const detailsData = await detailsResponse.json();
+    const detailsData =
+      await detailsResponse.json();
 
-    return (detailsData.items || []).map((video) => ({
-      id: video.id,
+    return (detailsData.items || []).map(
+      (video) => ({
+        id: video.id,
 
-      title:
-        video.snippet?.title ||
-        "Untitled Video",
+        title:
+          video.snippet?.title ||
+          "Untitled Video",
 
-      channel:
-        video.snippet?.channelTitle ||
-        "Unknown Channel",
+        channel:
+          video.snippet?.channelTitle ||
+          "Unknown Channel",
 
-      channelId:
-        video.snippet?.channelId ||
-        channelId,
+        channelId:
+          video.snippet?.channelId ||
+          channelId,
 
-      channelImage: channelImage,
+        channelImage: channelImage,
 
-      thumbnail:
-        video.snippet?.thumbnails?.high?.url ||
-        video.snippet?.thumbnails?.medium?.url ||
-        video.snippet?.thumbnails?.default?.url ||
-        "",
+        thumbnail:
+          video.snippet?.thumbnails?.high?.url ||
+          video.snippet?.thumbnails?.medium?.url ||
+          video.snippet?.thumbnails?.default?.url ||
+          "",
 
-      duration: formatDuration(
-        video.contentDetails?.duration
-      ),
+        duration: formatDuration(
+          video.contentDetails?.duration
+        ),
 
-      views:
-        video.statistics?.viewCount ||
-        "0",
+        views:
+          video.statistics?.viewCount ||
+          "0",
 
-      publishedAt:
-        video.snippet?.publishedAt ||
-        "",
-    }));
+        publishedAt:
+          video.snippet?.publishedAt ||
+          "",
+      })
+    );
 
   } catch (error) {
     console.error(
@@ -757,10 +898,9 @@ export async function getChannelVideos(channelId, channelImage = "") {
       error
     );
 
-    return [];
+    throw error;
   }
 }
-
 
 // ======================================================
 // Get Channel Shorts
@@ -783,7 +923,19 @@ export async function getChannelShorts(
     const response = await fetch(searchUrl);
 
     if (!response.ok) {
-      throw new Error(`HTTP error: ${response.status}`);
+      const errorData =
+        await response.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(response.status)
+      );
+
+      error.status = response.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const data = await response.json();
@@ -801,49 +953,78 @@ export async function getChannelShorts(
       `&id=${videoIds.join(",")}` +
       `&key=${API_KEY}`;
 
-    const detailsResponse = await fetch(detailsUrl);
+    const detailsResponse =
+      await fetch(detailsUrl);
 
     if (!detailsResponse.ok) {
-      throw new Error(
-        `HTTP error: ${detailsResponse.status}`
+      const errorData =
+        await detailsResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(detailsResponse.status)
       );
+
+      error.status = detailsResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
-    const detailsData = await detailsResponse.json();
+    const detailsData =
+      await detailsResponse.json();
 
-    return (detailsData.items || []).map((video) => ({
-      id: video.id,
-      title: video.snippet?.title || "Short",
-      channel:
-        video.snippet?.channelTitle ||
-        "Unknown Channel",
-      channelId:
-        video.snippet?.channelId ||
-        channelId,
-      channelImage: "",
-      thumbnail:
-        video.snippet?.thumbnails?.high?.url ||
-        video.snippet?.thumbnails?.medium?.url ||
-        video.snippet?.thumbnails?.default?.url ||
-        "",
-      duration: formatDuration(
-        video.contentDetails?.duration
-      ),
-      views: video.statistics?.viewCount || "0",
-      publishedAt:
-        video.snippet?.publishedAt || "",
-      isShort: true,
-    }));
+    return (detailsData.items || []).map(
+      (video) => ({
+        id: video.id,
+
+        title:
+          video.snippet?.title ||
+          "Short",
+
+        channel:
+          video.snippet?.channelTitle ||
+          "Unknown Channel",
+
+        channelId:
+          video.snippet?.channelId ||
+          channelId,
+
+        channelImage: "",
+
+        thumbnail:
+          video.snippet?.thumbnails?.high?.url ||
+          video.snippet?.thumbnails?.medium?.url ||
+          video.snippet?.thumbnails?.default?.url ||
+          "",
+
+        duration:
+          formatDuration(
+            video.contentDetails?.duration
+          ),
+
+        views:
+          video.statistics?.viewCount ||
+          "0",
+
+        publishedAt:
+          video.snippet?.publishedAt ||
+          "",
+
+        isShort: true,
+      })
+    );
+
   } catch (error) {
     console.error(
       "Error fetching channel shorts:",
       error
     );
 
-    return [];
+    throw error;
   }
 }
-
 
 // ======================================================
 // Get Shorts
@@ -863,9 +1044,19 @@ export async function getShortsVideos() {
     const response = await fetch(searchUrl);
 
     if (!response.ok) {
-      throw new Error(
-        `HTTP error: ${response.status}`
+      const errorData =
+        await response.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(response.status)
       );
+
+      error.status = response.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const data = await response.json();
@@ -884,12 +1075,23 @@ export async function getShortsVideos() {
       `&id=${videoIds.join(",")}` +
       `&key=${API_KEY}`;
 
-    const detailsResponse = await fetch(detailsUrl);
+    const detailsResponse =
+      await fetch(detailsUrl);
 
     if (!detailsResponse.ok) {
-      throw new Error(
-        `HTTP error: ${detailsResponse.status}`
+      const errorData =
+        await detailsResponse.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(detailsResponse.status)
       );
+
+      error.status = detailsResponse.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const detailsData =
@@ -956,7 +1158,7 @@ export async function getShortsVideos() {
       error
     );
 
-    return [];
+    throw error;
   }
 }
 export async function getChannelImages(channelIds) {
@@ -973,9 +1175,19 @@ export async function getChannelImages(channelIds) {
     const response = await fetch(url);
 
     if (!response.ok) {
-      throw new Error(
-        `HTTP error: ${response.status}`
+      const errorData =
+        await response.json().catch(() => null);
+
+      const error = new Error(
+        errorData?.error?.message ||
+          getApiErrorMessage(response.status)
       );
+
+      error.status = response.status;
+      error.reason =
+        errorData?.error?.errors?.[0]?.reason || null;
+
+      throw error;
     }
 
     const data = await response.json();
@@ -991,9 +1203,7 @@ export async function getChannelImages(channelIds) {
         return;
       }
 
-      // Prefer medium instead of high.
-      // YouTube documents medium as 240x240
-      // for channel thumbnails.
+      // Prefer medium instead of high
       const image =
         thumbnails.medium?.url ||
         thumbnails.default?.url ||
@@ -1016,6 +1226,6 @@ export async function getChannelImages(channelIds) {
       error
     );
 
-    return {};
+    throw error;
   }
 }

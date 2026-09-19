@@ -20,15 +20,27 @@ function formatNumber(number) {
   const num = Number(number || 0);
 
   if (num >= 1000000000) {
-    return (num / 1000000000).toFixed(1).replace(".0", "") + "B";
+    return (
+      (num / 1000000000)
+        .toFixed(1)
+        .replace(".0", "") + "B"
+    );
   }
 
   if (num >= 1000000) {
-    return (num / 1000000).toFixed(1).replace(".0", "") + "M";
+    return (
+      (num / 1000000)
+        .toFixed(1)
+        .replace(".0", "") + "M"
+    );
   }
 
   if (num >= 1000) {
-    return (num / 1000).toFixed(1).replace(".0", "") + "K";
+    return (
+      (num / 1000)
+        .toFixed(1)
+        .replace(".0", "") + "K"
+    );
   }
 
   return num.toString();
@@ -51,118 +63,158 @@ function Channel() {
 
   const [description, setDescription] = useState("");
 
-  const [subscribers, setSubscribers] = useState("0");
-  const [totalViews, setTotalViews] = useState("0");
-  const [videoCount, setVideoCount] = useState("0");
+  const [subscribers, setSubscribers] =
+    useState("0");
 
-  const [activeTab, setActiveTab] = useState("Videos");
+  const [totalViews, setTotalViews] =
+    useState("0");
 
-  const [loading, setLoading] = useState(true);
-  const [shortsLoading, setShortsLoading] = useState(false);
+  const [videoCount, setVideoCount] =
+    useState("0");
 
-  const [subscribed, setSubscribed] = useState(false);
+  const [activeTab, setActiveTab] =
+    useState("Videos");
 
-  const [bannerError, setBannerError] = useState(false);
-  const [channelImageError, setChannelImageError] = useState(false);
+  const [loading, setLoading] =
+    useState(true);
+
+  const [shortsLoading, setShortsLoading] =
+    useState(false);
+
+  const [subscribed, setSubscribed] =
+    useState(false);
+
+  const [error, setError] =
+    useState(null);
+
+  const [shortsError, setShortsError] =
+    useState(null);
+
+  const [bannerError, setBannerError] =
+    useState(false);
+
+  const [channelImageError, setChannelImageError] =
+    useState(false);
 
 
   // ======================================================
   // Load Channel Data
   // ======================================================
 
-  useEffect(() => {
-    const loadChannel = async () => {
-      try {
-        setLoading(true);
+  const loadChannel = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        // ------------------------------------------
-        // Get Channel Details First
-        // ------------------------------------------
+      // ------------------------------------------
+      // Get Channel Details First
+      // ------------------------------------------
 
-        const channelData = await getChannelDetails(id);
+      const channelData =
+        await getChannelDetails(id);
 
-        if (!channelData) {
-          setVideos([]);
-          return;
-        }
+      if (!channelData) {
+        setVideos([]);
 
-        console.log("CHANNEL DATA:", channelData);
+        setError(
+          "Channel information could not be loaded."
+        );
 
-        // ------------------------------------------
-        // Set Channel Information
-        // ------------------------------------------
+        return;
+      }
 
-        setChannelName(channelData.name || "Channel");
+      console.log(
+        "CHANNEL DATA:",
+        channelData
+      );
 
-        setChannelImage(
+      // ------------------------------------------
+      // Set Channel Information
+      // ------------------------------------------
+
+      setChannelName(
+        channelData.name || "Channel"
+      );
+
+      setChannelImage(
+        channelData.profileImage || ""
+      );
+
+      setBanner(
+        channelData.banner || ""
+      );
+
+      setDescription(
+        channelData.description || ""
+      );
+
+      setSubscribers(
+        channelData.subscribers || "0"
+      );
+
+      setTotalViews(
+        channelData.totalViews || "0"
+      );
+
+      setVideoCount(
+        channelData.videoCount || "0"
+      );
+
+      // ------------------------------------------
+      // Check Subscription
+      // ------------------------------------------
+
+      const savedSubscriptions =
+        JSON.parse(
+          localStorage.getItem(
+            "subscribedChannels"
+          )
+        ) || [];
+
+      const alreadySubscribed =
+        savedSubscriptions.some(
+          (channel) =>
+            channel.id === id
+        );
+
+      setSubscribed(
+        alreadySubscribed
+      );
+
+      // ------------------------------------------
+      // Get Channel Videos
+      // ------------------------------------------
+
+      const channelVideos =
+        await getChannelVideos(
+          id,
           channelData.profileImage || ""
         );
 
-        setBanner(
-          channelData.banner || ""
-        );
+      setVideos(
+        channelVideos
+      );
 
-        setDescription(
-          channelData.description || ""
-        );
+    } catch (error) {
+      console.error(
+        "Error loading channel:",
+        error
+      );
 
-        setSubscribers(
-          channelData.subscribers || "0"
-        );
+      setVideos([]);
 
-        setTotalViews(
-          channelData.totalViews || "0"
-        );
+      setError(
+        error?.message ||
+          "Unable to load channel. Please try again."
+      );
 
-        setVideoCount(
-          channelData.videoCount || "0"
-        );
-
-
-        // ------------------------------------------
-        // Check Subscription
-        // ------------------------------------------
-
-        const savedSubscriptions =
-          JSON.parse(
-            localStorage.getItem(
-              "subscribedChannels"
-            )
-          ) || [];
-
-        const alreadySubscribed =
-          savedSubscriptions.some(
-            (channel) =>
-              channel.id === id
-          );
-
-        setSubscribed(alreadySubscribed);
+    } finally {
+      setLoading(false);
+    }
+  };
 
 
-        // ------------------------------------------
-        // Get Channel Videos
-        // ------------------------------------------
-
-        const channelVideos =
-          await getChannelVideos(
-            id,
-            channelData.profileImage || ""
-          );
-
-        setVideos(channelVideos);
-
-      } catch (error) {
-        console.error(
-          "Error loading channel:",
-          error
-        );
-
-        setVideos([]);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+  useEffect(() => {
     if (id) {
       loadChannel();
     }
@@ -185,6 +237,7 @@ function Channel() {
     const loadShorts = async () => {
       try {
         setShortsLoading(true);
+        setShortsError(null);
 
         const data =
           await getChannelShorts(
@@ -202,6 +255,11 @@ function Channel() {
 
         setShorts([]);
 
+        setShortsError(
+          error?.message ||
+            "Unable to load Shorts. Please try again."
+        );
+
       } finally {
         setShortsLoading(false);
       }
@@ -209,7 +267,11 @@ function Channel() {
 
     loadShorts();
 
-  }, [activeTab, id, channelImage]);
+  }, [
+    activeTab,
+    id,
+    channelImage,
+  ]);
 
 
   // ======================================================
@@ -219,26 +281,34 @@ function Channel() {
   const handleSubscribe = () => {
     const oldSubscriptions =
       JSON.parse(
-        localStorage.getItem("subscribedChannels")
+        localStorage.getItem(
+          "subscribedChannels"
+        )
       ) || [];
 
     if (subscribed) {
       // Unsubscribe
+
       const updatedSubscriptions =
         oldSubscriptions.filter(
-          (channel) => channel.id !== id
+          (channel) =>
+            channel.id !== id
         );
 
       localStorage.setItem(
         "subscribedChannels",
-        JSON.stringify(updatedSubscriptions)
+        JSON.stringify(
+          updatedSubscriptions
+        )
       );
 
       setSubscribed(false);
+
       return;
     }
 
     // Subscribe
+
     const channelData = {
       id: id,
       name: channelName,
@@ -248,14 +318,17 @@ function Channel() {
 
     const updatedSubscriptions = [
       ...oldSubscriptions.filter(
-        (channel) => channel.id !== id
+        (channel) =>
+          channel.id !== id
       ),
       channelData,
     ];
 
     localStorage.setItem(
       "subscribedChannels",
-      JSON.stringify(updatedSubscriptions)
+      JSON.stringify(
+        updatedSubscriptions
+      )
     );
 
     setSubscribed(true);
@@ -276,6 +349,50 @@ function Channel() {
           <p className="page-message">
             Loading channel...
           </p>
+        </main>
+      </>
+    );
+  }
+
+
+  // ======================================================
+  // Error
+  // ======================================================
+
+  if (error) {
+    return (
+      <>
+        <Navbar />
+        <Sidebar />
+
+        <main className="main-content channel-page">
+
+          <div className="page-message">
+
+            <h2>
+              Something went wrong
+            </h2>
+
+            <p>
+              {error}
+            </p>
+
+            <button
+              onClick={loadChannel}
+              style={{
+                marginTop: "15px",
+                padding: "10px 18px",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "600",
+              }}
+            >
+              Try Again
+            </button>
+
+          </div>
+
         </main>
       </>
     );
@@ -367,13 +484,23 @@ function Channel() {
             </p>
 
             <p className="channel-sub-info">
-              {formatNumber(subscribers)}
+
+              {formatNumber(
+                subscribers
+              )}
+
               {" "}
               subscribers
+
               {" • "}
-              {formatNumber(videoCount)}
+
+              {formatNumber(
+                videoCount
+              )}
+
               {" "}
               videos
+
             </p>
 
 
@@ -385,7 +512,9 @@ function Channel() {
                   ? "subscribe-btn subscribed"
                   : "subscribe-btn"
               }
-              onClick={handleSubscribe}
+              onClick={
+                handleSubscribe
+              }
             >
               {subscribed
                 ? "Subscribed"
@@ -541,6 +670,39 @@ function Channel() {
                 Loading Shorts...
               </p>
 
+            ) : shortsError ? (
+
+              <div className="page-message">
+
+                <h2>
+                  Something went wrong
+                </h2>
+
+                <p>
+                  {shortsError}
+                </p>
+
+                <button
+                  onClick={() => {
+                    setActiveTab("Videos");
+                    setTimeout(() => {
+                      setActiveTab("Shorts");
+                    }, 0);
+                  }}
+                  style={{
+                    marginTop: "15px",
+                    padding: "10px 18px",
+                    border: "none",
+                    borderRadius: "8px",
+                    cursor: "pointer",
+                    fontWeight: "600",
+                  }}
+                >
+                  Try Again
+                </button>
+
+              </div>
+
             ) : shorts.length === 0 ? (
 
               <p className="page-message">
@@ -576,7 +738,6 @@ function Channel() {
                           />
 
                         </div>
-
 
                         <h3>
                           {short.title}

@@ -7,22 +7,19 @@ import {
   History,
   Clock,
   ThumbsUp,
+  ThumbsDown,
   Video,
   Music2,
 } from "lucide-react";
 
-
 function Sidebar() {
-
   const getClassName = ({ isActive }) =>
     isActive
       ? "sidebar-item active"
       : "sidebar-item";
 
-
   return (
     <aside className="sidebar">
-
 
       {/* HOME */}
 
@@ -94,6 +91,17 @@ function Sidebar() {
       </NavLink>
 
 
+      {/* DISLIKED */}
+
+      <NavLink
+        to="/disliked"
+        className={getClassName}
+      >
+        <ThumbsDown size={22} />
+        <span>Disliked videos</span>
+      </NavLink>
+
+
       <hr />
 
 
@@ -125,10 +133,8 @@ function Sidebar() {
         <span>Music</span>
       </NavLink>
 
-
     </aside>
   );
 }
-
 
 export default Sidebar;
