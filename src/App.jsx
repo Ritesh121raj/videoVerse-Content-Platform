@@ -18,6 +18,8 @@ import Channel from "./pages/Channel";
 import Search from "./pages/Search";
 import DislikedVideos from "./components/DislikedVideos";
 import Settings from "./components/Settings";
+import Playlists from "./components/Playlists";
+import Playlist from "./components/Playlist";
 
 import {
   getVideos,
@@ -1011,6 +1013,30 @@ function App() {
 
               <main className="main-content">
                 <Settings />
+              </main>
+            </>
+          }
+        />
+        <Route
+          path="/playlists"
+          element={
+            <>
+              <Navbar />
+              <Sidebar />
+              <main className="main-content">
+                <Playlists />
+              </main>
+            </>
+          }
+        />
+        <Route
+          path="/playlist/:id"
+          element={
+            <>
+              <Navbar />
+              <Sidebar />
+              <main className="main-content">
+                <Playlist />
               </main>
             </>
           }

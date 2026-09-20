@@ -90,6 +90,15 @@ function Sidebar() {
         <span>Liked videos</span>
       </NavLink>
 
+      
+      <NavLink
+        to="/playlists"
+        className={getClassName}
+      >
+        <PlaySquare size={22} />
+        <span>My Playlists</span>
+      </NavLink>
+
 
       {/* DISLIKED */}
 
