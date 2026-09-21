@@ -24,6 +24,7 @@ import {
 
 import VideoGrid from "../components/VideoGrid";
 import Navbar from "../components/Navbar";
+import Sidebar from "../components/Sidebar";
 
 function Watch() {
   const { id } = useParams();
@@ -1429,8 +1430,9 @@ function Watch() {
     return (
       <div className="watch-page">
         <Navbar />
+          <Sidebar />
 
-        <main className="main-content">
+          <main className="main-content">
           <p className="page-message">
             Loading video...
           </p>
@@ -1447,8 +1449,9 @@ function Watch() {
     return (
       <div className="watch-page">
         <Navbar />
+          <Sidebar />
 
-        <main className="main-content">
+          <main className="main-content">
           <div className="page-message">
             <h2>
               Something went wrong
@@ -1483,8 +1486,9 @@ function Watch() {
     return (
       <div className="watch-page">
         <Navbar />
+          <Sidebar />
 
-        <main className="main-content">
+          <main className="main-content">
           <p className="page-message">
             Video not found.
           </p>
@@ -1504,6 +1508,7 @@ function Watch() {
   return (
     <div className="watch-page">
       <Navbar />
+      <Sidebar />
 
       <main className="watch-content">
 

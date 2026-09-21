@@ -1,3 +1,4 @@
+import { useEffect, useRef } from "react";
 import { NavLink } from "react-router-dom";
 
 import {
@@ -13,15 +14,54 @@ import {
 } from "lucide-react";
 
 function Sidebar() {
+  const sidebarRef = useRef(null);
+
   const getClassName = ({ isActive }) =>
     isActive
       ? "sidebar-item active"
       : "sidebar-item";
 
-  return (
-    <aside className="sidebar">
+  useEffect(() => {
+    const sidebar = sidebarRef.current;
 
-      {/* HOME */}
+    if (!sidebar) return;
+
+    // Restore previous sidebar scroll position
+    const savedScrollPosition =
+      sessionStorage.getItem("sidebarScrollTop");
+
+    if (savedScrollPosition !== null) {
+      requestAnimationFrame(() => {
+        sidebar.scrollTop = Number(savedScrollPosition);
+      });
+    }
+
+    // Save sidebar scroll position
+    const handleScroll = () => {
+      sessionStorage.setItem(
+        "sidebarScrollTop",
+        String(sidebar.scrollTop)
+      );
+    };
+
+    sidebar.addEventListener(
+      "scroll",
+      handleScroll
+    );
+
+    return () => {
+      sidebar.removeEventListener(
+        "scroll",
+        handleScroll
+      );
+    };
+  }, []);
+
+  return (
+    <aside
+      className="sidebar"
+      ref={sidebarRef}
+    >
 
       <NavLink
         to="/"
@@ -32,9 +72,6 @@ function Sidebar() {
         <span>Home</span>
       </NavLink>
 
-
-      {/* TRENDING */}
-
       <NavLink
         to="/trending"
         className={getClassName}
@@ -42,9 +79,6 @@ function Sidebar() {
         <Flame size={22} />
         <span>Trending</span>
       </NavLink>
-
-
-      {/* SUBSCRIPTIONS */}
 
       <NavLink
         to="/subscriptions"
@@ -54,11 +88,7 @@ function Sidebar() {
         <span>Subscriptions</span>
       </NavLink>
 
-
       <hr />
-
-
-      {/* HISTORY */}
 
       <NavLink
         to="/history"
@@ -68,9 +98,6 @@ function Sidebar() {
         <span>History</span>
       </NavLink>
 
-
-      {/* WATCH LATER */}
-
       <NavLink
         to="/watch-later"
         className={getClassName}
@@ -78,9 +105,6 @@ function Sidebar() {
         <Clock size={22} />
         <span>Watch later</span>
       </NavLink>
-
-
-      {/* LIKED */}
 
       <NavLink
         to="/liked"
@@ -90,18 +114,6 @@ function Sidebar() {
         <span>Liked videos</span>
       </NavLink>
 
-      
-      <NavLink
-        to="/playlists"
-        className={getClassName}
-      >
-        <PlaySquare size={22} />
-        <span>My Playlists</span>
-      </NavLink>
-
-
-      {/* DISLIKED */}
-
       <NavLink
         to="/disliked"
         className={getClassName}
@@ -110,18 +122,11 @@ function Sidebar() {
         <span>Disliked videos</span>
       </NavLink>
 
-
       <hr />
-
-
-      {/* EXPLORE */}
 
       <h3 className="sidebar-title">
         Explore
       </h3>
-
-
-      {/* SHORTS */}
 
       <NavLink
         to="/shorts"
@@ -131,15 +136,20 @@ function Sidebar() {
         <span>Shorts</span>
       </NavLink>
 
-
-      {/* MUSIC */}
-
       <NavLink
         to="/music"
         className={getClassName}
       >
         <Music2 size={22} />
         <span>Music</span>
+      </NavLink>
+
+      <NavLink
+        to="/playlists"
+        className={getClassName}
+      >
+        <PlaySquare size={22} />
+        <span>My Playlists</span>
       </NavLink>
 
     </aside>

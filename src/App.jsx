@@ -4,6 +4,8 @@ import {
   Routes,
   Route,
   Link,
+  Navigate,
+  useNavigate,
 } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
@@ -20,6 +22,7 @@ import DislikedVideos from "./components/DislikedVideos";
 import Settings from "./components/Settings";
 import Playlists from "./components/Playlists";
 import Playlist from "./components/Playlist";
+import Auth from "./pages/Auth";
 
 import {
   getVideos,
@@ -32,6 +35,94 @@ import {
 } from "./services/videoApi";
 
 import Watch from "./pages/Watch";
+function ProtectedRoute({ children }) {
+  const navigate = useNavigate();
+
+  const currentUser = (() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("videoVerseCurrentUser")
+      );
+    } catch {
+      return null;
+    }
+  })();
+
+  if (!currentUser) {
+    return (
+      <div
+        style={{
+          minHeight: "100vh",
+          display: "flex",
+          alignItems: "center",
+          justifyContent: "center",
+          padding: "20px",
+          background: "var(--background-color, #0f0f0f)",
+        }}
+      >
+        <div
+          style={{
+            width: "100%",
+            maxWidth: "420px",
+            padding: "40px 30px",
+            textAlign: "center",
+            borderRadius: "18px",
+            background: "var(--card-background, #212121)",
+            border: "1px solid #333",
+            boxShadow: "0 10px 40px rgba(0,0,0,0.25)",
+          }}
+        >
+          <div
+            style={{
+              fontSize: "48px",
+              marginBottom: "18px",
+            }}
+          >
+            🔐
+          </div>
+
+          <h2
+            style={{
+              margin: "0 0 10px",
+              color: "var(--text-color, #fff)",
+            }}
+          >
+            Sign in required
+          </h2>
+
+          <p
+            style={{
+              margin: "0 0 25px",
+              color: "#aaa",
+              lineHeight: "1.6",
+            }}
+          >
+            Please sign in to access this section
+            of VideoVerse.
+          </p>
+
+          <button
+            onClick={() => navigate("/login")}
+            style={{
+              border: "none",
+              borderRadius: "10px",
+              padding: "12px 28px",
+              background: "#ff0000",
+              color: "#fff",
+              fontSize: "15px",
+              fontWeight: "600",
+              cursor: "pointer",
+            }}
+          >
+            Sign in
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return children;
+}
 
 
 // ================= HOME =================
@@ -704,6 +795,94 @@ function Subscriptions() {
     </>
   );
 }
+// ================= MUSIC =================
+
+function Music() {
+  const [videos, setVideos] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+
+  const loadMusicVideos = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const data = await getCategoryVideos("Music");
+
+      setVideos(data);
+    } catch (error) {
+      console.error("Music error:", error);
+
+      setVideos([]);
+
+      setError(
+        error?.message ||
+          "Unable to load music videos. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    loadMusicVideos();
+  }, []);
+
+  return (
+    <>
+      <Navbar />
+      <Sidebar />
+
+      <main className="main-content">
+
+        {loading ? (
+          <p className="page-message">
+            Loading music videos...
+          </p>
+        ) : error ? (
+          <div className="page-message">
+
+            <h2>Something went wrong</h2>
+
+            <p>{error}</p>
+
+            <button
+              onClick={loadMusicVideos}
+              style={{
+                marginTop: "15px",
+                padding: "10px 18px",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "600",
+              }}
+            >
+              Try Again
+            </button>
+
+          </div>
+        ) : (
+          <>
+            <h1>🎵 Music</h1>
+
+            <p className="page-message">
+              Latest music videos
+            </p>
+
+            {videos.length === 0 ? (
+              <p className="page-message">
+                No music videos found.
+              </p>
+            ) : (
+              <VideoGrid videos={videos} />
+            )}
+          </>
+        )}
+
+      </main>
+    </>
+  );
+}
 // ================= SHORTS =================
 
 function ShortsPage() {
@@ -804,6 +983,8 @@ function ShortsPage() {
 }
 
 
+
+
 // ================= APP =================
 
 function App() {
@@ -888,36 +1069,49 @@ function App() {
 
         <Route
           path="/watch/:id"
-          element={<Watch />}
+          element={
+            <ProtectedRoute>
+              <Watch />
+            </ProtectedRoute>
+          }
         />
 
         {/* TRENDING */}
 
         <Route
           path="/trending"
-          element={<Trending />}
+          element={
+            <ProtectedRoute>
+              <Trending />
+            </ProtectedRoute>
+          }
         />
 
         {/* SUBSCRIPTIONS */}
 
         <Route
           path="/subscriptions"
-          element={<Subscriptions />}
+          element={
+            <ProtectedRoute>
+              <Subscriptions />
+            </ProtectedRoute>
+          }
         />
+
 
         {/* HISTORY */}
 
         <Route
           path="/history"
           element={
-            <>
+            <ProtectedRoute>
               <Navbar />
               <Sidebar />
 
               <main className="main-content">
                 <History />
               </main>
-            </>
+            </ProtectedRoute>
           }
         />
 
@@ -926,14 +1120,13 @@ function App() {
         <Route
           path="/disliked"
           element={
-            <>
+            <ProtectedRoute>
               <Navbar />
               <Sidebar />
-
               <main className="main-content">
                 <DislikedVideos />
               </main>
-            </>
+            </ProtectedRoute>
           }
         />
 
@@ -942,14 +1135,14 @@ function App() {
         <Route
           path="/watch-later"
           element={
-            <>
+            <ProtectedRoute>
               <Navbar />
               <Sidebar />
 
               <main className="main-content">
                 <WatchLater />
               </main>
-            </>
+            </ProtectedRoute>
           }
         />
 
@@ -958,14 +1151,13 @@ function App() {
         <Route
           path="/liked"
           element={
-            <>
+            <ProtectedRoute>
               <Navbar />
               <Sidebar />
-
               <main className="main-content">
                 <LikedVideos />
               </main>
-            </>
+            </ProtectedRoute>
           }
         />
 
@@ -980,12 +1172,7 @@ function App() {
 
         <Route
           path="/music"
-          element={
-            <Page
-              title="Music"
-              message="Music videos will appear here."
-            />
-          }
+          element={<Music />}
         />
 
         {/* SEARCH */}
@@ -1006,27 +1193,18 @@ function App() {
 
         <Route
           path="/settings"
-          element={
-            <>
-              <Navbar />
-              <Sidebar />
-
-              <main className="main-content">
-                <Settings />
-              </main>
-            </>
-          }
+          element={<Settings />}
         />
         <Route
           path="/playlists"
           element={
-            <>
+            <ProtectedRoute>
               <Navbar />
               <Sidebar />
               <main className="main-content">
                 <Playlists />
               </main>
-            </>
+            </ProtectedRoute>
           }
         />
         <Route
@@ -1040,6 +1218,10 @@ function App() {
               </main>
             </>
           }
+        />
+        <Route
+          path="/login"
+          element={<Auth />}
         />
 
       </Routes>

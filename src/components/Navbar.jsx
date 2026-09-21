@@ -8,6 +8,7 @@ import {
   Bell,
   Sun,
   Moon,
+  LogIn,
 } from "lucide-react";
 
 import {
@@ -20,17 +21,24 @@ import { useNavigate } from "react-router-dom";
 function Navbar({ search, setSearch }) {
   const navigate = useNavigate();
 
-  const [localSearch, setLocalSearch] =
-    useState("");
+  const [localSearch, setLocalSearch] = useState("");
+  const [showRecent, setShowRecent] = useState(false);
+  const [showNotifications, setShowNotifications] = useState(false);
+  const [showProfile, setShowProfile] = useState(false);
 
-  const [showRecent, setShowRecent] =
-    useState(false);
+  /* ==============================
+     CURRENT USER
+     ============================== */
 
-  const [showNotifications, setShowNotifications] =
-    useState(false);
-
-  const [showProfile, setShowProfile] =
-    useState(false);
+  const [currentUser, setCurrentUser] = useState(() => {
+    try {
+      return JSON.parse(
+        localStorage.getItem("videoVerseCurrentUser")
+      );
+    } catch {
+      return null;
+    }
+  });
 
   /* ==============================
      SIDEBAR TOGGLE
@@ -38,9 +46,7 @@ function Navbar({ search, setSearch }) {
 
   const handleMenuClick = () => {
     const isCollapsed =
-      document.body.classList.toggle(
-        "sidebar-collapsed"
-      );
+      document.body.classList.toggle("sidebar-collapsed");
 
     window.dispatchEvent(
       new CustomEvent("sidebarToggle", {
@@ -55,42 +61,26 @@ function Navbar({ search, setSearch }) {
      THEME
      ============================== */
 
-  const [isLightTheme, setIsLightTheme] =
-    useState(() => {
-      return (
-        localStorage.getItem(
-          "theme"
-        ) === "light"
-      );
-    });
+  const [isLightTheme, setIsLightTheme] = useState(() => {
+    return (
+      localStorage.getItem("theme") === "light"
+    );
+  });
 
   useEffect(() => {
     if (isLightTheme) {
-      document.body.classList.add(
-        "light-theme"
-      );
+      document.body.classList.add("light-theme");
 
-      localStorage.setItem(
-        "theme",
-        "light"
-      );
+      localStorage.setItem("theme", "light");
     } else {
-      document.body.classList.remove(
-        "light-theme"
-      );
+      document.body.classList.remove("light-theme");
 
-      localStorage.setItem(
-        "theme",
-        "dark"
-      );
+      localStorage.setItem("theme", "dark");
     }
   }, [isLightTheme]);
 
   const toggleTheme = () => {
-    setIsLightTheme(
-      (prev) => !prev
-    );
-
+    setIsLightTheme((prev) => !prev);
     setShowProfile(false);
   };
 
@@ -98,40 +88,29 @@ function Navbar({ search, setSearch }) {
      RECENT SEARCHES
      ============================== */
 
-  const [recentSearches, setRecentSearches] =
-    useState(() => {
-      return JSON.parse(
-        localStorage.getItem(
-          "recentSearches"
-        ) || "[]"
-      );
-    });
+  const [recentSearches, setRecentSearches] = useState(() => {
+    return JSON.parse(
+      localStorage.getItem("recentSearches") || "[]"
+    );
+  });
 
   /* ==============================
      NOTIFICATIONS
      ============================== */
 
-  const [notifications, setNotifications] =
-    useState(() => {
-      return JSON.parse(
-        localStorage.getItem(
-          "notifications"
-        ) || "[]"
-      );
-    });
+  const [notifications, setNotifications] = useState(() => {
+    return JSON.parse(
+      localStorage.getItem("notifications") || "[]"
+    );
+  });
 
   useEffect(() => {
     const syncNotifications = () => {
-      const savedNotifications =
-        JSON.parse(
-          localStorage.getItem(
-            "notifications"
-          ) || "[]"
-        );
-
-      setNotifications(
-        savedNotifications
+      const savedNotifications = JSON.parse(
+        localStorage.getItem("notifications") || "[]"
       );
+
+      setNotifications(savedNotifications);
     };
 
     window.addEventListener(
@@ -153,6 +132,46 @@ function Navbar({ search, setSearch }) {
       window.removeEventListener(
         "storage",
         syncNotifications
+      );
+    };
+  }, []);
+
+  /* ==============================
+     SYNC CURRENT USER
+     ============================== */
+
+  useEffect(() => {
+    const syncCurrentUser = () => {
+      try {
+        const savedUser = JSON.parse(
+          localStorage.getItem("videoVerseCurrentUser")
+        );
+
+        setCurrentUser(savedUser);
+      } catch {
+        setCurrentUser(null);
+      }
+    };
+
+    window.addEventListener(
+      "storage",
+      syncCurrentUser
+    );
+
+    window.addEventListener(
+      "authUpdated",
+      syncCurrentUser
+    );
+
+    return () => {
+      window.removeEventListener(
+        "storage",
+        syncCurrentUser
+      );
+
+      window.removeEventListener(
+        "authUpdated",
+        syncCurrentUser
       );
     };
   }, []);
@@ -192,23 +211,17 @@ function Navbar({ search, setSearch }) {
       ),
     ].slice(0, 5);
 
-    setRecentSearches(
-      updatedSearches
-    );
+    setRecentSearches(updatedSearches);
 
     localStorage.setItem(
       "recentSearches",
-      JSON.stringify(
-        updatedSearches
-      )
+      JSON.stringify(updatedSearches)
     );
 
     setShowRecent(false);
 
     navigate(
-      `/search?q=${encodeURIComponent(
-        query
-      )}`
+      `/search?q=${encodeURIComponent(query)}`
     );
   };
 
@@ -218,31 +231,23 @@ function Navbar({ search, setSearch }) {
     }
   };
 
-  const handleRecentClick = (
-    item
-  ) => {
+  const handleRecentClick = (item) => {
     updateSearch(item);
     handleSearch(item);
   };
 
-  const removeRecentSearch = (
-    item
-  ) => {
+  const removeRecentSearch = (item) => {
     const updatedSearches =
       recentSearches.filter(
         (searchItem) =>
           searchItem !== item
       );
 
-    setRecentSearches(
-      updatedSearches
-    );
+    setRecentSearches(updatedSearches);
 
     localStorage.setItem(
       "recentSearches",
-      JSON.stringify(
-        updatedSearches
-      )
+      JSON.stringify(updatedSearches)
     );
   };
 
@@ -255,7 +260,7 @@ function Navbar({ search, setSearch }) {
   };
 
   /* ==============================
-     NOTIFICATIONS
+     NOTIFICATION ACTIONS
      ============================== */
 
   const unreadCount =
@@ -284,9 +289,7 @@ function Navbar({ search, setSearch }) {
 
     localStorage.setItem(
       "notifications",
-      JSON.stringify(
-        updatedNotifications
-      )
+      JSON.stringify(updatedNotifications)
     );
 
     setShowNotifications(false);
@@ -298,27 +301,24 @@ function Navbar({ search, setSearch }) {
     }
   };
 
-  const markAllNotificationsRead =
-    () => {
-      const updatedNotifications =
-        notifications.map(
-          (notification) => ({
-            ...notification,
-            read: true,
-          })
-        );
-
-      setNotifications(
-        updatedNotifications
+  const markAllNotificationsRead = () => {
+    const updatedNotifications =
+      notifications.map(
+        (notification) => ({
+          ...notification,
+          read: true,
+        })
       );
 
-      localStorage.setItem(
-        "notifications",
-        JSON.stringify(
-          updatedNotifications
-        )
-      );
-    };
+    setNotifications(
+      updatedNotifications
+    );
+
+    localStorage.setItem(
+      "notifications",
+      JSON.stringify(updatedNotifications)
+    );
+  };
 
   const clearNotifications = () => {
     setNotifications([]);
@@ -349,6 +349,7 @@ function Navbar({ search, setSearch }) {
 
   const handleSettings = () => {
     setShowProfile(false);
+
     navigate("/settings");
   };
 
@@ -360,11 +361,30 @@ function Navbar({ search, setSearch }) {
     );
   };
 
-  const handleSignOut = () => {
+  /* ==============================
+     SIGN IN
+     ============================== */
+
+  const handleSignIn = () => {
     setShowProfile(false);
 
-    alert(
-      "Sign out functionality coming soon"
+    navigate("/login");
+  };
+
+  /* ==============================
+     SIGN OUT
+     ============================== */
+
+  const handleSignOut = () => {
+    localStorage.removeItem(
+      "videoVerseCurrentUser"
+    );
+
+    setCurrentUser(null);
+    setShowProfile(false);
+
+    window.dispatchEvent(
+      new Event("authUpdated")
     );
   };
 
@@ -426,8 +446,7 @@ function Navbar({ search, setSearch }) {
         <Mic className="mic-icon" />
 
         {showRecent &&
-          recentSearches.length >
-            0 && (
+          recentSearches.length > 0 && (
             <div className="recent-searches">
 
               <div className="recent-title">
@@ -460,9 +479,7 @@ function Navbar({ search, setSearch }) {
                     }
                   >
 
-                    <Clock
-                      size={18}
-                    />
+                    <Clock size={18} />
 
                     <span>
                       {item}
@@ -499,7 +516,9 @@ function Navbar({ search, setSearch }) {
 
       <div className="nav-right">
 
-        {/* NOTIFICATIONS */}
+        {/* ==========================
+            NOTIFICATIONS
+            ========================== */}
 
         <div className="notification-container">
 
@@ -523,6 +542,7 @@ function Navbar({ search, setSearch }) {
                   : unreadCount}
               </span>
             )}
+
           </button>
 
           {showNotifications && (
@@ -579,9 +599,7 @@ function Navbar({ search, setSearch }) {
                         }
                       >
 
-                        <Bell
-                          size={18}
-                        />
+                        <Bell size={18} />
 
                         <div>
 
@@ -629,7 +647,9 @@ function Navbar({ search, setSearch }) {
 
         </div>
 
-        {/* PROFILE */}
+        {/* ==========================
+            PROFILE
+            ========================== */}
 
         <div className="profile-container">
 
@@ -645,6 +665,8 @@ function Navbar({ search, setSearch }) {
           {showProfile && (
             <div className="profile-dropdown">
 
+              {/* PROFILE HEADER */}
+
               <div className="profile-dropdown-header">
 
                 <UserCircle size={42} />
@@ -652,11 +674,13 @@ function Navbar({ search, setSearch }) {
                 <div>
 
                   <strong>
-                    Ritesh Raj
+                    {currentUser?.name ||
+                      "Guest User"}
                   </strong>
 
                   <span>
-                    @ritesh
+                    {currentUser?.email ||
+                      "Not signed in"}
                   </span>
 
                 </div>
@@ -664,6 +688,8 @@ function Navbar({ search, setSearch }) {
               </div>
 
               <hr />
+
+              {/* YOUR CHANNEL */}
 
               <button
                 onClick={
@@ -675,8 +701,9 @@ function Navbar({ search, setSearch }) {
                 <span>
                   Your channel
                 </span>
-
               </button>
+
+              {/* SETTINGS */}
 
               <button
                 onClick={
@@ -690,8 +717,9 @@ function Navbar({ search, setSearch }) {
                 <span>
                   Settings
                 </span>
-
               </button>
+
+              {/* YOUR DATA */}
 
               <button
                 onClick={
@@ -705,7 +733,6 @@ function Navbar({ search, setSearch }) {
                 <span>
                   Your data
                 </span>
-
               </button>
 
               <hr />
@@ -729,23 +756,37 @@ function Navbar({ search, setSearch }) {
                     ? "Light"
                     : "Dark"}
                 </span>
-
               </button>
 
-              <button
-                onClick={
-                  handleSignOut
-                }
-              >
-                <span className="profile-emoji">
-                  🚪
-                </span>
+              {/* AUTH ACTION */}
 
-                <span>
-                  Sign out
-                </span>
+              {currentUser ? (
+                <button
+                  onClick={
+                    handleSignOut
+                  }
+                >
+                  <span className="profile-emoji">
+                    🚪
+                  </span>
 
-              </button>
+                  <span>
+                    Sign out
+                  </span>
+                </button>
+              ) : (
+                <button
+                  onClick={
+                    handleSignIn
+                  }
+                >
+                  <LogIn size={20} />
+
+                  <span>
+                    Sign in
+                  </span>
+                </button>
+              )}
 
             </div>
           )}
