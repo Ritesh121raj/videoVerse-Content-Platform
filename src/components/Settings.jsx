@@ -289,7 +289,7 @@ function Settings() {
     alert("Password changed successfully.");
   };
 
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (!currentUser) return;
 
     const confirmed = window.confirm(
@@ -298,17 +298,66 @@ function Settings() {
 
     if (!confirmed) return;
 
-    const users = JSON.parse(localStorage.getItem("videoVerseUsers")) || [];
-    const updatedUsers = users.filter((user) => user.id !== currentUser.id);
+    try {
+      const token = localStorage.getItem("videoVerseToken");
 
-    localStorage.setItem("videoVerseUsers", JSON.stringify(updatedUsers));
-    localStorage.removeItem("videoVerseCurrentUser");
-    setCurrentUser(null);
-    setIsEditingProfile(false);
-    setIsChangingPassword(false);
-    window.dispatchEvent(new Event("authUpdated"));
-    alert("Your VideoVerse account has been deleted.");
-    navigate("/login");
+      if (!token) {
+        alert("Your session has expired. Please login again.");
+        navigate("/login");
+        return;
+      }
+
+      const API_URL =
+        "https://videoverse-content-platform.onrender.com/api";
+
+      const response = await fetch(
+        `${API_URL}/auth/profile`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(
+          data.message ||
+            "Unable to delete your account."
+        );
+        return;
+      }
+
+      // Remove authentication data
+      localStorage.removeItem("videoVerseToken");
+      localStorage.removeItem("videoVerseCurrentUser");
+
+      setCurrentUser(null);
+      setIsEditingProfile(false);
+      setIsChangingPassword(false);
+
+      window.dispatchEvent(
+        new Event("authUpdated")
+      );
+
+      alert(
+        "Your VideoVerse account has been deleted."
+      );
+
+      navigate("/login");
+
+    } catch (error) {
+      console.error(
+        "Delete account error:",
+        error
+      );
+
+      alert(
+        "Unable to connect to the backend."
+      );
+    }
   };
 
   /* ==============================
