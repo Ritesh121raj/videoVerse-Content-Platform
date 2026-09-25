@@ -34,6 +34,23 @@ function History() {
     };
 
     loadHistory();
+
+    // Listen for history changes from other parts of the app
+    const handleActivityUpdate = () => {
+      loadHistory();
+    };
+
+    window.addEventListener(
+      "activityUpdated",
+      handleActivityUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "activityUpdated",
+        handleActivityUpdate
+      );
+    };
   }, []);
 
   const removeFromHistory = (videoId) => {
@@ -54,11 +71,20 @@ function History() {
         (video) => video.id !== videoId
       )
     );
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
   };
 
   const clearAllHistory = () => {
     localStorage.removeItem("history");
+
     setHistoryVideos([]);
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
   };
 
   return (

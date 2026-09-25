@@ -4,14 +4,13 @@ import {
   Routes,
   Route,
   Link,
-  Navigate,
   useNavigate,
+  useLocation,
 } from "react-router-dom";
 
 import Navbar from "./components/Navbar";
 import Sidebar from "./components/Sidebar";
 import Shorts from "./components/Shorts";
-import Page from "./components/Page";
 import VideoGrid from "./components/VideoGrid";
 import History from "./components/History";
 import WatchLater from "./components/WatchLater";
@@ -23,10 +22,11 @@ import Settings from "./components/Settings";
 import Playlists from "./components/Playlists";
 import Playlist from "./components/Playlist";
 import Auth from "./pages/Auth";
+import ShortsPage from "./components/ShortsPage";
+import YourData from "./pages/YourData";
 
 import {
   getVideos,
-  searchVideos,
   getCategoryVideos,
   getTrendingVideos,
   getChannelVideos,
@@ -35,8 +35,15 @@ import {
 } from "./services/videoApi";
 
 import Watch from "./pages/Watch";
+
+
+// ======================================================
+// PROTECTED ROUTE
+// ======================================================
+
 function ProtectedRoute({ children }) {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const currentUser = (() => {
     try {
@@ -49,6 +56,10 @@ function ProtectedRoute({ children }) {
   })();
 
   if (!currentUser) {
+    const redirectPath =
+      location.pathname +
+      location.search;
+
     return (
       <div
         style={{
@@ -57,7 +68,8 @@ function ProtectedRoute({ children }) {
           alignItems: "center",
           justifyContent: "center",
           padding: "20px",
-          background: "var(--background-color, #0f0f0f)",
+          background:
+            "var(--background-color, #0f0f0f)",
         }}
       >
         <div
@@ -67,9 +79,11 @@ function ProtectedRoute({ children }) {
             padding: "40px 30px",
             textAlign: "center",
             borderRadius: "18px",
-            background: "var(--card-background, #212121)",
+            background:
+              "var(--card-background, #212121)",
             border: "1px solid #333",
-            boxShadow: "0 10px 40px rgba(0,0,0,0.25)",
+            boxShadow:
+              "0 10px 40px rgba(0,0,0,0.25)",
           }}
         >
           <div
@@ -84,7 +98,8 @@ function ProtectedRoute({ children }) {
           <h2
             style={{
               margin: "0 0 10px",
-              color: "var(--text-color, #fff)",
+              color:
+                "var(--text-color, #fff)",
             }}
           >
             Sign in required
@@ -97,12 +112,18 @@ function ProtectedRoute({ children }) {
               lineHeight: "1.6",
             }}
           >
-            Please sign in to access this section
-            of VideoVerse.
+            Please sign in to access this
+            section of VideoVerse.
           </p>
 
           <button
-            onClick={() => navigate("/login")}
+            onClick={() =>
+              navigate(
+                `/login?redirect=${encodeURIComponent(
+                  redirectPath
+                )}`
+              )
+            }
             style={{
               border: "none",
               borderRadius: "10px",
@@ -125,14 +146,20 @@ function ProtectedRoute({ children }) {
 }
 
 
-// ================= HOME =================
+// ======================================================
+// HOME
+// ======================================================
 
 function Home({ videos }) {
   const [search, setSearch] = useState("");
-  const [category, setCategory] = useState("All");
+  const [category, setCategory] =
+    useState("All");
 
-  const [displayVideos, setDisplayVideos] = useState(videos);
-  const [searching, setSearching] = useState(false);
+  const [displayVideos, setDisplayVideos] =
+    useState(videos || []);
+
+  const [searching, setSearching] =
+    useState(false);
 
   const categories = [
     "All",
@@ -144,36 +171,45 @@ function Home({ videos }) {
     "Sports",
   ];
 
+  useEffect(() => {
+    if (category === "All") {
+      setDisplayVideos(videos || []);
+    }
+  }, [videos, category]);
+
   const handleCategory = async (item) => {
     setCategory(item);
 
-    // All → show original videos
     if (item === "All") {
-      setDisplayVideos(videos);
+      setDisplayVideos(videos || []);
       return;
     }
 
     try {
       setSearching(true);
 
-      const results = await getCategoryVideos(item);
+      const results =
+        await getCategoryVideos(item);
 
-      setDisplayVideos(results);
+      setDisplayVideos(results || []);
     } catch (error) {
-      console.error("Category error:", error);
+      console.error(
+        "Category error:",
+        error
+      );
 
       setDisplayVideos([]);
 
-      alert("Unable to load category videos.");
+      alert(
+        "Unable to load category videos."
+      );
     } finally {
       setSearching(false);
     }
   };
 
   const filteredVideos =
-    category === "All"
-      ? displayVideos
-      : displayVideos;
+    displayVideos || [];
 
   return (
     <>
@@ -186,9 +222,7 @@ function Home({ videos }) {
 
       <main className="main-content">
 
-        {/* Categories */}
         <div className="categories">
-
           {categories.map((item) => (
             <button
               key={item}
@@ -197,22 +231,21 @@ function Home({ videos }) {
                   ? "category active"
                   : "category"
               }
-              onClick={() => handleCategory(item)}
+              onClick={() =>
+                handleCategory(item)
+              }
             >
               {item}
             </button>
           ))}
-
         </div>
 
-        {/* Category heading */}
         {category !== "All" && (
           <h2 className="category-heading">
             {category}
           </h2>
         )}
 
-        {/* Loading */}
         {searching ? (
           <p className="page-message">
             Loading {category} videos...
@@ -222,7 +255,9 @@ function Home({ videos }) {
             No videos found.
           </p>
         ) : (
-          <VideoGrid videos={filteredVideos} />
+          <VideoGrid
+            videos={filteredVideos}
+          />
         )}
 
       </main>
@@ -231,23 +266,34 @@ function Home({ videos }) {
 }
 
 
-// ================= TRENDING =================
+// ======================================================
+// TRENDING
+// ======================================================
 
 function Trending() {
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [videos, setVideos] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState(null);
 
   const loadTrending = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const data = await getTrendingVideos();
+      const data =
+        await getTrendingVideos();
 
       setVideos(data);
     } catch (error) {
-      console.error("Trending error:", error);
+      console.error(
+        "Trending error:",
+        error
+      );
 
       setVideos([]);
 
@@ -277,7 +323,10 @@ function Trending() {
           </p>
         ) : error ? (
           <div className="page-message">
-            <h2>Something went wrong</h2>
+
+            <h2>
+              Something went wrong
+            </h2>
 
             <p>{error}</p>
 
@@ -294,6 +343,7 @@ function Trending() {
             >
               Try Again
             </button>
+
           </div>
         ) : (
           <>
@@ -308,7 +358,9 @@ function Trending() {
                 No trending videos found.
               </p>
             ) : (
-              <VideoGrid videos={videos} />
+              <VideoGrid
+                videos={videos}
+              />
             )}
           </>
         )}
@@ -317,7 +369,11 @@ function Trending() {
     </>
   );
 }
-// ================= SUBSCRIPTIONS =================
+
+
+// ======================================================
+// SUBSCRIPTIONS
+// ======================================================
 
 function Subscriptions() {
   const [subscribedChannels, setSubscribedChannels] =
@@ -335,227 +391,234 @@ function Subscriptions() {
   const CACHE_TIME =
     10 * 60 * 1000;
 
-  const loadSubscriptions = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const loadSubscriptions =
+    async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      // =========================================
-      // GET SAVED SUBSCRIPTIONS
-      // =========================================
+        const storedSubscriptions =
+          JSON.parse(
+            localStorage.getItem(
+              "subscribedChannels"
+            )
+          ) || [];
 
-      const storedSubscriptions =
-        JSON.parse(
-          localStorage.getItem(
-            "subscribedChannels"
+        if (
+          storedSubscriptions.length === 0
+        ) {
+          setSubscribedChannels([]);
+          setChannelVideos({});
+          setLoading(false);
+          return;
+        }
+
+        const channelIds =
+          storedSubscriptions
+            .map(
+              (channel) => channel.id
+            )
+            .filter(Boolean);
+
+        if (channelIds.length === 0) {
+          setSubscribedChannels(
+            storedSubscriptions
+          );
+
+          setChannelVideos({});
+          setLoading(false);
+          return;
+        }
+
+        let channelImages = {};
+
+        try {
+          channelImages =
+            await getChannelImages(
+              channelIds
+            );
+        } catch (imageError) {
+          console.error(
+            "Channel image error:",
+            imageError
+          );
+
+          channelImages = {};
+        }
+
+        const updatedSubscriptions =
+          storedSubscriptions.map(
+            (channel) => {
+              const freshImage =
+                channelImages[
+                  channel.id
+                ] || "";
+
+              return {
+                ...channel,
+
+                image:
+                  freshImage ||
+                  channel.image ||
+                  "",
+
+                profileImage:
+                  freshImage ||
+                  channel.profileImage ||
+                  "",
+              };
+            }
+          );
+
+        localStorage.setItem(
+          "subscribedChannels",
+          JSON.stringify(
+            updatedSubscriptions
           )
-        ) || [];
+        );
 
-      if (
-        storedSubscriptions.length === 0
-      ) {
+        setSubscribedChannels(
+          updatedSubscriptions
+        );
+
+        const channelResults =
+          await Promise.all(
+            updatedSubscriptions.map(
+              async (channel) => {
+                try {
+                  const cacheKey =
+                    `subscriptionVideos_${channel.id}`;
+
+                  const cachedData =
+                    JSON.parse(
+                      localStorage.getItem(
+                        cacheKey
+                      )
+                    );
+
+                  const now =
+                    Date.now();
+
+                  if (
+                    cachedData &&
+                    cachedData.timestamp &&
+                    now -
+                      cachedData.timestamp <
+                      CACHE_TIME
+                  ) {
+                    return {
+                      channelId:
+                        channel.id,
+                      videos:
+                        cachedData.videos ||
+                        [],
+                    };
+                  }
+
+                  const image =
+                    channelImages[
+                      channel.id
+                    ] || "";
+
+                  const videos =
+                    await getChannelVideos(
+                      channel.id,
+                      image
+                    );
+
+                  const uniqueVideos =
+                    (videos || []).filter(
+                      (
+                        video,
+                        index,
+                        array
+                      ) =>
+                        index ===
+                        array.findIndex(
+                          (item) =>
+                            item.id ===
+                            video.id
+                        )
+                    );
+
+                  localStorage.setItem(
+                    cacheKey,
+                    JSON.stringify({
+                      timestamp:
+                        Date.now(),
+                      videos:
+                        uniqueVideos,
+                    })
+                  );
+
+                  return {
+                    channelId:
+                      channel.id,
+                    videos:
+                      uniqueVideos,
+                  };
+                } catch (
+                  channelError
+                ) {
+                  console.error(
+                    `Error loading videos for ${channel.name}:`,
+                    channelError
+                  );
+
+                  return {
+                    channelId:
+                      channel.id,
+                    videos: [],
+                  };
+                }
+              }
+            )
+          );
+
+        const videosByChannel = {};
+
+        channelResults.forEach(
+          (result) => {
+            videosByChannel[
+              result.channelId
+            ] = result.videos;
+          }
+        );
+
+        setChannelVideos(
+          videosByChannel
+        );
+      } catch (error) {
+        console.error(
+          "Subscriptions error:",
+          error
+        );
+
         setSubscribedChannels([]);
         setChannelVideos({});
-        return;
-      }
 
-      // =========================================
-      // GET CHANNEL IDS
-      // =========================================
-
-      const channelIds =
-        storedSubscriptions
-          .map(
-            (channel) => channel.id
-          )
-          .filter(Boolean);
-
-      // =========================================
-      // GET FRESH PROFILE IMAGES
-      // =========================================
-
-      const channelImages =
-        await getChannelImages(
-          channelIds
+        setError(
+          error?.message ||
+            "Unable to load subscriptions. Please try again."
         );
-
-      // =========================================
-      // UPDATE SUBSCRIPTIONS
-      // =========================================
-
-      const updatedSubscriptions =
-        storedSubscriptions.map(
-          (channel) => {
-            const freshImage =
-              channelImages[
-                channel.id
-              ] || "";
-
-            return {
-              ...channel,
-
-              image:
-                freshImage ||
-                channel.image ||
-                "",
-
-              profileImage:
-                freshImage ||
-                channel.profileImage ||
-                "",
-            };
-          }
-        );
-
-      // =========================================
-      // SAVE NEW IMAGES
-      // =========================================
-
-      localStorage.setItem(
-        "subscribedChannels",
-        JSON.stringify(
-          updatedSubscriptions
-        )
-      );
-
-      setSubscribedChannels(
-        updatedSubscriptions
-      );
-
-      // =========================================
-      // LOAD VIDEOS
-      // =========================================
-
-      const videosByChannel = {};
-
-      for (
-        const channel of updatedSubscriptions
-      ) {
-        try {
-          const cacheKey =
-            `subscriptionVideos_${channel.id}`;
-
-          const cachedData =
-            JSON.parse(
-              localStorage.getItem(
-                cacheKey
-              )
-            );
-
-          const now = Date.now();
-
-          // =====================================
-          // USE CACHE
-          // =====================================
-
-          if (
-            cachedData &&
-            cachedData.timestamp &&
-            now -
-              cachedData.timestamp <
-              CACHE_TIME
-          ) {
-            videosByChannel[
-              channel.id
-            ] =
-              cachedData.videos || [];
-
-            continue;
-          }
-
-          // =====================================
-          // FETCH VIDEOS
-          // =====================================
-
-          const image =
-            channelImages[
-              channel.id
-            ] || "";
-
-          const videos =
-            await getChannelVideos(
-              channel.id,
-              image
-            );
-
-          const uniqueVideos =
-            videos.filter(
-              (video, index, array) =>
-                index ===
-                array.findIndex(
-                  (item) =>
-                    item.id ===
-                    video.id
-                )
-            );
-
-          videosByChannel[
-            channel.id
-          ] = uniqueVideos;
-
-          // =====================================
-          // SAVE VIDEO CACHE
-          // =====================================
-
-          localStorage.setItem(
-            cacheKey,
-            JSON.stringify({
-              timestamp:
-                Date.now(),
-              videos:
-                uniqueVideos,
-            })
-          );
-
-        } catch (error) {
-          console.error(
-            `Error loading videos for ${channel.name}:`,
-            error
-          );
-
-          videosByChannel[
-            channel.id
-          ] = [];
-        }
+      } finally {
+        setLoading(false);
       }
-
-      setChannelVideos(
-        videosByChannel
-      );
-
-    } catch (error) {
-      console.error(
-        "Subscriptions error:",
-        error
-      );
-
-      setSubscribedChannels([]);
-      setChannelVideos({});
-
-      setError(
-        error?.message ||
-          "Unable to load subscriptions. Please try again."
-      );
-
-    } finally {
-      setLoading(false);
-    }
-  };
+    };
 
   useEffect(() => {
     loadSubscriptions();
   }, []);
 
-  // =========================================
-  // IMAGE ERROR FALLBACK
-  // =========================================
-
-  const handleImageError = (event) => {
+  const handleImageError = (
+    event
+  ) => {
     event.currentTarget.style.display =
       "none";
 
     const parent =
-      event.currentTarget.parentElement;
+      event.currentTarget
+        .parentElement;
 
     const fallback =
       parent?.querySelector(
@@ -575,11 +638,8 @@ function Subscriptions() {
 
       <main className="main-content">
 
-        {/* =====================================
-            HEADER
-        ====================================== */}
-
         <div className="subscription-header">
+
           <h1>
             Subscriptions
           </h1>
@@ -588,20 +648,17 @@ function Subscriptions() {
             {subscribedChannels.length}{" "}
             subscribed channels
           </p>
-        </div>
 
-        {/* =====================================
-            CHANNEL LIST
-        ====================================== */}
+        </div>
 
         {!loading &&
           !error &&
-          subscribedChannels.length > 0 && (
+          subscribedChannels.length >
+            0 && (
             <div className="subscribed-channels">
 
               {subscribedChannels.map(
                 (channel) => {
-
                   const image =
                     channel.image ||
                     channel.profileImage ||
@@ -609,44 +666,40 @@ function Subscriptions() {
 
                   return (
                     <Link
+                      key={channel.id}
                       to={`/channel/${channel.id}`}
                       className="subscribed-channel"
-                      key={channel.id}
                     >
-
                       <div className="profile-image-wrapper">
 
-                        {image && (
+                        {image ? (
                           <img
                             src={image}
-                            alt=""
+                            alt={
+                              channel.name ||
+                              "Channel"
+                            }
                             onError={
                               handleImageError
                             }
                           />
+                        ) : (
+                          <div className="profile-fallback">
+                            {channel.name
+                              ?.charAt(
+                                0
+                              )
+                              ?.toUpperCase() ||
+                              "C"}
+                          </div>
                         )}
-
-                        <div
-                          className="profile-fallback"
-                          style={{
-                            display:
-                              image
-                                ? "none"
-                                : "flex",
-                          }}
-                        >
-                          {channel.name
-                            ?.charAt(0)
-                            ?.toUpperCase() ||
-                            "C"}
-                        </div>
 
                       </div>
 
                       <span>
-                        {channel.name}
+                        {channel.name ||
+                          "Channel"}
                       </span>
-
                     </Link>
                   );
                 }
@@ -655,34 +708,25 @@ function Subscriptions() {
             </div>
           )}
 
-        {/* =====================================
-            LOADING
-        ====================================== */}
-
-        {loading ? (
-
+        {loading && (
           <p className="page-message">
             Loading subscriptions...
           </p>
+        )}
 
-        ) : error ? (
-
-          /* =====================================
-              ERROR
-          ====================================== */
-
+        {!loading && error && (
           <div className="page-message">
 
             <h2>
               Something went wrong
             </h2>
 
-            <p>
-              {error}
-            </p>
+            <p>{error}</p>
 
             <button
-              onClick={loadSubscriptions}
+              onClick={
+                loadSubscriptions
+              }
               style={{
                 marginTop: "15px",
                 padding: "10px 18px",
@@ -696,133 +740,156 @@ function Subscriptions() {
             </button>
 
           </div>
-
-        ) : subscribedChannels.length === 0 ? (
-
-          <p className="page-message">
-            You haven't subscribed to any
-            channels yet.
-          </p>
-
-        ) : (
-
-          <div className="subscription-sections">
-
-            {subscribedChannels.map(
-              (channel) => {
-
-                const videos =
-                  channelVideos[
-                    channel.id
-                  ] || [];
-
-                if (
-                  videos.length === 0
-                ) {
-                  return null;
-                }
-
-                const image =
-                  channel.image ||
-                  channel.profileImage ||
-                  "";
-
-                return (
-                  <section
-                    className="subscription-section"
-                    key={channel.id}
-                  >
-
-                    {/* CHANNEL HEADER */}
-
-                    <div className="subscription-section-header">
-
-                      <Link
-                        to={`/channel/${channel.id}`}
-                        className="subscription-channel-info"
-                      >
-
-                        <div className="subscription-section-avatar">
-
-                          {image ? (
-                            <img
-                              src={image}
-                              alt=""
-                              onError={
-                                handleImageError
-                              }
-                            />
-                          ) : (
-                            <div className="profile-fallback">
-                              {channel.name
-                                ?.charAt(0)
-                                ?.toUpperCase() ||
-                                "C"}
-                            </div>
-                          )}
-
-                        </div>
-
-                        <div>
-                          <h2>
-                            {channel.name}
-                          </h2>
-
-                          <span>
-                            View channel
-                          </span>
-                        </div>
-
-                      </Link>
-
-                    </div>
-
-                    {/* VIDEOS */}
-
-                    <VideoGrid
-                      videos={videos}
-                    />
-
-                  </section>
-                );
-              }
-            )}
-
-          </div>
         )}
+
+        {!loading &&
+          !error &&
+          subscribedChannels.length ===
+            0 && (
+            <p className="page-message">
+              You haven't subscribed to
+              any channels yet.
+            </p>
+          )}
+
+        {!loading &&
+          !error &&
+          subscribedChannels.length >
+            0 && (
+            <div className="subscription-sections">
+
+              {subscribedChannels.map(
+                (channel) => {
+                  const videos =
+                    channelVideos[
+                      channel.id
+                    ] || [];
+
+                  if (
+                    videos.length === 0
+                  ) {
+                    return null;
+                  }
+
+                  const image =
+                    channel.image ||
+                    channel.profileImage ||
+                    "";
+
+                  return (
+                    <section
+                      className="subscription-section"
+                      key={channel.id}
+                    >
+
+                      <div className="subscription-section-header">
+
+                        <Link
+                          to={`/channel/${channel.id}`}
+                          className="subscription-channel-info"
+                        >
+
+                          <div className="subscription-section-avatar">
+
+                            {image ? (
+                              <img
+                                src={image}
+                                alt={
+                                  channel.name ||
+                                  "Channel"
+                                }
+                                onError={
+                                  handleImageError
+                                }
+                              />
+                            ) : (
+                              <div className="profile-fallback">
+                                {channel.name
+                                  ?.charAt(
+                                    0
+                                  )
+                                  ?.toUpperCase() ||
+                                  "C"}
+                              </div>
+                            )}
+
+                          </div>
+
+                          <div>
+                            <h2>
+                              {channel.name ||
+                                "Channel"}
+                            </h2>
+
+                            <span>
+                              View channel
+                            </span>
+                          </div>
+
+                        </Link>
+
+                      </div>
+
+                      <VideoGrid
+                        videos={videos}
+                      />
+
+                    </section>
+                  );
+                }
+              )}
+
+            </div>
+          )}
 
       </main>
     </>
   );
 }
-// ================= MUSIC =================
+
+
+// ======================================================
+// MUSIC
+// ======================================================
 
 function Music() {
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [videos, setVideos] =
+    useState([]);
 
-  const loadMusicVideos = async () => {
-    try {
-      setLoading(true);
-      setError(null);
+  const [loading, setLoading] =
+    useState(true);
 
-      const data = await getCategoryVideos("Music");
+  const [error, setError] =
+    useState(null);
 
-      setVideos(data);
-    } catch (error) {
-      console.error("Music error:", error);
+  const loadMusicVideos =
+    async () => {
+      try {
+        setLoading(true);
+        setError(null);
 
-      setVideos([]);
+        const data =
+          await getCategoryVideos(
+            "Music"
+          );
 
-      setError(
-        error?.message ||
-          "Unable to load music videos. Please try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
+        setVideos(data);
+      } catch (error) {
+        console.error(
+          "Music error:",
+          error
+        );
+
+        setVideos([]);
+
+        setError(
+          error?.message ||
+            "Unable to load music videos. Please try again."
+        );
+      } finally {
+        setLoading(false);
+      }
+    };
 
   useEffect(() => {
     loadMusicVideos();
@@ -842,12 +909,16 @@ function Music() {
         ) : error ? (
           <div className="page-message">
 
-            <h2>Something went wrong</h2>
+            <h2>
+              Something went wrong
+            </h2>
 
             <p>{error}</p>
 
             <button
-              onClick={loadMusicVideos}
+              onClick={
+                loadMusicVideos
+              }
               style={{
                 marginTop: "15px",
                 padding: "10px 18px",
@@ -874,7 +945,9 @@ function Music() {
                 No music videos found.
               </p>
             ) : (
-              <VideoGrid videos={videos} />
+              <VideoGrid
+                videos={videos}
+              />
             )}
           </>
         )}
@@ -883,127 +956,130 @@ function Music() {
     </>
   );
 }
-// ================= SHORTS =================
 
-function ShortsPage() {
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-
-  const loadShorts = async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const data = await getShortsVideos();
-
-      setVideos(data);
-    } catch (error) {
-      console.error("Shorts error:", error);
-
-      setVideos([]);
-
-      setError(
-        error?.message ||
-          "Unable to load Shorts. Please try again."
-      );
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  useEffect(() => {
-    loadShorts();
-  }, []);
-
-  if (loading) {
-    return (
-      <>
-        <Navbar />
-        <Sidebar />
-
-        <main className="main-content">
-          <p className="page-message">
-            Loading Shorts...
-          </p>
-        </main>
-      </>
-    );
-  }
-
-  if (error) {
-    return (
-      <>
-        <Navbar />
-        <Sidebar />
-
-        <main className="main-content">
-          <div className="page-message">
-            <h2>Something went wrong</h2>
-
-            <p>{error}</p>
-
-            <button
-              onClick={loadShorts}
-              style={{
-                marginTop: "15px",
-                padding: "10px 18px",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontWeight: "600",
-              }}
-            >
-              Try Again
-            </button>
-          </div>
-        </main>
-      </>
-    );
-  }
-
-  return (
-    <>
-      <Navbar />
-      <Sidebar />
-
-      <main className="main-content">
-        <h1>Shorts</h1>
-
-        {videos.length === 0 ? (
-          <p className="page-message">
-            No Shorts found.
-          </p>
-        ) : (
-          <Shorts videos={videos} />
-        )}
-      </main>
-    </>
-  );
-}
-
-
-
-
-// ================= APP =================
+// ======================================================
+// APP
+// ======================================================
 
 function App() {
-  const [videos, setVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [videos, setVideos] =
+    useState([]);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [error, setError] =
+    useState(null);
+
+  // ================================================
+  // AUTH STATE
+  // ================================================
+
+  const [authChecking, setAuthChecking] =
+    useState(true);
+
+  // ================================================
+  // VERIFY TOKEN WITH BACKEND
+  // ================================================
+
+  useEffect(() => {
+    const verifyAuthentication =
+      async () => {
+        try {
+          const token =
+            localStorage.getItem(
+              "videoVerseToken"
+            );
+
+          // No token = not logged in
+          if (!token) {
+            setAuthChecking(false);
+            return;
+          }
+
+          const response =
+            await fetch(
+              "http://localhost:5000/api/auth/me",
+              {
+                method: "GET",
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
+            );
+
+          const data =
+            await response.json();
+
+          // Token invalid / expired
+          if (!response.ok) {
+            localStorage.removeItem(
+              "videoVerseToken"
+            );
+
+            localStorage.removeItem(
+              "videoVerseCurrentUser"
+            );
+
+            window.dispatchEvent(
+              new Event("authUpdated")
+            );
+
+            setAuthChecking(false);
+            return;
+          }
+
+          // Token valid
+          localStorage.setItem(
+            "videoVerseCurrentUser",
+            JSON.stringify(data)
+          );
+
+          window.dispatchEvent(
+            new Event("authUpdated")
+          );
+
+        } catch (error) {
+          console.error(
+            "Authentication verification failed:",
+            error
+          );
+
+          /*
+            We don't delete the token here because
+            the backend may simply be temporarily
+            unavailable.
+          */
+        } finally {
+          setAuthChecking(false);
+        }
+      };
+
+    verifyAuthentication();
+  }, []);
+
+  // ================================================
+  // LOAD VIDEOS
+  // ================================================
 
   const loadVideos = async () => {
     try {
       setLoading(true);
       setError(null);
 
-      const data = await getVideos();
+      const data =
+        await getVideos();
 
       setVideos(data);
     } catch (error) {
-      console.error("Home videos error:", error);
+      console.error(
+        "Home videos error:",
+        error
+      );
 
       setVideos([]);
+
       setError(
         error?.message ||
           "Unable to load videos. Please try again."
@@ -1013,12 +1089,26 @@ function App() {
     }
   };
 
-  // Load videos from videoApi.js
   useEffect(() => {
     loadVideos();
   }, []);
 
-  // Loading screen
+  // ================================================
+  // AUTH CHECK SCREEN
+  // ================================================
+
+  if (authChecking) {
+    return (
+      <div className="page-message">
+        Checking authentication...
+      </div>
+    );
+  }
+
+  // ================================================
+  // VIDEO LOADING SCREEN
+  // ================================================
+
   if (loading) {
     return (
       <div className="page-message">
@@ -1027,11 +1117,17 @@ function App() {
     );
   }
 
-  // API error screen
+  // ================================================
+  // VIDEO API ERROR
+  // ================================================
+
   if (error) {
     return (
       <div className="page-message">
-        <h2>Something went wrong</h2>
+
+        <h2>
+          Something went wrong
+        </h2>
 
         <p>{error}</p>
 
@@ -1048,12 +1144,18 @@ function App() {
         >
           Try Again
         </button>
+
       </div>
     );
   }
 
+  // ================================================
+  // ROUTES
+  // ================================================
+
   return (
     <BrowserRouter>
+
       <Routes>
 
         {/* HOME */}
@@ -1098,7 +1200,6 @@ function App() {
           }
         />
 
-
         {/* HISTORY */}
 
         <Route
@@ -1123,6 +1224,7 @@ function App() {
             <ProtectedRoute>
               <Navbar />
               <Sidebar />
+
               <main className="main-content">
                 <DislikedVideos />
               </main>
@@ -1154,6 +1256,7 @@ function App() {
             <ProtectedRoute>
               <Navbar />
               <Sidebar />
+
               <main className="main-content">
                 <LikedVideos />
               </main>
@@ -1165,66 +1268,104 @@ function App() {
 
         <Route
           path="/shorts"
-          element={<ShortsPage />}
+          element={
+            <ShortsPage />
+          }
         />
 
         {/* MUSIC */}
 
         <Route
           path="/music"
-          element={<Music />}
+          element={
+            <Music />
+          }
         />
 
         {/* SEARCH */}
 
         <Route
           path="/search"
-          element={<Search />}
+          element={
+            <Search />
+          }
         />
 
         {/* CHANNEL */}
 
         <Route
           path="/channel/:id"
-          element={<Channel />}
+          element={
+            <Channel />
+          }
         />
 
         {/* SETTINGS */}
 
         <Route
           path="/settings"
-          element={<Settings />}
+          element={
+            <Settings />
+          }
         />
+
+        {/* PLAYLISTS */}
+
         <Route
           path="/playlists"
           element={
             <ProtectedRoute>
               <Navbar />
               <Sidebar />
+
               <main className="main-content">
                 <Playlists />
               </main>
             </ProtectedRoute>
           }
         />
+
+        {/* SINGLE PLAYLIST */}
+
         <Route
           path="/playlist/:id"
           element={
             <>
               <Navbar />
               <Sidebar />
+
               <main className="main-content">
                 <Playlist />
               </main>
             </>
           }
         />
+
+        {/* LOGIN */}
+
         <Route
           path="/login"
-          element={<Auth />}
+          element={
+            <Auth />
+          }
         />
+        <Route
+          path="/your-data"
+          element={
+            <ProtectedRoute>
+              <Navbar />
+              <Sidebar />
+
+              <main className="main-content">
+                <YourData />
+              </main>
+            </ProtectedRoute>
+          }
+        />
+        
 
       </Routes>
+
     </BrowserRouter>
   );
 }

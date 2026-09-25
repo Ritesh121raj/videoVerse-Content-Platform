@@ -37,9 +37,17 @@ function Settings() {
     }
   });
 
-  /* ==============================
-     APPEARANCE
-     ============================== */
+  const [isEditingProfile, setIsEditingProfile] =
+    useState(false);
+
+  const [editName, setEditName] = useState("");
+
+  const [editEmail, setEditEmail] = useState("");
+
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
 
   const [isLightTheme, setIsLightTheme] = useState(() => {
     return localStorage.getItem("theme") === "light";
@@ -154,6 +162,7 @@ function Settings() {
     );
 
     setCurrentUser(null);
+    setIsEditingProfile(false);
 
     window.dispatchEvent(
       new Event("authUpdated")
@@ -162,6 +171,144 @@ function Settings() {
     alert("You have been signed out.");
 
     setActiveSection("Account");
+  };
+
+  const handleEditProfile = () => {
+    if (!currentUser) {
+      return;
+    }
+
+    setEditName(currentUser.name || "");
+    setEditEmail(currentUser.email || "");
+    setIsEditingProfile(true);
+  };
+
+  const handleCancelEdit = () => {
+    setEditName("");
+    setEditEmail("");
+    setIsEditingProfile(false);
+  };
+
+  const handleSaveProfile = () => {
+    if (!editName.trim() || !editEmail.trim()) {
+      alert("Name and email cannot be empty.");
+      return;
+    }
+
+    const users =
+      JSON.parse(
+        localStorage.getItem("videoVerseUsers")
+      ) || [];
+
+    const emailAlreadyExists = users.some(
+      (user) =>
+        user.id !== currentUser.id &&
+        user.email.toLowerCase() ===
+          editEmail.trim().toLowerCase()
+    );
+
+    if (emailAlreadyExists) {
+      alert("An account with this email already exists.");
+      return;
+    }
+
+    const updatedUser = {
+      ...currentUser,
+      name: editName.trim(),
+      email: editEmail.trim(),
+    };
+
+    const updatedUsers = users.map((user) =>
+      user.id === currentUser.id
+        ? updatedUser
+        : user
+    );
+
+    localStorage.setItem(
+      "videoVerseUsers",
+      JSON.stringify(updatedUsers)
+    );
+
+    localStorage.setItem(
+      "videoVerseCurrentUser",
+      JSON.stringify(updatedUser)
+    );
+
+    setCurrentUser(updatedUser);
+    setIsEditingProfile(false);
+
+    window.dispatchEvent(
+      new Event("authUpdated")
+    );
+
+    alert("Profile updated successfully.");
+  };
+
+  const handleChangePassword = () => {
+    if (!currentUser) return;
+
+    if (!currentPassword || !newPassword || !confirmPassword) {
+      alert("Please fill in all password fields.");
+      return;
+    }
+
+    if (currentPassword !== currentUser.password) {
+      alert("Current password is incorrect.");
+      return;
+    }
+
+    if (newPassword.length < 6) {
+      alert("New password must be at least 6 characters.");
+      return;
+    }
+
+    if (newPassword !== confirmPassword) {
+      alert("New passwords do not match.");
+      return;
+    }
+
+    if (newPassword === currentPassword) {
+      alert("New password must be different from your current password.");
+      return;
+    }
+
+    const users = JSON.parse(localStorage.getItem("videoVerseUsers")) || [];
+    const updatedUser = { ...currentUser, password: newPassword };
+    const updatedUsers = users.map((user) =>
+      user.id === currentUser.id ? updatedUser : user
+    );
+
+    localStorage.setItem("videoVerseUsers", JSON.stringify(updatedUsers));
+    localStorage.setItem("videoVerseCurrentUser", JSON.stringify(updatedUser));
+    setCurrentUser(updatedUser);
+    setCurrentPassword("");
+    setNewPassword("");
+    setConfirmPassword("");
+    setIsChangingPassword(false);
+    window.dispatchEvent(new Event("authUpdated"));
+    alert("Password changed successfully.");
+  };
+
+  const handleDeleteAccount = () => {
+    if (!currentUser) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to delete your VideoVerse account? This action cannot be undone."
+    );
+
+    if (!confirmed) return;
+
+    const users = JSON.parse(localStorage.getItem("videoVerseUsers")) || [];
+    const updatedUsers = users.filter((user) => user.id !== currentUser.id);
+
+    localStorage.setItem("videoVerseUsers", JSON.stringify(updatedUsers));
+    localStorage.removeItem("videoVerseCurrentUser");
+    setCurrentUser(null);
+    setIsEditingProfile(false);
+    setIsChangingPassword(false);
+    window.dispatchEvent(new Event("authUpdated"));
+    alert("Your VideoVerse account has been deleted.");
+    navigate("/login");
   };
 
   /* ==============================
@@ -280,7 +427,7 @@ function Settings() {
 
   const clearHistory = () => {
     const confirmed = window.confirm(
-      "Are you sure you want to clear your watch history?"
+      "Are you sure you want to clear your entire watch history?"
     );
 
     if (!confirmed) {
@@ -288,40 +435,62 @@ function Settings() {
     }
 
     localStorage.removeItem("history");
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
 
-    alert("Watch history cleared.");
+    alert("Watch history cleared successfully.");
   };
 
   const clearWatchLater = () => {
     const confirmed = window.confirm(
-      "Are you sure you want to clear Watch Later?"
+      "Are you sure you want to remove all videos from Watch Later?"
     );
 
     if (!confirmed) {
       return;
     }
 
-    localStorage.removeItem(
-      "watchLater"
+    localStorage.removeItem("watchLater");
+    window.dispatchEvent(
+      new Event("activityUpdated")
     );
 
-    alert("Watch Later cleared.");
+    alert("Watch Later list cleared successfully.");
   };
 
   const clearLikedVideos = () => {
     const confirmed = window.confirm(
-      "Are you sure you want to clear all liked videos?"
+      "Are you sure you want to remove all liked videos?"
     );
 
     if (!confirmed) {
       return;
     }
 
-    localStorage.removeItem(
-      "likedVideos"
+    localStorage.removeItem("likedVideos");
+        window.dispatchEvent(
+      new Event("activityUpdated")
     );
 
-    alert("Liked videos cleared.");
+    alert("Liked videos cleared successfully.");
+  };
+  const clearDislikedVideos = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all disliked videos?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    localStorage.removeItem("dislikedVideos");
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
+
+    alert("Disliked videos cleared.");
   };
 
   return (
@@ -416,93 +585,131 @@ function Settings() {
                 and sign-in status.
               </p>
 
-              <div className="settings-card">
+              <div className="settings-account-card">
 
                 {currentUser ? (
                   <>
-                    <div className="settings-account-header">
+                    <div className="settings-account-profile">
 
                       <div className="settings-account-avatar">
                         <UserCircle
-                          size={58}
+                          size={72}
+                          strokeWidth={1.6}
                         />
                       </div>
 
-                      <div>
-                        <h3>
-                          {currentUser.name}
-                        </h3>
+                      <div className="settings-account-info-block">
+                        <h3>{currentUser.name}</h3>
 
-                        <p>
-                          {currentUser.email}
-                        </p>
+                        <p>{currentUser.email}</p>
+
+                        <span className="settings-account-status-badge">
+                          <span className="settings-status-dot"></span>
+                          Currently signed in
+                        </span>
                       </div>
 
                     </div>
 
-                    <div className="settings-account-status">
-                      <span className="settings-status-dot"></span>
+                    {!isEditingProfile ? (
+                      <div className="settings-account-actions">
 
-                      <span>
-                        You are currently
-                        signed in.
-                      </span>
-                    </div>
+                        <button
+                          className="settings-edit-profile-btn"
+                          onClick={handleEditProfile}
+                        >
+                          <UserCircle size={18} />
+                          <span>Edit Profile</span>
+                        </button>
 
-                    <button
-                      className="settings-signout-button"
-                      onClick={
-                        handleSignOut
-                      }
-                    >
-                      <LogOut
-                        size={18}
-                      />
+                        <button
+                          className="settings-signout-btn"
+                          onClick={handleSignOut}
+                        >
+                          <LogOut size={18} />
+                          <span>Sign out</span>
+                        </button>
 
-                      Sign out
-                    </button>
+                      </div>
+                    ) : (
+                      <div className="settings-profile-edit-box">
+
+                        <div className="settings-edit-field">
+                          <label>Full Name</label>
+
+                          <input
+                            type="text"
+                            value={editName}
+                            onChange={(event) =>
+                              setEditName(event.target.value)
+                            }
+                            placeholder="Enter your full name"
+                          />
+                        </div>
+
+                        <div className="settings-edit-field">
+                          <label>Email Address</label>
+
+                          <input
+                            type="email"
+                            value={editEmail}
+                            onChange={(event) =>
+                              setEditEmail(event.target.value)
+                            }
+                            placeholder="Enter your email address"
+                          />
+                        </div>
+
+                        <div className="settings-edit-actions">
+                          <button
+                            className="settings-save-profile-btn"
+                            onClick={handleSaveProfile}
+                          >
+                            Save Changes
+                          </button>
+
+                          <button
+                            className="settings-cancel-profile-btn"
+                            onClick={handleCancelEdit}
+                          >
+                            Cancel
+                          </button>
+                        </div>
+
+                      </div>
+                    )}
                   </>
                 ) : (
                   <>
-                    <div className="settings-account-header">
+                    <div className="settings-account-profile">
 
                       <div className="settings-account-avatar guest">
                         <UserCircle
-                          size={58}
+                          size={72}
+                          strokeWidth={1.6}
                         />
                       </div>
 
-                      <div>
-                        <h3>
-                          Guest User
-                        </h3>
+                      <div className="settings-account-info-block">
+                        <h3>Guest User</h3>
 
-                        <p>
-                          You are not signed in.
-                        </p>
+                        <p>You are not signed in.</p>
                       </div>
 
                     </div>
 
                     <div className="settings-account-info">
                       <p>
-                        Sign in to personalize
-                        your VideoVerse
-                        experience and access
-                        your account.
+                        Sign in to personalize your VideoVerse
+                        experience and access your account.
                       </p>
                     </div>
 
                     <button
                       className="settings-signin-button"
-                      onClick={
-                        handleSignIn
-                      }
+                      onClick={handleSignIn}
                     >
-                      <LogIn
-                        size={18}
-                      />
-
+                      <LogIn size={18} />
                       Sign in to VideoVerse
                     </button>
                   </>
@@ -510,12 +717,108 @@ function Settings() {
 
               </div>
 
-            </div>
+          {currentUser && (
+            <>
+              <div className="settings-card settings-security-card">
+                <div className="settings-security-header">
+                  <div className="settings-security-icon">
+                    <Lock size={22} />
+                  </div>
+                  <div>
+                    <h3>Security</h3>
+                    <p>Manage your VideoVerse account password.</p>
+                  </div>
+                </div>
+
+                {!isChangingPassword && (
+                  <button
+                    className="settings-change-password-btn"
+                    onClick={() => setIsChangingPassword(true)}
+                  >
+                    <Lock size={17} />
+                    Change Password
+                  </button>
+                )}
+
+                {isChangingPassword && (
+                  <div className="settings-password-form">
+                    <div className="settings-edit-field">
+                      <label>Current Password</label>
+                      <input
+                        type="password"
+                        placeholder="Enter current password"
+                        value={currentPassword}
+                        onChange={(event) => setCurrentPassword(event.target.value)}
+                      />
+                    </div>
+
+                    <div className="settings-edit-field">
+                      <label>New Password</label>
+                      <input
+                        type="password"
+                        placeholder="Enter new password"
+                        value={newPassword}
+                        onChange={(event) => setNewPassword(event.target.value)}
+                      />
+                    </div>
+
+                    <div className="settings-edit-field">
+                      <label>Confirm New Password</label>
+                      <input
+                        type="password"
+                        placeholder="Confirm new password"
+                        value={confirmPassword}
+                        onChange={(event) => setConfirmPassword(event.target.value)}
+                      />
+                    </div>
+
+                    <div className="settings-edit-actions">
+                      <button
+                        className="settings-save-profile-btn"
+                        onClick={handleChangePassword}
+                      >
+                        Change Password
+                      </button>
+
+                      <button
+                        className="settings-cancel-profile-btn"
+                        onClick={() => {
+                          setCurrentPassword("");
+                          setNewPassword("");
+                          setConfirmPassword("");
+                          setIsChangingPassword(false);
+                        }}
+                      >
+                        Cancel
+                      </button>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              <div className="settings-card settings-danger-card">
+                <div className="settings-danger-content">
+                  <div>
+                    <h3>Delete Account</h3>
+                    <p>
+                      Permanently delete your VideoVerse account.
+                      This action cannot be undone.
+                    </p>
+                  </div>
+
+                  <button
+                    className="settings-delete-account-btn"
+                    onClick={handleDeleteAccount}
+                  >
+                    Delete Account
+                  </button>
+                </div>
+              </div>
+            </>
           )}
 
-          {/* ==============================
-              APPEARANCE
-              ============================== */}
+            </div>
+          )}
 
           {activeSection === "Appearance" && (
             <div className="settings-section">
@@ -1008,6 +1311,13 @@ function Settings() {
                   >
                     <Trash2 size={16} />
                     Clear liked videos
+                  </button>
+                  <button
+                    className="settings-danger-button"
+                    onClick={clearDislikedVideos}
+                  >
+                    <Trash2 size={16} />
+                    Clear disliked videos
                   </button>
 
                 </div>

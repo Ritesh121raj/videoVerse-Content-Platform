@@ -50,6 +50,7 @@ function WatchLater() {
           "Watch Later error:",
           error
         );
+
         setWatchLaterVideos([]);
       } finally {
         setLoading(false);
@@ -57,6 +58,23 @@ function WatchLater() {
     };
 
     loadWatchLater();
+
+    // Listen for Watch Later changes
+    const handleActivityUpdate = () => {
+      loadWatchLater();
+    };
+
+    window.addEventListener(
+      "activityUpdated",
+      handleActivityUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "activityUpdated",
+        handleActivityUpdate
+      );
+    };
   }, []);
 
   const removeFromWatchLater = (videoId) => {
@@ -84,11 +102,20 @@ function WatchLater() {
         (video) => video.id !== videoId
       )
     );
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
   };
 
   const clearAllWatchLater = () => {
     localStorage.removeItem("watchLater");
+
     setWatchLaterVideos([]);
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
   };
 
   return (

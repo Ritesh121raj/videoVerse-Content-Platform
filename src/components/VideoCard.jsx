@@ -108,36 +108,31 @@ function VideoCard({
       new Event("notificationsUpdated")
     );
   };
+
   /* ==============================
      HISTORY
      ============================== */
 
   const saveToHistory = () => {
-    const historyEnabled =
-      localStorage.getItem("historyEnabled") !== "false";
-
-    // If watch history is disabled, don't save the video
-    if (!historyEnabled) {
-      return;
-    }
-
-    const oldHistory =
+    const history =
       JSON.parse(
         localStorage.getItem("history")
       ) || [];
 
-    const newHistory =
-      oldHistory.filter(
-        (item) => item !== id
-      );
-
-    newHistory.unshift(id);
+    const updatedHistory = [
+      videoData,
+      ...history.filter(
+        (item) => item.id !== videoData.id
+      ),
+    ].slice(0, 20);
 
     localStorage.setItem(
       "history",
-      JSON.stringify(
-        newHistory.slice(0, 20)
-      )
+      JSON.stringify(updatedHistory)
+    );
+
+    window.dispatchEvent(
+      new Event("historyUpdated")
     );
   };
 
@@ -233,6 +228,11 @@ function VideoCard({
       JSON.stringify(updatedDislikedVideos)
     );
 
+    // Notify all activity pages
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
+
     setShowMenu(false);
 
     alert("Added to Liked Videos");
@@ -312,10 +312,16 @@ function VideoCard({
       JSON.stringify(updatedLikedVideos)
     );
 
+    // Notify all activity pages
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
+
     setShowMenu(false);
 
     alert("Added to Disliked Videos");
   };
+
   /* ==============================
      WATCH LATER
      ============================== */
@@ -372,6 +378,11 @@ function VideoCard({
         "Watch Later",
         `"${title}" was added to Watch Later.`,
         "watchLater"
+      );
+
+      // Notify Watch Later page
+      window.dispatchEvent(
+        new Event("activityUpdated")
       );
 
       alert(

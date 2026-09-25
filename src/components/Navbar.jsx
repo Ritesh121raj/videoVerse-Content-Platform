@@ -356,9 +356,7 @@ function Navbar({ search, setSearch }) {
   const handleYourData = () => {
     setShowProfile(false);
 
-    alert(
-      "Your data page coming soon"
-    );
+    navigate("/your-data");
   };
 
   /* ==============================
@@ -376,16 +374,27 @@ function Navbar({ search, setSearch }) {
      ============================== */
 
   const handleSignOut = () => {
+    // Remove JWT token
+    localStorage.removeItem(
+      "videoVerseToken"
+    );
+
+    // Remove logged-in user
     localStorage.removeItem(
       "videoVerseCurrentUser"
     );
 
+    // Update navbar state
     setCurrentUser(null);
     setShowProfile(false);
 
+    // Tell the rest of the app that auth changed
     window.dispatchEvent(
       new Event("authUpdated")
     );
+
+    // Go to login page
+    navigate("/login");
   };
 
   return (

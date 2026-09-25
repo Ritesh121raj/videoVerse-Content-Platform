@@ -56,6 +56,23 @@ function DislikedVideos() {
     };
 
     loadDislikedVideos();
+
+    // Listen for disliked-video changes
+    const handleActivityUpdate = () => {
+      loadDislikedVideos();
+    };
+
+    window.addEventListener(
+      "activityUpdated",
+      handleActivityUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "activityUpdated",
+        handleActivityUpdate
+      );
+    };
   }, []);
 
   const removeFromDisliked = (videoId) => {
@@ -83,11 +100,20 @@ function DislikedVideos() {
         (video) => video.id !== videoId
       )
     );
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
   };
 
   const clearAllDislikedVideos = () => {
     localStorage.removeItem("dislikedVideos");
+
     setDislikedVideos([]);
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
   };
 
   return (

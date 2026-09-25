@@ -8,10 +8,14 @@ import {
   Play,
   ArrowRight,
 } from "lucide-react";
-import { useNavigate } from "react-router-dom";
+import {
+  useNavigate,
+  useLocation,
+} from "react-router-dom";
 
 function Auth() {
   const navigate = useNavigate();
+  const location = useLocation();
 
   const [isLogin, setIsLogin] = useState(true);
   const [showPassword, setShowPassword] = useState(false);
@@ -20,73 +24,261 @@ function Auth() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
-  const handleSubmit = (event) => {
-    event.preventDefault();
+  const [loading, setLoading] = useState(false);
 
-    const users =
-      JSON.parse(localStorage.getItem("videoVerseUsers")) || [];
+  const redirectPath =
+    new URLSearchParams(location.search).get("redirect") || "/";
 
-    if (isLogin) {
-      const existingUser = users.find(
-        (user) =>
-          user.email.toLowerCase() === email.toLowerCase() &&
-          user.password === password
+  // Backend URL
+  const API_URL = "http://localhost:5000/api";
+
+  // ==============================
+  // LOGIN
+  // ==============================
+  const handleLogin = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        }
       );
 
-      if (!existingUser) {
-        alert("Invalid email or password.");
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(data.message || "Invalid email or password.");
         return;
       }
 
+      // Save JWT token
       localStorage.setItem(
-        "videoVerseCurrentUser",
-        JSON.stringify(existingUser)
+        "videoVerseToken",
+        data.token
       );
 
-      window.dispatchEvent(new Event("authUpdated"));
+      // Get logged-in user's details
+      const meResponse = await fetch(
+        `${API_URL}/auth/me`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${data.token}`,
+          },
+        }
+      );
+
+      const userData = await meResponse.json();
+
+      if (!meResponse.ok) {
+        alert(
+          userData.message ||
+            "Could not fetch user information."
+        );
+        return;
+      }
+
+      // Save current user
+      localStorage.setItem(
+        "videoVerseCurrentUser",
+        JSON.stringify(userData)
+      );
+
+      // Tell other components that auth changed
+      window.dispatchEvent(
+        new Event("authUpdated")
+      );
 
       alert("Login successful!");
-      navigate("/");
-      return;
+
+      navigate(redirectPath);
+    } catch (error) {
+      console.error("Login error:", error);
+
+      alert(
+        "Unable to connect to the backend. Make sure the backend server is running."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    const userAlreadyExists = users.some(
-      (user) =>
-        user.email.toLowerCase() === email.toLowerCase()
-    );
-
-    if (userAlreadyExists) {
-      alert("An account with this email already exists.");
-      return;
-    }
-
-    const newUser = {
-      id: Date.now(),
-      name,
-      email,
-      password,
-    };
-
-    users.push(newUser);
-
-    localStorage.setItem(
-      "videoVerseUsers",
-      JSON.stringify(users)
-    );
-
-    localStorage.setItem(
-      "videoVerseCurrentUser",
-      JSON.stringify(newUser)
-    );
-
-    window.dispatchEvent(new Event("authUpdated"));
-
-    alert("Account created successfully!");
-    navigate("/");
   };
 
+  // ==============================
+  // REGISTER
+  // ==============================
+  const handleRegister = async () => {
+    try {
+      setLoading(true);
+
+      const response = await fetch(
+        `${API_URL}/auth/register`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            name,
+            email,
+            password,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(
+          data.message ||
+            "Unable to create account."
+        );
+        return;
+      }
+
+      /*
+        Registration successful.
+
+        Now login automatically using
+        the same email and password.
+      */
+
+      const loginResponse = await fetch(
+        `${API_URL}/auth/login`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            email,
+            password,
+          }),
+        }
+      );
+
+      const loginData =
+        await loginResponse.json();
+
+      if (!loginResponse.ok) {
+        alert(
+          "Account created successfully. Please login."
+        );
+
+        setIsLogin(true);
+        setPassword("");
+
+        return;
+      }
+
+      // Save JWT
+      localStorage.setItem(
+        "videoVerseToken",
+        loginData.token
+      );
+
+      // Get current user
+      const meResponse = await fetch(
+        `${API_URL}/auth/me`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${loginData.token}`,
+          },
+        }
+      );
+
+      const userData = await meResponse.json();
+
+      if (!meResponse.ok) {
+        alert(
+          "Account created, but user information could not be loaded."
+        );
+        return;
+      }
+
+      // Save current user
+      localStorage.setItem(
+        "videoVerseCurrentUser",
+        JSON.stringify(userData)
+      );
+
+      window.dispatchEvent(
+        new Event("authUpdated")
+      );
+
+      alert("Account created successfully!");
+
+      navigate(redirectPath);
+    } catch (error) {
+      console.error(
+        "Registration error:",
+        error
+      );
+
+      alert(
+        "Unable to connect to the backend. Make sure the backend server is running."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // ==============================
+  // FORM SUBMIT
+  // ==============================
+  const handleSubmit = async (event) => {
+    event.preventDefault();
+
+    if (!email || !password) {
+      alert(
+        "Please enter your email and password."
+      );
+      return;
+    }
+
+    if (!isLogin && !name) {
+      alert("Please enter your name.");
+      return;
+    }
+
+    if (password.length < 6) {
+      alert(
+        "Password must be at least 6 characters."
+      );
+      return;
+    }
+
+    if (isLogin) {
+      await handleLogin();
+    } else {
+      await handleRegister();
+    }
+  };
+
+  // ==============================
+  // FORGOT PASSWORD
+  // ==============================
+  const handleForgotPassword = () => {
+    alert(
+      "Password reset will be added in a later backend step."
+    );
+  };
+
+  // ==============================
+  // SWITCH LOGIN / REGISTER
+  // ==============================
   const switchAuthMode = () => {
     setIsLogin((previous) => !previous);
+
     setName("");
     setEmail("");
     setPassword("");
@@ -98,21 +290,28 @@ function Auth() {
 
       {/* Background decoration */}
       <div className="auth-background-circle auth-circle-one"></div>
+
       <div className="auth-background-circle auth-circle-two"></div>
 
       <div className="auth-card">
 
         {/* Brand */}
         <div className="auth-brand">
+
           <div className="auth-brand-icon">
-            <Play size={20} fill="currentColor" />
+            <Play
+              size={20}
+              fill="currentColor"
+            />
           </div>
 
           <span>VideoVerse</span>
+
         </div>
 
         {/* Heading */}
         <div className="auth-heading">
+
           <h1>
             {isLogin
               ? "Welcome back!"
@@ -124,6 +323,7 @@ function Auth() {
               ? "Sign in to continue watching your favorite content."
               : "Join VideoVerse and personalize your video experience."}
           </p>
+
         </div>
 
         {/* Form */}
@@ -139,6 +339,7 @@ function Auth() {
               <label>Full name</label>
 
               <div className="auth-input-wrapper">
+
                 <User size={19} />
 
                 <input
@@ -150,6 +351,7 @@ function Auth() {
                   }
                   required
                 />
+
               </div>
 
             </div>
@@ -161,6 +363,7 @@ function Auth() {
             <label>Email address</label>
 
             <div className="auth-input-wrapper">
+
               <Mail size={19} />
 
               <input
@@ -172,6 +375,7 @@ function Auth() {
                 }
                 required
               />
+
             </div>
 
           </div>
@@ -182,6 +386,7 @@ function Auth() {
             <label>Password</label>
 
             <div className="auth-input-wrapper">
+
               <Lock size={19} />
 
               <input
@@ -221,16 +426,16 @@ function Auth() {
           {/* Forgot password */}
           {isLogin && (
             <div className="auth-forgot">
+
               <button
                 type="button"
-                onClick={() =>
-                  alert(
-                    "Password reset feature coming soon."
-                  )
+                onClick={
+                  handleForgotPassword
                 }
               >
                 Forgot password?
               </button>
+
             </div>
           )}
 
@@ -238,14 +443,21 @@ function Auth() {
           <button
             type="submit"
             className="auth-submit-btn"
+            disabled={loading}
           >
+
             <span>
-              {isLogin
+              {loading
+                ? "Please wait..."
+                : isLogin
                 ? "Sign In"
                 : "Create Account"}
             </span>
 
-            <ArrowRight size={19} />
+            {!loading && (
+              <ArrowRight size={19} />
+            )}
+
           </button>
 
         </form>
@@ -277,11 +489,12 @@ function Auth() {
 
         {/* Footer */}
         <p className="auth-footer">
-          By continuing, you agree to use VideoVerse
-          responsibly.
+          By continuing, you agree to use
+          VideoVerse responsibly.
         </p>
 
       </div>
+
     </div>
   );
 }

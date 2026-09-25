@@ -7181,3 +7181,983 @@ body.light-theme .auth-divider::after {
     gap: 3px;
   }
 }
+/* =========================================
+   SETTINGS - ACCOUNT UI
+   ========================================= */
+
+.settings-account-card {
+  margin-top: 28px;
+  padding: 28px;
+  border-radius: 18px;
+  background: #181818;
+  border: 1px solid #303030;
+  transition: all 0.25s ease;
+}
+
+.settings-account-card:hover {
+  border-color: #3d3d3d;
+}
+
+/* Profile */
+
+.settings-account-profile {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+}
+
+.settings-account-avatar {
+  width: 82px;
+  height: 82px;
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 50%;
+
+  background: linear-gradient(
+    135deg,
+    #292929,
+    #202020
+  );
+
+  border: 2px solid #444;
+  color: #f5f5f5;
+}
+
+.settings-account-info h3 {
+  margin: 0 0 6px;
+
+  font-size: 24px;
+  font-weight: 700;
+
+  color: #ffffff;
+}
+
+.settings-account-info p {
+  margin: 0 0 10px;
+
+  font-size: 15px;
+  color: #a8a8a8;
+}
+
+/* Signed-in status */
+
+.settings-account-status {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+
+  font-size: 13px;
+  font-weight: 500;
+
+  color: #bdbdbd;
+}
+
+.settings-status-dot {
+  width: 8px;
+  height: 8px;
+
+  border-radius: 50%;
+  background: #22c55e;
+
+  box-shadow: 0 0 8px rgba(34, 197, 94, 0.55);
+}
+
+/* Buttons container */
+
+.settings-account-actions {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+
+  margin-top: 25px;
+}
+
+/* Common button */
+
+.settings-account-actions button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+
+  min-height: 42px;
+  padding: 0 18px;
+
+  border-radius: 10px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition:
+    transform 0.2s ease,
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.settings-account-actions button:hover {
+  transform: translateY(-1px);
+}
+
+/* Edit Profile */
+
+.settings-edit-profile-btn {
+  color: #ffffff;
+  background: #292929;
+  border: 1px solid #444;
+}
+
+.settings-edit-profile-btn:hover {
+  background: #353535;
+  border-color: #555;
+}
+
+/* Sign out */
+
+.settings-signout-btn {
+  color: #ff6b6b;
+  background: rgba(255, 70, 70, 0.08);
+  border: 1px solid rgba(255, 70, 70, 0.25);
+}
+
+.settings-signout-btn:hover {
+  background: rgba(255, 70, 70, 0.15);
+  border-color: rgba(255, 70, 70, 0.4);
+}
+
+/* =========================================
+   EDIT PROFILE
+   ========================================= */
+
+.settings-profile-edit-box {
+  margin-top: 25px;
+  padding-top: 25px;
+
+  border-top: 1px solid #303030;
+}
+
+.settings-edit-field {
+  margin-bottom: 18px;
+}
+
+.settings-edit-field label {
+  display: block;
+
+  margin-bottom: 8px;
+
+  font-size: 13px;
+  font-weight: 600;
+
+  color: #cfcfcf;
+}
+
+.settings-edit-field input {
+  width: 100%;
+  box-sizing: border-box;
+
+  padding: 12px 14px;
+
+  border-radius: 10px;
+
+  background: #222222;
+  border: 1px solid #3b3b3b;
+
+  color: #ffffff;
+
+  font-size: 14px;
+
+  outline: none;
+
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.settings-edit-field input:focus {
+  border-color: #666;
+  background: #262626;
+}
+
+.settings-edit-field input::placeholder {
+  color: #777;
+}
+
+/* Edit buttons */
+
+.settings-edit-actions {
+  display: flex;
+  gap: 10px;
+
+  margin-top: 22px;
+}
+
+.settings-save-profile-btn,
+.settings-cancel-profile-btn {
+  min-height: 42px;
+
+  padding: 0 20px;
+
+  border-radius: 10px;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.settings-save-profile-btn {
+  border: none;
+
+  background: #ffffff;
+  color: #111111;
+}
+
+.settings-save-profile-btn:hover {
+  background: #e8e8e8;
+  transform: translateY(-1px);
+}
+
+.settings-cancel-profile-btn {
+  background: #292929;
+  color: #cccccc;
+
+  border: 1px solid #444;
+}
+
+.settings-cancel-profile-btn:hover {
+  background: #353535;
+  color: #ffffff;
+}
+
+/* =========================================
+   RESPONSIVE
+   ========================================= */
+
+@media (max-width: 600px) {
+  .settings-account-card {
+    padding: 20px;
+  }
+
+  .settings-account-profile {
+    align-items: flex-start;
+    gap: 16px;
+  }
+
+  .settings-account-avatar {
+    width: 64px;
+    height: 64px;
+  }
+
+  .settings-account-info h3 {
+    font-size: 20px;
+  }
+
+  .settings-account-actions {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-account-actions button {
+    width: 100%;
+  }
+
+  .settings-edit-actions {
+    flex-direction: column;
+  }
+
+  .settings-save-profile-btn,
+  .settings-cancel-profile-btn {
+    width: 100%;
+  }
+}
+/* =========================================
+   SETTINGS - SECURITY
+   ========================================= */
+
+.settings-security-card {
+  margin-top: 20px;
+}
+
+.settings-security-header {
+  display: flex;
+  align-items: center;
+  gap: 15px;
+}
+
+.settings-security-icon {
+  width: 46px;
+  height: 46px;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border-radius: 12px;
+
+  background: rgba(255, 255, 255, 0.06);
+  border: 1px solid #333;
+
+  color: #ffffff;
+}
+
+.settings-security-header h3 {
+  margin: 0 0 5px;
+
+  font-size: 17px;
+  color: #ffffff;
+}
+
+.settings-security-header p {
+  margin: 0;
+
+  font-size: 13px;
+  color: #999;
+}
+
+.settings-change-password-btn {
+  margin-top: 20px;
+
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+
+  padding: 11px 18px;
+
+  border-radius: 10px;
+  border: 1px solid #444;
+
+  background: #292929;
+  color: #ffffff;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.settings-change-password-btn:hover {
+  background: #363636;
+  border-color: #555;
+  transform: translateY(-1px);
+}
+
+@media (max-width: 600px) {
+  .settings-security-header {
+    align-items: flex-start;
+  }
+
+  .settings-change-password-btn {
+    width: 100%;
+    justify-content: center;
+  }
+}
+/* Change Password Form */
+
+.settings-password-form {
+  margin-top: 22px;
+  padding-top: 20px;
+  border-top: 1px solid #333;
+}
+
+.settings-password-form .settings-edit-field {
+  margin-bottom: 16px;
+}
+
+.settings-password-form .settings-edit-field label {
+  display: block;
+  margin-bottom: 7px;
+  color: #ddd;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.settings-password-form .settings-edit-field input {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid #444;
+  border-radius: 10px;
+  outline: none;
+  background: #202020;
+  color: #fff;
+  font-size: 14px;
+}
+
+.settings-password-form .settings-edit-field input:focus {
+  border-color: #ff0000;
+}
+
+.settings-password-form .settings-edit-actions {
+  display: flex;
+  gap: 12px;
+  margin-top: 20px;
+}
+
+@media (max-width: 600px) {
+  .settings-password-form .settings-edit-actions {
+    flex-direction: column;
+  }
+}
+/* =========================================
+   SETTINGS - DELETE ACCOUNT
+   ========================================= */
+
+.settings-danger-card {
+  margin-top: 20px;
+  border: 1px solid rgba(255, 70, 70, 0.3);
+}
+
+.settings-danger-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.settings-danger-content h3 {
+  margin: 0 0 6px;
+  color: #ff6b6b;
+  font-size: 17px;
+}
+
+.settings-danger-content p {
+  margin: 0;
+  color: #999;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.settings-delete-account-btn {
+  flex-shrink: 0;
+
+  padding: 11px 18px;
+
+  border: 1px solid #ff4d4d;
+  border-radius: 10px;
+
+  background: transparent;
+  color: #ff6b6b;
+
+  font-size: 14px;
+  font-weight: 600;
+
+  cursor: pointer;
+
+  transition: all 0.2s ease;
+}
+
+.settings-delete-account-btn:hover {
+  background: #ff4d4d;
+  color: #fff;
+}
+
+@media (max-width: 600px) {
+  .settings-danger-content {
+    flex-direction: column;
+    align-items: stretch;
+  }
+
+  .settings-delete-account-btn {
+    width: 100%;
+  }
+}
+/* ======================================================
+   ADVANCED SEARCH FILTERS
+   ====================================================== */
+
+.advanced-search {
+  margin: 20px 0 28px;
+  padding: 20px;
+  background: #181818;
+  border: 1px solid #303030;
+  border-radius: 14px;
+}
+
+.advanced-search-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 18px;
+}
+
+.advanced-search-header h3 {
+  margin: 0;
+  color: #fff;
+  font-size: 17px;
+  font-weight: 600;
+}
+
+.advanced-reset-btn {
+  padding: 7px 14px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background: #242424;
+  color: #ddd;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.advanced-reset-btn:hover {
+  background: #333;
+  border-color: #555;
+  color: #fff;
+}
+
+.advanced-search-controls {
+  display: grid;
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+  gap: 18px;
+}
+
+.advanced-search-control {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.advanced-search-control label {
+  color: #aaa;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.advanced-search-control select {
+  width: 100%;
+  padding: 11px 13px;
+  border: 1px solid #3a3a3a;
+  border-radius: 9px;
+  outline: none;
+  background: #222;
+  color: #fff;
+  font-size: 14px;
+  cursor: pointer;
+  transition:
+    border-color 0.2s ease,
+    background 0.2s ease;
+}
+
+.advanced-search-control select:hover {
+  border-color: #555;
+  background: #272727;
+}
+
+.advanced-search-control select:focus {
+  border-color: #777;
+  background: #272727;
+}
+
+.advanced-search-control option {
+  background: #222;
+  color: #fff;
+}
+
+/* ======================================================
+   SEARCH PAGE RESPONSIVE
+   ====================================================== */
+
+@media (max-width: 900px) {
+  .advanced-search-controls {
+    grid-template-columns:
+      repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (max-width: 600px) {
+  .advanced-search {
+    padding: 16px;
+    border-radius: 12px;
+  }
+
+  .advanced-search-header {
+    margin-bottom: 15px;
+  }
+
+  .advanced-search-header h3 {
+    font-size: 16px;
+  }
+
+  .advanced-search-controls {
+    grid-template-columns: 1fr;
+    gap: 14px;
+  }
+
+  .advanced-search-control select {
+    padding: 12px;
+  }
+
+  .advanced-reset-btn {
+    padding: 7px 12px;
+  }
+}
+/* ======================================================
+   SEARCH UX POLISH
+   ====================================================== */
+
+.active-search-filters {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 18px;
+}
+
+.active-search-label {
+  color: #999;
+  font-size: 13px;
+  font-weight: 600;
+}
+
+.active-search-chip {
+  padding: 6px 11px;
+  border-radius: 20px;
+  background: #292929;
+  border: 1px solid #444;
+  color: #fff;
+  font-size: 12px;
+  font-weight: 500;
+}
+
+.search-status {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 18px 0;
+  color: #999;
+  font-size: 13px;
+}
+
+.search-loading {
+  min-height: 260px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 14px;
+  color: #aaa;
+}
+
+.search-loading p {
+  margin: 0;
+  font-size: 14px;
+}
+
+.search-loading-spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid #333;
+  border-top-color: #aaa;
+  border-radius: 50%;
+  animation: searchSpinner 0.8s linear infinite;
+}
+
+@keyframes searchSpinner {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.search-clear-filters {
+  margin-top: 18px;
+  padding: 10px 18px;
+  border: 1px solid #444;
+  border-radius: 8px;
+  background: #292929;
+  color: #fff;
+  font-size: 14px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.search-clear-filters:hover {
+  background: #383838;
+  border-color: #555;
+}
+
+@media (max-width: 600px) {
+  .active-search-filters {
+    align-items: flex-start;
+    flex-direction: column;
+  }
+
+  .search-status {
+    line-height: 1.6;
+  }
+}
+/* =========================================
+   SHORTS PAGE
+========================================= */
+
+.shorts-page {
+  min-height: 100vh;
+  background: #000;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Back button */
+
+.shorts-page-back {
+  position: fixed;
+  top: 20px;
+  left: 20px;
+  z-index: 100;
+  width: 44px;
+  height: 44px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.12);
+  color: white;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  backdrop-filter: blur(8px);
+}
+
+/* Player */
+
+.short-player {
+  width: min(420px, 90vw);
+  height: min(750px, 92vh);
+  position: relative;
+  border-radius: 14px;
+  overflow: hidden;
+  background: #111;
+}
+
+/* YouTube */
+
+.short-video {
+  width: 100%;
+  height: 100%;
+}
+
+.short-video iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
+
+/* Right actions */
+
+.short-player-actions {
+  position: absolute;
+  right: 12px;
+  bottom: 120px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  z-index: 10;
+}
+
+.short-player-action {
+  width: 52px;
+  min-height: 52px;
+  border: none;
+  border-radius: 50%;
+  background: rgba(0, 0, 0, 0.55);
+  color: white;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+  cursor: pointer;
+}
+
+.short-player-action span {
+  font-size: 9px;
+}
+
+.short-player-action.active {
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* Information */
+
+.short-player-info {
+  position: absolute;
+  left: 18px;
+  right: 75px;
+  bottom: 18px;
+  z-index: 10;
+  color: white;
+  text-shadow: 0 1px 4px rgba(0, 0, 0, 0.8);
+}
+
+.short-player-info h2 {
+  margin: 0 0 8px;
+  font-size: 16px;
+  line-height: 1.35;
+}
+
+.short-player-info p {
+  margin: 3px 0;
+  font-size: 13px;
+}
+
+/* Position */
+
+.short-position {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  z-index: 10;
+  color: white;
+  background: rgba(0, 0, 0, 0.55);
+  padding: 6px 10px;
+  border-radius: 20px;
+  font-size: 12px;
+}
+
+/* Empty */
+
+.shorts-empty {
+  color: white;
+  text-align: center;
+}
+
+.shorts-empty button {
+  margin-top: 15px;
+  padding: 10px 18px;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+}
+
+/* Mobile */
+
+@media (max-width: 600px) {
+  .short-player {
+    width: 100vw;
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .short-player-actions {
+    right: 10px;
+    bottom: 130px;
+  }
+
+  .short-player-info {
+    left: 14px;
+    right: 70px;
+    bottom: 20px;
+  }
+
+  .shorts-page-back {
+    top: 15px;
+    left: 15px;
+  }
+}
+/* ================================
+   SHORTS PAGE
+================================ */
+
+.shorts-page {
+  width: 100%;
+  height: calc(100vh - 64px);
+  overflow: hidden;
+  background: #000;
+}
+
+.shorts-feed {
+  width: 100%;
+  height: 100%;
+  overflow-y: auto;
+
+  scroll-snap-type: y mandatory;
+
+  scrollbar-width: none;
+}
+
+.shorts-feed::-webkit-scrollbar {
+  display: none;
+}
+
+.short-item {
+  position: relative;
+
+  width: 100%;
+  height: 100%;
+
+  scroll-snap-align: start;
+  scroll-snap-stop: always;
+
+  display: flex;
+  justify-content: center;
+  align-items: center;
+
+  background: #000;
+}
+
+.short-video-wrapper {
+  width: min(430px, 100%);
+  height: 100%;
+
+  max-height: 100vh;
+
+  background: #111;
+  position: relative;
+}
+
+.short-video-wrapper iframe {
+  width: 100%;
+  height: 100%;
+
+  border: none;
+}
+
+.short-overlay {
+  position: absolute;
+
+  left: 20px;
+  right: 20px;
+  bottom: 25px;
+
+  color: white;
+
+  pointer-events: none;
+
+  text-shadow:
+    0 2px 5px rgba(0, 0, 0, 0.8);
+}
+
+.short-overlay h2 {
+  font-size: 18px;
+  margin-bottom: 8px;
+}
+
+.short-overlay p {
+  margin: 4px 0;
+  font-size: 14px;
+}
+
+.shorts-page-message {
+  min-height: calc(100vh - 64px);
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  background: #000;
+  color: white;
+
+  font-size: 18px;
+}

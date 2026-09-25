@@ -424,18 +424,127 @@ export async function getVideoById(videoId) {
 // Search Videos
 // ======================================================
 
-export async function searchVideos(query) {
+// ======================================================
+// Search Videos
+// ======================================================
+
+export async function searchVideos(
+  query,
+  {
+    uploadDate = "any",
+    duration = "any",
+    sortBy = "relevance",
+  } = {}
+) {
   // ==========================================
-  // Cache
+  // Normalize Search Options
   // ==========================================
 
   const normalizedQuery =
     query.trim().toLowerCase();
 
-  const cacheKey =
-    `search-${normalizedQuery}`;
+  // ==========================================
+  // YouTube API Search Parameters
+  // ==========================================
 
-  // Check cache first
+  const searchParams = new URLSearchParams();
+
+  searchParams.set("part", "snippet");
+  searchParams.set("q", query);
+  searchParams.set("type", "video");
+  searchParams.set("maxResults", "20");
+  searchParams.set("key", API_KEY);
+
+  // ==========================================
+  // Upload Date Filter
+  // ==========================================
+
+  if (uploadDate !== "any") {
+    const now = new Date();
+
+    let publishedAfter = null;
+
+    if (uploadDate === "today") {
+      publishedAfter = new Date(
+        now.getTime() -
+          24 * 60 * 60 * 1000
+      );
+    }
+
+    if (uploadDate === "week") {
+      publishedAfter = new Date(
+        now.getTime() -
+          7 * 24 * 60 * 60 * 1000
+      );
+    }
+
+    if (uploadDate === "month") {
+      publishedAfter = new Date(
+        now.getTime() -
+          30 * 24 * 60 * 60 * 1000
+      );
+    }
+
+    if (uploadDate === "year") {
+      publishedAfter = new Date(
+        now.getTime() -
+          365 * 24 * 60 * 60 * 1000
+      );
+    }
+
+    if (publishedAfter) {
+      searchParams.set(
+        "publishedAfter",
+        publishedAfter.toISOString()
+      );
+    }
+  }
+
+  // ==========================================
+  // Duration Filter
+  // ==========================================
+
+  if (
+    duration === "short" ||
+    duration === "medium" ||
+    duration === "long"
+  ) {
+    searchParams.set(
+      "videoDuration",
+      duration
+    );
+  }
+
+  // ==========================================
+  // Sort Filter
+  // ==========================================
+
+  if (
+    sortBy === "relevance" ||
+    sortBy === "date" ||
+    sortBy === "rating" ||
+    sortBy === "viewCount"
+  ) {
+    searchParams.set(
+      "order",
+      sortBy
+    );
+  }
+
+  // ==========================================
+  // Create Cache Key
+  // ==========================================
+
+  const cacheKey =
+    `search-${normalizedQuery}` +
+    `-date-${uploadDate}` +
+    `-duration-${duration}` +
+    `-sort-${sortBy}`;
+
+  // ==========================================
+  // Check Cache First
+  // ==========================================
+
   const cachedVideos =
     getCachedData(cacheKey);
 
@@ -449,26 +558,26 @@ export async function searchVideos(query) {
 
   try {
     // ==========================================
-    // Step 1: Search videos
+    // Step 1: Search Videos
     // ==========================================
 
     const searchUrl =
-      `${BASE_URL}/search?part=snippet` +
-      `&q=${encodeURIComponent(query)}` +
-      `&type=video` +
-      `&maxResults=20` +
-      `&key=${API_KEY}`;
+      `${BASE_URL}/search?${searchParams.toString()}`;
 
     const searchResponse =
       await fetch(searchUrl);
 
     if (!searchResponse.ok) {
       const errorData =
-        await searchResponse.json().catch(() => null);
+        await searchResponse
+          .json()
+          .catch(() => null);
 
       const error = new Error(
         errorData?.error?.message ||
-          getApiErrorMessage(searchResponse.status)
+          getApiErrorMessage(
+            searchResponse.status
+          )
       );
 
       error.status =
@@ -487,17 +596,22 @@ export async function searchVideos(query) {
     const videoIds =
       (searchData.items || [])
         .map(
-          (item) => item.id?.videoId
+          (item) =>
+            item.id?.videoId
         )
         .filter(Boolean);
 
     if (videoIds.length === 0) {
-      setCachedData(cacheKey, []);
+      setCachedData(
+        cacheKey,
+        []
+      );
+
       return [];
     }
 
     // ==========================================
-    // Step 2: Get duration + views
+    // Step 2: Get Duration + Views
     // ==========================================
 
     const detailsUrl =
@@ -510,7 +624,9 @@ export async function searchVideos(query) {
 
     if (!detailsResponse.ok) {
       const errorData =
-        await detailsResponse.json().catch(() => null);
+        await detailsResponse
+          .json()
+          .catch(() => null);
 
       const error = new Error(
         errorData?.error?.message ||
@@ -533,7 +649,7 @@ export async function searchVideos(query) {
       await detailsResponse.json();
 
     // ==========================================
-    // Step 3: Create lookup
+    // Step 3: Create Lookup
     // ==========================================
 
     const detailsMap = {};
@@ -545,7 +661,7 @@ export async function searchVideos(query) {
     );
 
     // ==========================================
-    // Step 4: Combine search + details
+    // Step 4: Combine Search + Details
     // ==========================================
 
     const videos =
@@ -571,13 +687,19 @@ export async function searchVideos(query) {
            * - video duration <= 180 seconds
            */
 
+          const durationInSeconds =
+            getDurationInSeconds(
+              rawDuration
+            );
+
           const isShort =
             /#shorts/i.test(
               item.snippet?.title || ""
             ) ||
-            getDurationInSeconds(
-              rawDuration
-            ) <= 180;
+            (
+              durationInSeconds > 0 &&
+              durationInSeconds <= 180
+            );
 
           return {
             id: videoId,
@@ -605,7 +727,9 @@ export async function searchVideos(query) {
               "",
 
             duration:
-              formatDuration(rawDuration),
+              formatDuration(
+                rawDuration
+              ),
 
             views:
               details?.statistics?.viewCount ||
@@ -622,7 +746,7 @@ export async function searchVideos(query) {
       );
 
     // ==========================================
-    // Save Result in Cache
+    // Save Result In Cache
     // ==========================================
 
     setCachedData(

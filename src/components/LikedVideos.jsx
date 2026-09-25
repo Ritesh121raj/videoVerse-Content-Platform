@@ -36,6 +36,23 @@ function LikedVideos() {
     };
 
     loadLikedVideos();
+
+    // Listen for liked-video changes
+    const handleActivityUpdate = () => {
+      loadLikedVideos();
+    };
+
+    window.addEventListener(
+      "activityUpdated",
+      handleActivityUpdate
+    );
+
+    return () => {
+      window.removeEventListener(
+        "activityUpdated",
+        handleActivityUpdate
+      );
+    };
   }, []);
 
   const removeFromLiked = (videoId) => {
@@ -63,11 +80,20 @@ function LikedVideos() {
         (video) => video.id !== videoId
       )
     );
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
   };
 
   const clearAllLikedVideos = () => {
     localStorage.removeItem("likedVideos");
+
     setLikedVideos([]);
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
   };
 
   return (
