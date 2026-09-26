@@ -1,14 +1,10 @@
-const express = require("express");
 const User = require("../models/User");
-const protect = require("../middleware/authMiddleware");
-
-const router = express.Router();
 
 // ======================================================
-// GET LOGGED-IN USER'S LIKED VIDEOS
+// GET LIKED VIDEOS
 // ======================================================
 
-router.get("/liked", protect, async (req, res) => {
+const getLikedVideos = async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select(
       "likedVideos"
@@ -30,14 +26,14 @@ router.get("/liked", protect, async (req, res) => {
       message: "Server error",
     });
   }
-});
+};
 
 
 // ======================================================
-// ADD VIDEO TO LIKED VIDEOS
+// ADD LIKED VIDEO
 // ======================================================
 
-router.post("/liked", protect, async (req, res) => {
+const addLikedVideo = async (req, res) => {
   try {
     const { videoId } = req.body;
 
@@ -55,9 +51,9 @@ router.post("/liked", protect, async (req, res) => {
       });
     }
 
-    // Avoid duplicate video IDs
+    // Don't add duplicate
     if (!user.likedVideos.includes(videoId)) {
-      user.likedVideos.push(videoId);
+      user.likedVideos.unshift(videoId);
       await user.save();
     }
 
@@ -72,16 +68,22 @@ router.post("/liked", protect, async (req, res) => {
       message: "Server error",
     });
   }
-});
+};
 
 
 // ======================================================
-// REMOVE VIDEO FROM LIKED VIDEOS
+// REMOVE LIKED VIDEO
 // ======================================================
 
-router.delete("/liked/:videoId", protect, async (req, res) => {
+const removeLikedVideo = async (req, res) => {
   try {
     const { videoId } = req.params;
+
+    if (!videoId) {
+      return res.status(400).json({
+        message: "Video ID is required",
+      });
+    }
 
     const user = await User.findById(req.user.userId);
 
@@ -91,9 +93,10 @@ router.delete("/liked/:videoId", protect, async (req, res) => {
       });
     }
 
-    user.likedVideos = user.likedVideos.filter(
-      (id) => id !== videoId
-    );
+    user.likedVideos =
+      user.likedVideos.filter(
+        (id) => id !== videoId
+      );
 
     await user.save();
 
@@ -102,12 +105,56 @@ router.delete("/liked/:videoId", protect, async (req, res) => {
       likedVideos: user.likedVideos,
     });
   } catch (error) {
-    console.error("Remove liked video error:", error);
+    console.error(
+      "Remove liked video error:",
+      error
+    );
 
     res.status(500).json({
       message: "Server error",
     });
   }
-});
+};
 
-module.exports = router;
+
+// ======================================================
+// CLEAR ALL LIKED VIDEOS
+// ======================================================
+
+const clearLikedVideos = async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    user.likedVideos = [];
+
+    await user.save();
+
+    res.status(200).json({
+      message: "All liked videos cleared",
+      likedVideos: [],
+    });
+  } catch (error) {
+    console.error(
+      "Clear liked videos error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+
+module.exports = {
+  getLikedVideos,
+  addLikedVideo,
+  removeLikedVideo,
+  clearLikedVideos,
+};

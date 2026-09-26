@@ -158,11 +158,10 @@ function VideoCard({
      LIKE
      ============================== */
 
-  const handleLike = () => {
+  const handleLike = async () => {
     const savedActivityEnabled =
       localStorage.getItem("savedActivityEnabled") !== "false";
 
-    // If saved activity is disabled, don't save Like
     if (!savedActivityEnabled) {
       setShowMenu(false);
 
@@ -172,6 +171,12 @@ function VideoCard({
 
       return;
     }
+
+    const token = localStorage.getItem("videoVerseToken");
+
+    // ==========================================
+    // LOCAL LIKED VIDEOS
+    // ==========================================
 
     const likedVideos =
       JSON.parse(
@@ -209,7 +214,46 @@ function VideoCard({
       );
     }
 
-    /* Remove from disliked */
+    // ==========================================
+    // SAVE TO BACKEND
+    // ==========================================
+
+    if (token) {
+      try {
+        const response = await fetch(
+          "https://videoverse-content-platform.onrender.com/api/user/liked",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            body: JSON.stringify({
+              videoId: id,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          console.error(
+            "Backend like error:",
+            data.message
+          );
+        }
+      } catch (error) {
+        console.error(
+          "Unable to save liked video to backend:",
+          error
+        );
+      }
+    }
+
+    // ==========================================
+    // REMOVE FROM DISLIKED
+    // ==========================================
+
     const dislikedVideos =
       JSON.parse(
         localStorage.getItem("dislikedVideos")
@@ -228,7 +272,6 @@ function VideoCard({
       JSON.stringify(updatedDislikedVideos)
     );
 
-    // Notify all activity pages
     window.dispatchEvent(
       new Event("activityUpdated")
     );

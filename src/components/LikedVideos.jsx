@@ -1,43 +1,99 @@
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import VideoCard from "./VideoCard";
+import { getVideoById } from "../services/videoApi";
 
 function LikedVideos() {
   const [likedVideos, setLikedVideos] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    const loadLikedVideos = () => {
-      try {
-        const savedLikedVideos =
-          JSON.parse(
-            localStorage.getItem("likedVideos")
-          ) || [];
+  const loadLikedVideos = async () => {
+    try {
+      setLoading(true);
 
-        const validVideos =
-          savedLikedVideos.filter(
-            (video) =>
-              video &&
-              typeof video === "object" &&
-              video.id
-          );
+      const token =
+        localStorage.getItem("videoVerseToken");
 
-        setLikedVideos(validVideos);
-      } catch (error) {
-        console.error(
-          "Liked videos error:",
-          error
+      // ==========================================
+      // NOT LOGGED IN
+      // ==========================================
+
+      if (!token) {
+        setLikedVideos([]);
+        return;
+      }
+
+      // ==========================================
+      // GET LIKED VIDEO IDS FROM BACKEND
+      // ==========================================
+
+      const response = await fetch(
+        "https://videoverse-content-platform.onrender.com/api/user/liked",
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to load liked videos"
+        );
+      }
+
+      const likedIds =
+        data.likedVideos || [];
+
+      // ==========================================
+      // GET VIDEO DETAILS
+      // ==========================================
+
+      const videoResults =
+        await Promise.all(
+          likedIds.map(async (videoId) => {
+            try {
+              return await getVideoById(videoId);
+            } catch (error) {
+              console.error(
+                `Unable to load video ${videoId}:`,
+                error
+              );
+
+              return null;
+            }
+          })
         );
 
-        setLikedVideos([]);
-      } finally {
-        setLoading(false);
-      }
-    };
+      const validVideos =
+        videoResults.filter(Boolean);
 
+      setLikedVideos(validVideos);
+
+      // Keep localStorage in sync
+      localStorage.setItem(
+        "likedVideos",
+        JSON.stringify(validVideos)
+      );
+    } catch (error) {
+      console.error(
+        "Liked videos error:",
+        error
+      );
+
+      setLikedVideos([]);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
     loadLikedVideos();
 
-    // Listen for liked-video changes
     const handleActivityUpdate = () => {
       loadLikedVideos();
     };
@@ -55,50 +111,136 @@ function LikedVideos() {
     };
   }, []);
 
-  const removeFromLiked = (videoId) => {
-    const savedLikedVideos =
-      JSON.parse(
-        localStorage.getItem("likedVideos")
-      ) || [];
+  // ==========================================
+  // REMOVE FROM LIKED
+  // ==========================================
 
-    const updatedVideos =
-      savedLikedVideos.filter((video) => {
-        if (typeof video === "string") {
-          return video !== videoId;
+  const removeFromLiked = async (videoId) => {
+    try {
+      const token =
+        localStorage.getItem("videoVerseToken");
+
+      if (token) {
+        const response = await fetch(
+          `https://videoverse-content-platform.onrender.com/api/user/liked/${videoId}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to remove liked video"
+          );
         }
+      }
 
-        return video?.id !== videoId;
-      });
+      // Update local UI
+      setLikedVideos((prevVideos) =>
+        prevVideos.filter(
+          (video) => video.id !== videoId
+        )
+      );
 
-    localStorage.setItem(
-      "likedVideos",
-      JSON.stringify(updatedVideos)
-    );
+      // Update localStorage
+      const savedLikedVideos =
+        JSON.parse(
+          localStorage.getItem("likedVideos")
+        ) || [];
 
-    setLikedVideos((prevVideos) =>
-      prevVideos.filter(
-        (video) => video.id !== videoId
-      )
-    );
+      const updatedVideos =
+        savedLikedVideos.filter(
+          (video) =>
+            typeof video === "string"
+              ? video !== videoId
+              : video?.id !== videoId
+        );
 
-    window.dispatchEvent(
-      new Event("activityUpdated")
-    );
+      localStorage.setItem(
+        "likedVideos",
+        JSON.stringify(updatedVideos)
+      );
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
+    } catch (error) {
+      console.error(
+        "Remove liked video error:",
+        error
+      );
+
+      alert(
+        "Unable to remove liked video."
+      );
+    }
   };
 
-  const clearAllLikedVideos = () => {
-    localStorage.removeItem("likedVideos");
+  // ==========================================
+  // CLEAR ALL
+  // ==========================================
 
-    setLikedVideos([]);
+  const clearAllLikedVideos = async () => {
+    try {
+      const token =
+        localStorage.getItem("videoVerseToken");
 
-    window.dispatchEvent(
-      new Event("activityUpdated")
-    );
+      if (token) {
+        // Remove every liked video from backend
+        await Promise.all(
+          likedVideos.map(async (video) => {
+            try {
+              await fetch(
+                `https://videoverse-content-platform.onrender.com/api/user/liked/${video.id}`,
+                {
+                  method: "DELETE",
+                  headers: {
+                    Authorization: `Bearer ${token}`,
+                  },
+                }
+              );
+            } catch (error) {
+              console.error(
+                "Delete liked video error:",
+                error
+              );
+            }
+          })
+        );
+      }
+
+      localStorage.removeItem(
+        "likedVideos"
+      );
+
+      setLikedVideos([]);
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
+    } catch (error) {
+      console.error(
+        "Clear liked videos error:",
+        error
+      );
+
+      alert(
+        "Unable to clear liked videos."
+      );
+    }
   };
 
   return (
     <div className="page-container">
+
       <div className="liked-videos-header">
+
         <div>
           <h1>Liked Videos</h1>
 
@@ -118,7 +260,9 @@ function LikedVideos() {
           likedVideos.length > 0 && (
             <button
               className="clear-liked-btn"
-              onClick={clearAllLikedVideos}
+              onClick={
+                clearAllLikedVideos
+              }
             >
               <Trash2 size={16} />
               Clear all liked videos
@@ -140,6 +284,7 @@ function LikedVideos() {
         </div>
       ) : (
         <div className="liked-videos-grid">
+
           {likedVideos.map((video) => (
             <div
               className="liked-video-card"
@@ -169,13 +314,17 @@ function LikedVideos() {
                   video.publishedAt ||
                   video.time
                 }
-                duration={video.duration}
+                duration={
+                  video.duration
+                }
               />
 
               <button
                 className="liked-video-remove"
                 onClick={() =>
-                  removeFromLiked(video.id)
+                  removeFromLiked(
+                    video.id
+                  )
                 }
               >
                 <Trash2 size={16} />
@@ -183,6 +332,7 @@ function LikedVideos() {
               </button>
             </div>
           ))}
+
         </div>
       )}
     </div>
