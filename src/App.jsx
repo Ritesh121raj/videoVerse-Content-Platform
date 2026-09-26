@@ -47,9 +47,11 @@ function ProtectedRoute({ children }) {
 
   const currentUser = (() => {
     try {
-      return JSON.parse(
+      const savedUser = JSON.parse(
         localStorage.getItem("videoVerseCurrentUser")
       );
+
+      return savedUser?.user || null;
     } catch {
       return null;
     }
@@ -983,78 +985,74 @@ function App() {
   // ================================================
 
   useEffect(() => {
-    const verifyAuthentication =
-      async () => {
-        try {
-          const token =
-            localStorage.getItem(
-              "videoVerseToken"
-            );
+    const verifyAuthentication = async () => {
+      try {
+        const token = localStorage.getItem(
+          "videoVerseToken"
+        );
 
-          // No token = not logged in
-          if (!token) {
-            setAuthChecking(false);
-            return;
-          }
+        // No token = user is not logged in
+        if (!token) {
+          setAuthChecking(false);
+          return;
+        }
 
-          const response =
-            await fetch(
-              "http://localhost:5000/api/auth/me",
-              {
-                method: "GET",
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
+        const API_URL =
+          "https://videoverse-content-platform.onrender.com/api";
 
-          const data =
-            await response.json();
+        const response =
+          await fetch(
+            `${API_URL}/auth/me`,
+            {
+              method: "GET",
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
 
-          // Token invalid / expired
-          if (!response.ok) {
-            localStorage.removeItem(
-              "videoVerseToken"
-            );
+        const data = await response.json();
 
-            localStorage.removeItem(
-              "videoVerseCurrentUser"
-            );
+        // Token invalid / expired
+        if (!response.ok) {
+          localStorage.removeItem(
+            "videoVerseToken"
+          );
 
-            window.dispatchEvent(
-              new Event("authUpdated")
-            );
-
-            setAuthChecking(false);
-            return;
-          }
-
-          // Token valid
-          localStorage.setItem(
-            "videoVerseCurrentUser",
-            JSON.stringify(data)
+          localStorage.removeItem(
+            "videoVerseCurrentUser"
           );
 
           window.dispatchEvent(
             new Event("authUpdated")
           );
 
-        } catch (error) {
-          console.error(
-            "Authentication verification failed:",
-            error
-          );
-
-          /*
-            We don't delete the token here because
-            the backend may simply be temporarily
-            unavailable.
-          */
-        } finally {
           setAuthChecking(false);
+          return;
         }
-      };
+
+        // Token valid
+        localStorage.setItem(
+          "videoVerseCurrentUser",
+          JSON.stringify(data)
+        );
+
+        window.dispatchEvent(
+          new Event("authUpdated")
+        );
+
+      } catch (error) {
+        console.error(
+          "Authentication verification failed:",
+          error
+        );
+
+        // Don't delete token if backend is temporarily unavailable
+      } finally {
+        setAuthChecking(false);
+      }
+    };
 
     verifyAuthentication();
   }, []);

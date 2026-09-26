@@ -32,9 +32,11 @@ function Navbar({ search, setSearch }) {
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      return JSON.parse(
+      const savedUser = JSON.parse(
         localStorage.getItem("videoVerseCurrentUser")
       );
+
+      return savedUser?.user || null;
     } catch {
       return null;
     }
@@ -105,49 +107,49 @@ function Navbar({ search, setSearch }) {
   });
 
   useEffect(() => {
-    const syncNotifications = () => {
-      const savedNotifications = JSON.parse(
-        localStorage.getItem("notifications") || "[]"
-      );
+      const syncNotifications = () => {
+        const savedNotifications = JSON.parse(
+          localStorage.getItem("notifications") || "[]"
+        );
 
-      setNotifications(savedNotifications);
-    };
+        setNotifications(savedNotifications);
+      };
 
-    window.addEventListener(
-      "notificationsUpdated",
-      syncNotifications
-    );
-
-    window.addEventListener(
-      "storage",
-      syncNotifications
-    );
-
-    return () => {
-      window.removeEventListener(
+      window.addEventListener(
         "notificationsUpdated",
         syncNotifications
       );
 
-      window.removeEventListener(
+      window.addEventListener(
         "storage",
         syncNotifications
       );
-    };
-  }, []);
 
-  /* ==============================
-     SYNC CURRENT USER
-     ============================== */
+      return () => {
+        window.removeEventListener(
+          "notificationsUpdated",
+          syncNotifications
+        );
 
-  useEffect(() => {
+        window.removeEventListener(
+          "storage",
+          syncNotifications
+        );
+      };
+    }, []);
+
+    /* ==============================
+      SYNC CURRENT USER
+      ============================== */
+
+    useEffect(() => {
     const syncCurrentUser = () => {
       try {
         const savedUser = JSON.parse(
           localStorage.getItem("videoVerseCurrentUser")
         );
 
-        setCurrentUser(savedUser);
+        setCurrentUser(savedUser?.user || null);
       } catch {
         setCurrentUser(null);
       }

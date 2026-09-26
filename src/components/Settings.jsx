@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Settings as SettingsIcon,
   Palette,
@@ -29,13 +29,40 @@ function Settings() {
 
   const [currentUser, setCurrentUser] = useState(() => {
     try {
-      return JSON.parse(
+      const storedUser = JSON.parse(
         localStorage.getItem("videoVerseCurrentUser")
       );
+
+      return storedUser || null;
     } catch {
       return null;
     }
   });
+  useEffect(() => {
+    const handleAuthUpdated = () => {
+      try {
+        const storedUser = JSON.parse(
+          localStorage.getItem("videoVerseCurrentUser")
+        );
+
+        setCurrentUser(storedUser?.user || null);
+      } catch {
+        setCurrentUser(null);
+      }
+    };
+
+    window.addEventListener(
+      "authUpdated",
+      handleAuthUpdated
+    );
+
+    return () => {
+      window.removeEventListener(
+        "authUpdated",
+        handleAuthUpdated
+      );
+    };
+  }, []);
 
   const [isEditingProfile, setIsEditingProfile] =
     useState(false);
@@ -155,14 +182,20 @@ function Settings() {
   const handleSignIn = () => {
     navigate("/login");
   };
+  const handleEditProfile = () => {
+    setEditName(currentUser?.name || "");
+    setEditEmail(currentUser?.email || "");
+    setIsEditingProfile(true);
+  };
+
 
   const handleSignOut = () => {
-    localStorage.removeItem(
-      "videoVerseCurrentUser"
-    );
+    localStorage.removeItem("videoVerseToken");
+    localStorage.removeItem("videoVerseCurrentUser");
 
     setCurrentUser(null);
     setIsEditingProfile(false);
+    setIsChangingPassword(false);
 
     window.dispatchEvent(
       new Event("authUpdated")
@@ -170,17 +203,7 @@ function Settings() {
 
     alert("You have been signed out.");
 
-    setActiveSection("Account");
-  };
-
-  const handleEditProfile = () => {
-    if (!currentUser) {
-      return;
-    }
-
-    setEditName(currentUser.name || "");
-    setEditEmail(currentUser.email || "");
-    setIsEditingProfile(true);
+    navigate("/login");
   };
 
   const handleCancelEdit = () => {
