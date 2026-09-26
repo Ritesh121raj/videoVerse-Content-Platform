@@ -5,45 +5,58 @@ const userSchema = new mongoose.Schema(
     name: {
       type: String,
       required: true,
-      trim: true,
     },
 
     email: {
       type: String,
       required: true,
       unique: true,
-      lowercase: true,
-      trim: true,
     },
 
     password: {
       type: String,
       required: true,
-      minlength: 6,
     },
 
-    avatar: {
-      type: String,
-      default: "",
+    likedVideos: {
+      type: [String],
+      default: [],
     },
 
-    subscribedChannels: [
+    watchLater: {
+      type: [String],
+      default: [],
+    },
+    playlists: [
       {
-        type: String,
+        id: {
+          type: String,
+          required: true,
+        },
+
+        name: {
+          type: String,
+          required: true,
+        },
+
+        description: {
+          type: String,
+          default: "",
+        },
+
+        videos: {
+          type: [String],
+          default: [],
+        },
+
+        createdAt: {
+          type: Date,
+          default: Date.now,
+        },
       },
     ],
 
-    likedVideos: [
-      {
-        type: String,
-      },
-    ],
-
-    watchLater: [
-      {
-        type: String,
-      },
-    ],
+    // other fields...
   },
   {
     timestamps: true,

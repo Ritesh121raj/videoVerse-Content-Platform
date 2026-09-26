@@ -1,153 +1,269 @@
 import { useEffect, useState } from "react";
-import { Trash2 } from "lucide-react";
-import VideoGrid from "./VideoGrid";
-import { getVideoById } from "../services/videoApi";
+import VideoGrid from "../components/VideoGrid";
 
 function History() {
-  const [historyVideos, setHistoryVideos] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const [history, setHistory] = useState([]);
+
+  // ==========================================
+  // LOAD HISTORY
+  // ==========================================
+
+  const loadHistory = () => {
+    try {
+      const savedHistory =
+        JSON.parse(
+          localStorage.getItem("history")
+        ) || [];
+
+      const validHistory = Array.isArray(savedHistory)
+        ? savedHistory.filter(
+            (video) =>
+              video &&
+              video.id
+          )
+        : [];
+
+      setHistory(validHistory);
+
+      console.log(
+        "History page loaded:",
+        validHistory
+      );
+    } catch (error) {
+      console.error(
+        "History loading error:",
+        error
+      );
+
+      setHistory([]);
+    }
+  };
+
+  // ==========================================
+  // INITIAL LOAD + UPDATE LISTENER
+  // ==========================================
 
   useEffect(() => {
-    const loadHistory = async () => {
-      const historyIds =
-        JSON.parse(localStorage.getItem("history")) || [];
-
-      if (historyIds.length === 0) {
-        setHistoryVideos([]);
-        setLoading(false);
-        return;
-      }
-
-      try {
-        const videos = await Promise.all(
-          historyIds.map((id) => getVideoById(id))
-        );
-
-        setHistoryVideos(
-          videos.filter((video) => video !== null)
-        );
-      } catch (error) {
-        console.error("History error:", error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
     loadHistory();
 
-    // Listen for history changes from other parts of the app
-    const handleActivityUpdate = () => {
+    const handleHistoryUpdated = () => {
+      loadHistory();
+    };
+
+    const handleActivityUpdated = () => {
       loadHistory();
     };
 
     window.addEventListener(
+      "historyUpdated",
+      handleHistoryUpdated
+    );
+
+    window.addEventListener(
       "activityUpdated",
-      handleActivityUpdate
+      handleActivityUpdated
+    );
+
+    window.addEventListener(
+      "storage",
+      handleHistoryUpdated
     );
 
     return () => {
       window.removeEventListener(
+        "historyUpdated",
+        handleHistoryUpdated
+      );
+
+      window.removeEventListener(
         "activityUpdated",
-        handleActivityUpdate
+        handleActivityUpdated
+      );
+
+      window.removeEventListener(
+        "storage",
+        handleHistoryUpdated
       );
     };
   }, []);
 
-  const removeFromHistory = (videoId) => {
-    const historyIds =
-      JSON.parse(localStorage.getItem("history")) || [];
+  // ==========================================
+  // CLEAR HISTORY
+  // ==========================================
 
-    const updatedIds = historyIds.filter(
-      (id) => id !== videoId
+  const clearHistory = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to clear your watch history?"
     );
+
+    if (!confirmed) {
+      return;
+    }
+
+    localStorage.removeItem("history");
+
+    setHistory([]);
+
+    window.dispatchEvent(
+      new Event("historyUpdated")
+    );
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
+  };
+
+  // ==========================================
+  // REMOVE SINGLE VIDEO
+  // ==========================================
+
+  const removeFromHistory = (videoId) => {
+    const updatedHistory =
+      history.filter(
+        (video) =>
+          video?.id !== videoId
+      );
 
     localStorage.setItem(
       "history",
-      JSON.stringify(updatedIds)
+      JSON.stringify(updatedHistory)
     );
 
-    setHistoryVideos((prevVideos) =>
-      prevVideos.filter(
-        (video) => video.id !== videoId
-      )
-    );
+    setHistory(updatedHistory);
 
     window.dispatchEvent(
-      new Event("activityUpdated")
+      new Event("historyUpdated")
     );
   };
 
-  const clearAllHistory = () => {
-    localStorage.removeItem("history");
+  // ==========================================
+  // EMPTY STATE
+  // ==========================================
 
-    setHistoryVideos([]);
+  if (history.length === 0) {
+    return (
+      <div className="history-page">
 
-    window.dispatchEvent(
-      new Event("activityUpdated")
-    );
-  };
+        <div
+          style={{
+            display: "flex",
+            justifyContent: "space-between",
+            alignItems: "center",
+            marginBottom: "25px",
+          }}
+        >
+          <div>
+            <h1>Watch History</h1>
 
-  return (
-    <div className="page-container">
-      <div className="history-header">
-        <div>
-          <h1>History</h1>
-
-          {!loading && historyVideos.length > 0 && (
-            <p className="history-count">
-              {historyVideos.length}{" "}
-              {historyVideos.length === 1
-                ? "video"
-                : "videos"}{" "}
-              in history
+            <p
+              style={{
+                color: "#aaa",
+                marginTop: "5px",
+              }}
+            >
+              Videos you have watched
             </p>
-          )}
+          </div>
         </div>
 
-        {!loading && historyVideos.length > 0 && (
-          <button
-            className="clear-history-btn"
-            onClick={clearAllHistory}
-          >
-            <Trash2 size={16} />
-            Clear all history
-          </button>
-        )}
-      </div>
-
-      {loading ? (
-        <p className="page-message">
-          Loading history...
-        </p>
-      ) : historyVideos.length === 0 ? (
-        <div className="history-empty">
+        <div className="page-message">
           <h2>No watch history</h2>
+
           <p>
-            Videos you watch will appear here.
+            Videos that you watch will
+            appear here.
           </p>
         </div>
-      ) : (
-        <div className="history-content">
-          {historyVideos.map((video) => (
-            <div
-              className="history-item"
-              key={video.id}
-            >
-              <VideoGrid videos={[video]} />
 
-              <button
-                className="history-remove"
-                onClick={() =>
-                  removeFromHistory(video.id)
-                }
-              >
-                <Trash2 size={16} />
-                Remove from History
-              </button>
-            </div>
-          ))}
+      </div>
+    );
+  }
+
+  // ==========================================
+  // HISTORY PAGE
+  // ==========================================
+
+  return (
+    <div className="history-page">
+
+      {/* HEADER */}
+
+      <div
+        style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          marginBottom: "25px",
+        }}
+      >
+
+        <div>
+          <h1>Watch History</h1>
+
+          <p
+            style={{
+              color: "#aaa",
+              marginTop: "5px",
+            }}
+          >
+            {history.length}{" "}
+            {history.length === 1
+              ? "video"
+              : "videos"}{" "}
+            in your history
+          </p>
         </div>
-      )}
+
+        <button
+          onClick={clearHistory}
+          style={{
+            background: "#ff0000",
+            color: "white",
+            border: "none",
+            padding: "10px 16px",
+            borderRadius: "8px",
+            cursor: "pointer",
+            fontWeight: "600",
+          }}
+        >
+          Clear History
+        </button>
+
+      </div>
+
+      {/* VIDEO LIST */}
+
+      <VideoGrid
+        videos={history}
+      />
+
+      {/* REMOVE BUTTONS */}
+
+      <div
+        style={{
+          marginTop: "30px",
+          display: "flex",
+          flexWrap: "wrap",
+          gap: "10px",
+        }}
+      >
+
+        {history.map((video) => (
+          <button
+            key={video.id}
+            onClick={() =>
+              removeFromHistory(video.id)
+            }
+            style={{
+              display: "none",
+            }}
+          >
+            Remove
+          </button>
+        ))}
+
+      </div>
+
     </div>
   );
 }

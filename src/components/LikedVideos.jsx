@@ -74,11 +74,11 @@ function LikedVideos() {
 
       setLikedVideos(validVideos);
 
-      // Keep localStorage in sync
-      localStorage.setItem(
-        "likedVideos",
-        JSON.stringify(validVideos)
-      );
+        // Keep localStorage synchronized with IDs only
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(likedIds)
+        );
     } catch (error) {
       console.error(
         "Liked videos error:",

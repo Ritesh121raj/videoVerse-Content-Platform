@@ -39,14 +39,21 @@ function Watch() {
   // ==================================================
 
   const [video, setVideo] = useState(null);
+
   const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(null);
 
-  const [recommendedVideos, setRecommendedVideos] = useState([]);
-  const [recommendedError, setRecommendedError] = useState(null);
+  const [recommendedVideos, setRecommendedVideos] =
+    useState([]);
+
+  const [recommendedError, setRecommendedError] =
+    useState(null);
 
   const [liked, setLiked] = useState(false);
+
   const [disliked, setDisliked] = useState(false);
+
   const [watchLater, setWatchLater] = useState(false);
 
   const [showPlaylistModal, setShowPlaylistModal] =
@@ -57,16 +64,22 @@ function Watch() {
   const [newPlaylistName, setNewPlaylistName] =
     useState("");
 
-  const [newPlaylistDescription, setNewPlaylistDescription] =
-    useState("");
+  const [
+    newPlaylistDescription,
+    setNewPlaylistDescription,
+  ] = useState("");
 
   const [likeCount, setLikeCount] = useState(1200);
-  const [dislikeCount, setDislikeCount] = useState(25);
+
+  const [dislikeCount, setDislikeCount] =
+    useState(25);
 
   const [subscribed, setSubscribed] = useState(false);
 
   const [comments, setComments] = useState([]);
-  const [commentText, setCommentText] = useState("");
+
+  const [commentText, setCommentText] =
+    useState("");
 
   const [editingCommentId, setEditingCommentId] =
     useState(null);
@@ -74,8 +87,10 @@ function Watch() {
   const [editingCommentText, setEditingCommentText] =
     useState("");
 
-  const [replyingToCommentId, setReplyingToCommentId] =
-    useState(null);
+  const [
+    replyingToCommentId,
+    setReplyingToCommentId,
+  ] = useState(null);
 
   const [replyText, setReplyText] = useState("");
 
@@ -84,22 +99,12 @@ function Watch() {
   // ==================================================
 
   const iframeRef = useRef(null);
+
   const playerRef = useRef(null);
 
   const recommendedVideosRef = useRef([]);
+
   const playlistVideosRef = useRef([]);
-
-  // ==================================================
-  // GET VIDEO ID
-  // ==================================================
-
-  const getVideoId = (item) => {
-    if (typeof item === "string") {
-      return item;
-    }
-
-    return item?.id;
-  };
 
   // ==================================================
   // FORMAT NUMBER
@@ -124,43 +129,40 @@ function Watch() {
   };
 
   // ==================================================
-  // SAVE TO HISTORY
+  // SAVE HISTORY
   // ==================================================
 
-  const saveToHistory = useCallback((videoData) => {
-    if (!videoData?.id) {
+  const saveHistory = useCallback(() => {
+    if (!video?.id) {
       return;
     }
 
     try {
-      const history =
+      const savedHistory =
         JSON.parse(
           localStorage.getItem("history")
         ) || [];
 
-      const historyVideo = {
-        ...videoData,
-        id: videoData.id,
+      const historyItem = {
+        ...video,
+
         image:
-          videoData.thumbnail ||
-          videoData.image,
-        thumbnail:
-          videoData.thumbnail ||
-          videoData.image,
+          video.thumbnail ||
+          video.image,
+
+        watchedAt: Date.now(),
       };
 
       const updatedHistory = [
-        historyVideo,
+        historyItem,
 
-        ...history.filter((item) => {
-          const itemId =
-            typeof item === "string"
+        ...savedHistory.filter(
+          (item) =>
+            (typeof item === "string"
               ? item
-              : item?.id;
-
-          return itemId !== videoData.id;
-        }),
-      ].slice(0, 20);
+              : item?.id) !== video.id
+        ),
+      ].slice(0, 50);
 
       localStorage.setItem(
         "history",
@@ -168,12 +170,7 @@ function Watch() {
       );
 
       window.dispatchEvent(
-        new Event("historyUpdated")
-      );
-
-      console.log(
-        "History saved:",
-        videoData.id
+        new Event("activityUpdated")
       );
     } catch (error) {
       console.error(
@@ -181,7 +178,7 @@ function Watch() {
         error
       );
     }
-  }, []);
+  }, [video]);
 
   // ==================================================
   // CONTINUE WATCHING
@@ -228,10 +225,10 @@ function Watch() {
           )
         ) || [];
 
-      // Video almost completed
       if (currentTime >= duration - 10) {
         const updated = saved.filter(
-          (item) => item?.id !== video.id
+          (item) =>
+            item?.id !== video.id
         );
 
         localStorage.setItem(
@@ -249,11 +246,8 @@ function Watch() {
           video.thumbnail ||
           video.image,
 
-        thumbnail:
-          video.thumbnail ||
-          video.image,
-
         currentTime,
+
         duration,
 
         progress:
@@ -266,7 +260,8 @@ function Watch() {
         continueVideo,
 
         ...saved.filter(
-          (item) => item?.id !== video.id
+          (item) =>
+            item?.id !== video.id
         ),
       ].slice(0, 10);
 
@@ -322,21 +317,11 @@ function Watch() {
         return;
       }
 
-      // ==============================================
-      // SET VIDEO
-      // ==============================================
-
       setVideo(data);
 
-      // ==============================================
-      // SAVE TO HISTORY
-      // ==============================================
-
-      saveToHistory(data);
-
-      // ==============================================
+      // ==================================================
       // RECOMMENDED VIDEOS
-      // ==============================================
+      // ==================================================
 
       try {
         setRecommendedError(null);
@@ -366,92 +351,217 @@ function Watch() {
         );
       }
 
-      // ==============================================
+      // ==================================================
       // SUBSCRIPTION
-      // ==============================================
+      // ==================================================
 
-      const subscriptions =
-        JSON.parse(
-          localStorage.getItem(
-            "subscribedChannels"
-          )
-        ) || [];
+      try {
+        const subscriptions =
+          JSON.parse(
+            localStorage.getItem(
+              "subscribedChannels"
+            )
+          ) || [];
 
-      const isSubscribed =
-        subscriptions.some(
-          (channel) =>
-            channel?.id === data.channelId
+        const isSubscribed =
+          subscriptions.some(
+            (channel) =>
+              channel?.id ===
+              data.channelId
+          );
+
+        setSubscribed(isSubscribed);
+      } catch (error) {
+        console.error(
+          "Subscription loading error:",
+          error
         );
 
-      setSubscribed(isSubscribed);
+        setSubscribed(false);
+      }
 
-      // ==============================================
-      // LIKE / DISLIKE
-      // ==============================================
+      // ==================================================
+      // LIKE FROM BACKEND
+      // ==================================================
 
-      const likedVideos =
-        JSON.parse(
-          localStorage.getItem(
-            "likedVideos"
-          )
-        ) || [];
-
-      const dislikedVideos =
-        JSON.parse(
-          localStorage.getItem(
-            "dislikedVideos"
-          )
-        ) || [];
-
-      setLiked(
-        likedVideos.some(
-          (item) =>
-            getVideoId(item) === data.id
-        )
-      );
-
-      setDisliked(
-        dislikedVideos.some(
-          (item) =>
-            getVideoId(item) === data.id
-        )
-      );
-
-      // ==============================================
-      // WATCH LATER
-      // ==============================================
-
-      const savedWatchLater =
-        JSON.parse(
-          localStorage.getItem(
-            "watchLater"
-          )
-        ) || [];
-
-      const isWatchLater =
-        savedWatchLater.some(
-          (item) =>
-            getVideoId(item) === data.id
+      const token =
+        localStorage.getItem(
+          "videoVerseToken"
         );
 
-      setWatchLater(isWatchLater);
+      if (token) {
+        try {
+          const response =
+            await fetch(
+              "https://videoverse-content-platform.onrender.com/api/user/liked",
+              {
+                method: "GET",
 
-      // ==============================================
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+          const likedData =
+            await response.json();
+
+          if (response.ok) {
+            const likedIds =
+              Array.isArray(
+                likedData.likedVideos
+              )
+                ? likedData.likedVideos
+                : [];
+
+            setLiked(
+              likedIds.includes(data.id)
+            );
+
+            // IMPORTANT:
+            // localStorage contains ONLY IDs
+            localStorage.setItem(
+              "likedVideos",
+              JSON.stringify(
+                likedIds
+              )
+            );
+          } else {
+            setLiked(false);
+          }
+        } catch (error) {
+          console.error(
+            "Load liked videos error:",
+            error
+          );
+
+          setLiked(false);
+        }
+      } else {
+        setLiked(false);
+      }
+
+      // ==================================================
+      // DISLIKE
+      // ==================================================
+
+      try {
+        const dislikedVideos =
+          JSON.parse(
+            localStorage.getItem(
+              "dislikedVideos"
+            )
+          ) || [];
+
+        const getVideoId = (item) => {
+          if (
+            typeof item === "string"
+          ) {
+            return item;
+          }
+
+          return item?.id;
+        };
+
+        setDisliked(
+          dislikedVideos.some(
+            (item) =>
+              getVideoId(item) ===
+              data.id
+          )
+        );
+      } catch (error) {
+        console.error(
+          "Dislike loading error:",
+          error
+        );
+
+        setDisliked(false);
+      }
+
+      // ==================================================
+      // WATCH LATER FROM BACKEND
+      // ==================================================
+
+      if (token) {
+        try {
+          const response =
+            await fetch(
+              "https://videoverse-content-platform.onrender.com/api/user/watch-later",
+              {
+                method: "GET",
+
+                headers: {
+                  Authorization: `Bearer ${token}`,
+                },
+              }
+            );
+
+          const watchLaterData =
+            await response.json();
+
+          if (response.ok) {
+            const watchLaterIds =
+              Array.isArray(
+                watchLaterData.watchLater
+              )
+                ? watchLaterData.watchLater
+                : [];
+
+            setWatchLater(
+              watchLaterIds.includes(
+                data.id
+              )
+            );
+
+            // Backend IDs ko local cache me rakho
+            localStorage.setItem(
+              "watchLater",
+              JSON.stringify(
+                watchLaterIds
+              )
+            );
+          } else {
+            setWatchLater(false);
+          }
+        } catch (error) {
+          console.error(
+            "Load watch later error:",
+            error
+          );
+
+          setWatchLater(false);
+        }
+      } else {
+        setWatchLater(false);
+      }
+      // ==================================================
       // COMMENTS
-      // ==============================================
+      // ==================================================
 
-      const savedComments =
-        JSON.parse(
-          localStorage.getItem(
-            `comments_${id}`
+      try {
+        const savedComments =
+          JSON.parse(
+            localStorage.getItem(
+              `comments_${id}`
+            )
+          ) || [];
+
+        setComments(
+          Array.isArray(
+            savedComments
           )
-        ) || [];
+            ? savedComments
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Comments loading error:",
+          error
+        );
 
-      setComments(
-        Array.isArray(savedComments)
-          ? savedComments
-          : []
-      );
+        setComments([]);
+      }
     } catch (error) {
       console.error(
         "Error loading video:",
@@ -467,7 +577,7 @@ function Watch() {
     } finally {
       setLoading(false);
     }
-  }, [id, saveToHistory]);
+  }, [id]);
 
   // ==================================================
   // LOAD VIDEO WHEN ID CHANGES
@@ -493,7 +603,9 @@ function Watch() {
         ) || [];
 
       setPlaylists(
-        Array.isArray(savedPlaylists)
+        Array.isArray(
+          savedPlaylists
+        )
           ? savedPlaylists
           : []
       );
@@ -514,6 +626,7 @@ function Watch() {
   useEffect(() => {
     if (!playlistId) {
       playlistVideosRef.current = [];
+
       return;
     }
 
@@ -528,7 +641,8 @@ function Watch() {
       const currentPlaylist =
         savedPlaylists.find(
           (playlist) =>
-            playlist.id === playlistId
+            playlist.id ===
+            playlistId
         );
 
       playlistVideosRef.current =
@@ -561,7 +675,10 @@ function Watch() {
   // ==================================================
 
   useEffect(() => {
-    if (!video?.id || !iframeRef.current) {
+    if (
+      !video?.id ||
+      !iframeRef.current
+    ) {
       return;
     }
 
@@ -613,12 +730,16 @@ function Watch() {
               },
 
               events: {
-                // ====================================
+                // ======================================
                 // PLAYER READY
-                // ====================================
+                // ======================================
 
                 onReady: (event) => {
                   try {
+                    // Save to history
+                    saveHistory();
+
+                    // Resume Continue Watching
                     const saved =
                       JSON.parse(
                         localStorage.getItem(
@@ -648,39 +769,51 @@ function Watch() {
                     }
                   } catch (error) {
                     console.error(
-                      "Resume playback error:",
+                      "Player ready error:",
                       error
                     );
                   }
                 },
 
-                // ====================================
+                // ======================================
                 // PLAYER STATE CHANGE
-                // ====================================
+                // ======================================
 
                 onStateChange: (event) => {
                   // PLAYING
                   if (
                     event.data ===
-                    window.YT.PlayerState.PLAYING
+                    window.YT.PlayerState
+                      .PLAYING
                   ) {
+                    // Save history whenever playback starts
+                    saveHistory();
+
                     return;
                   }
 
                   // PAUSED
                   if (
                     event.data ===
-                    window.YT.PlayerState.PAUSED
+                    window.YT.PlayerState
+                      .PAUSED
                   ) {
+                    saveHistory();
+
                     saveContinueWatching();
+
                     return;
                   }
 
                   // ENDED
                   if (
                     event.data ===
-                    window.YT.PlayerState.ENDED
+                    window.YT.PlayerState
+                      .ENDED
                   ) {
+                    saveHistory();
+
+                    // Remove completed video
                     try {
                       const saved =
                         JSON.parse(
@@ -718,9 +851,9 @@ function Watch() {
                       return;
                     }
 
-                    // =================================
+                    // ==================================
                     // PLAYLIST NEXT
-                    // =================================
+                    // ==================================
 
                     const playlistVideos =
                       playlistVideosRef.current;
@@ -741,7 +874,9 @@ function Watch() {
                           currentIndex + 1
                         ];
 
-                      if (nextVideo?.id) {
+                      if (
+                        nextVideo?.id
+                      ) {
                         navigate(
                           `/watch/${nextVideo.id}?playlist=${playlistId}`
                         );
@@ -750,14 +885,17 @@ function Watch() {
                       }
                     }
 
-                    // =================================
+                    // ==================================
                     // RECOMMENDED NEXT
-                    // =================================
+                    // ==================================
 
                     const nextVideo =
-                      recommendedVideosRef.current[0];
+                      recommendedVideosRef
+                        .current[0];
 
-                    if (nextVideo?.id) {
+                    if (
+                      nextVideo?.id
+                    ) {
                       navigate(
                         `/watch/${nextVideo.id}`
                       );
@@ -782,9 +920,9 @@ function Watch() {
       }
     };
 
-    // ==============================================
+    // ==================================================
     // YOUTUBE API ALREADY LOADED
-    // ==============================================
+    // ==================================================
 
     if (
       window.YT &&
@@ -792,6 +930,10 @@ function Watch() {
     ) {
       initializePlayer();
     } else {
+      // ==================================================
+      // LOAD YOUTUBE IFRAME API
+      // ==================================================
+
       let script =
         document.getElementById(
           "youtube-iframe-api"
@@ -829,12 +971,14 @@ function Watch() {
         };
     }
 
-    // ==============================================
+    // ==================================================
     // CLEANUP
-    // ==============================================
+    // ==================================================
 
     return () => {
       cancelled = true;
+
+      saveHistory();
 
       saveContinueWatching();
 
@@ -858,6 +1002,7 @@ function Watch() {
     navigate,
     playlistId,
     saveContinueWatching,
+    saveHistory,
   ]);
 
   // ==================================================
@@ -887,9 +1032,12 @@ function Watch() {
   // ==================================================
 
   useEffect(() => {
-    const handleBeforeUnload = () => {
-      saveContinueWatching();
-    };
+    const handleBeforeUnload =
+      () => {
+        saveHistory();
+
+        saveContinueWatching();
+      };
 
     window.addEventListener(
       "beforeunload",
@@ -902,7 +1050,10 @@ function Watch() {
         handleBeforeUnload
       );
     };
-  }, [saveContinueWatching]);
+  }, [
+    saveHistory,
+    saveContinueWatching,
+  ]);
 
   // ==================================================
   // NEXT VIDEO
@@ -918,7 +1069,8 @@ function Watch() {
       const currentIndex =
         playlistVideos.findIndex(
           (item) =>
-            item?.id === video?.id
+            item?.id ===
+            video?.id
         );
 
       const nextVideo =
@@ -956,7 +1108,8 @@ function Watch() {
       playlistVideosRef.current;
 
     if (
-      playlistVideos.length === 0
+      playlistVideos.length ===
+      0
     ) {
       return;
     }
@@ -964,7 +1117,8 @@ function Watch() {
     const currentIndex =
       playlistVideos.findIndex(
         (item) =>
-          item?.id === video?.id
+          item?.id ===
+          video?.id
       );
 
     const previousVideo =
@@ -985,153 +1139,209 @@ function Watch() {
   // LIKE
   // ==================================================
 
-  const handleLike = () => {
+  const handleLike = async () => {
     if (!video?.id) {
       return;
     }
 
+    const token =
+      localStorage.getItem(
+        "videoVerseToken"
+      );
+
+    // ==================================================
+    // NOT LOGGED IN
+    // ==================================================
+
+    if (!token) {
+      alert(
+        "Please login to like videos."
+      );
+
+      return;
+    }
+
     try {
-      const likedVideos =
-        JSON.parse(
-          localStorage.getItem(
-            "likedVideos"
-          )
-        ) || [];
-
-      const dislikedVideos =
-        JSON.parse(
-          localStorage.getItem(
-            "dislikedVideos"
-          )
-        ) || [];
-
-      // ==============================================
-      // REMOVE LIKE
-      // ==============================================
+      // ==================================================
+      // UNLIKE
+      // ==================================================
 
       if (liked) {
-        const updatedLikedVideos =
-          likedVideos.filter(
-            (item) =>
-              getVideoId(item) !==
-              video.id
+        const response =
+          await fetch(
+            `https://videoverse-content-platform.onrender.com/api/user/liked/${video.id}`,
+            {
+              method: "DELETE",
+
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
           );
 
-        localStorage.setItem(
-          "likedVideos",
-          JSON.stringify(
-            updatedLikedVideos
-          )
-        );
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to remove liked video"
+          );
+        }
 
         setLiked(false);
 
         setLikeCount(
           (prev) =>
-            Math.max(0, prev - 1)
+            Math.max(
+              0,
+              prev - 1
+            )
+        );
+
+        const likedIds =
+          Array.isArray(
+            data.likedVideos
+          )
+            ? data.likedVideos
+            : [];
+
+        // ONLY IDs
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(
+            likedIds
+          )
         );
 
         window.dispatchEvent(
-          new Event("activityUpdated")
-        );
-
-        console.log(
-          "Like removed:",
-          video.id
+          new Event(
+            "activityUpdated"
+          )
         );
 
         return;
       }
 
-      // ==============================================
-      // ADD LIKE
-      // ==============================================
+      // ==================================================
+      // LIKE
+      // ==================================================
 
-      const alreadyLiked =
-        likedVideos.some(
-          (item) =>
-            getVideoId(item) ===
-            video.id
+      const response =
+        await fetch(
+          "https://videoverse-content-platform.onrender.com/api/user/liked",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization: `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              videoId: video.id,
+            }),
+          }
         );
 
-      if (!alreadyLiked) {
-        const videoToSave = {
-          ...video,
+      const data =
+        await response.json();
 
-          id: video.id,
-
-          image:
-            video.thumbnail ||
-            video.image,
-
-          thumbnail:
-            video.thumbnail ||
-            video.image,
-        };
-
-        const updatedLikedVideos = [
-          videoToSave,
-
-          ...likedVideos.filter(
-            (item) =>
-              getVideoId(item) !==
-              video.id
-          ),
-        ];
-
-        localStorage.setItem(
-          "likedVideos",
-          JSON.stringify(
-            updatedLikedVideos
-          )
-        );
-
-        setLikeCount(
-          (prev) => prev + 1
-        );
-      }
-
-      // ==============================================
-      // REMOVE DISLIKE
-      // ==============================================
-
-      if (disliked) {
-        const updatedDislikedVideos =
-          dislikedVideos.filter(
-            (item) =>
-              getVideoId(item) !==
-              video.id
-          );
-
-        localStorage.setItem(
-          "dislikedVideos",
-          JSON.stringify(
-            updatedDislikedVideos
-          )
-        );
-
-        setDisliked(false);
-
-        setDislikeCount(
-          (prev) =>
-            Math.max(0, prev - 1)
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to like video"
         );
       }
 
       setLiked(true);
 
-      window.dispatchEvent(
-        new Event("activityUpdated")
+      setLikeCount(
+        (prev) => prev + 1
       );
 
-      console.log(
-        "Video liked:",
-        video.id
+      const likedIds =
+        Array.isArray(
+          data.likedVideos
+        )
+          ? data.likedVideos
+          : [];
+
+      // ONLY IDs
+      localStorage.setItem(
+        "likedVideos",
+        JSON.stringify(
+          likedIds
+        )
       );
+
+      window.dispatchEvent(
+        new Event(
+          "activityUpdated"
+        )
+      );
+
+      // ==================================================
+      // REMOVE DISLIKE
+      // ==================================================
+
+      if (disliked) {
+        try {
+          const dislikedVideos =
+            JSON.parse(
+              localStorage.getItem(
+                "dislikedVideos"
+              )
+            ) || [];
+
+          const getVideoId =
+            (item) =>
+              typeof item ===
+              "string"
+                ? item
+                : item?.id;
+
+          const updatedDislikedVideos =
+            dislikedVideos.filter(
+              (item) =>
+                getVideoId(item) !==
+                video.id
+            );
+
+          localStorage.setItem(
+            "dislikedVideos",
+            JSON.stringify(
+              updatedDislikedVideos
+            )
+          );
+
+          setDisliked(false);
+
+          setDislikeCount(
+            (prev) =>
+              Math.max(
+                0,
+                prev - 1
+              )
+          );
+        } catch (error) {
+          console.error(
+            "Dislike update error:",
+            error
+          );
+        }
+      }
     } catch (error) {
       console.error(
-        "Like error:",
+        "Like video error:",
         error
+      );
+
+      alert(
+        error?.message ||
+          "Unable to update like."
       );
     }
   };
@@ -1141,149 +1351,158 @@ function Watch() {
   // ==================================================
 
   const handleDislike = () => {
-    if (!video?.id) {
+    if (!video) {
       return;
     }
 
-    try {
-      const dislikedVideos =
-        JSON.parse(
-          localStorage.getItem(
-            "dislikedVideos"
-          )
-        ) || [];
+    const dislikedVideos =
+      JSON.parse(
+        localStorage.getItem(
+          "dislikedVideos"
+        )
+      ) || [];
 
-      const likedVideos =
-        JSON.parse(
-          localStorage.getItem(
-            "likedVideos"
-          )
-        ) || [];
-
-      // ==============================================
-      // REMOVE DISLIKE
-      // ==============================================
-
-      if (disliked) {
-        const updatedDislikedVideos =
-          dislikedVideos.filter(
-            (item) =>
-              getVideoId(item) !==
-              video.id
-          );
-
-        localStorage.setItem(
-          "dislikedVideos",
-          JSON.stringify(
-            updatedDislikedVideos
-          )
-        );
-
-        setDisliked(false);
-
-        setDislikeCount(
-          (prev) =>
-            Math.max(0, prev - 1)
-        );
-
-        window.dispatchEvent(
-          new Event("activityUpdated")
-        );
-
-        return;
+    const getVideoId = (item) => {
+      if (
+        typeof item ===
+        "string"
+      ) {
+        return item;
       }
 
-      // ==============================================
-      // ADD DISLIKE
-      // ==============================================
+      return item?.id;
+    };
 
-      const alreadyDisliked =
-        dislikedVideos.some(
+    if (disliked) {
+      const updated =
+        dislikedVideos.filter(
           (item) =>
-            getVideoId(item) ===
+            getVideoId(item) !==
             video.id
         );
 
-      if (!alreadyDisliked) {
-        const videoToSave = {
-          ...video,
+      localStorage.setItem(
+        "dislikedVideos",
+        JSON.stringify(updated)
+      );
 
-          id: video.id,
+      setDisliked(false);
+
+      setDislikeCount(
+        (prev) =>
+          Math.max(
+            0,
+            prev - 1
+          )
+      );
+
+      return;
+    }
+
+    const alreadyDisliked =
+      dislikedVideos.some(
+        (item) =>
+          getVideoId(item) ===
+          video.id
+      );
+
+    if (!alreadyDisliked) {
+      const updated = [
+        ...dislikedVideos,
+
+        {
+          ...video,
 
           image:
             video.thumbnail ||
             video.image,
+        },
+      ];
 
-          thumbnail:
-            video.thumbnail ||
-            video.image,
-        };
-
-        const updatedDislikedVideos = [
-          videoToSave,
-
-          ...dislikedVideos.filter(
-            (item) =>
-              getVideoId(item) !==
-              video.id
-          ),
-        ];
-
-        localStorage.setItem(
-          "dislikedVideos",
-          JSON.stringify(
-            updatedDislikedVideos
-          )
-        );
-
-        setDislikeCount(
-          (prev) => prev + 1
-        );
-      }
-
-      // ==============================================
-      // REMOVE LIKE
-      // ==============================================
-
-      if (liked) {
-        const updatedLikedVideos =
-          likedVideos.filter(
-            (item) =>
-              getVideoId(item) !==
-              video.id
-          );
-
-        localStorage.setItem(
-          "likedVideos",
-          JSON.stringify(
-            updatedLikedVideos
-          )
-        );
-
-        setLiked(false);
-
-        setLikeCount(
-          (prev) =>
-            Math.max(0, prev - 1)
-        );
-      }
-
-      setDisliked(true);
-
-      window.dispatchEvent(
-        new Event("activityUpdated")
+      localStorage.setItem(
+        "dislikedVideos",
+        JSON.stringify(
+          updated
+        )
       );
 
-      console.log(
-        "Video disliked:",
-        video.id
-      );
-    } catch (error) {
-      console.error(
-        "Dislike error:",
-        error
+      setDislikeCount(
+        (prev) => prev + 1
       );
     }
+
+    setDisliked(true);
+
+    // ==================================================
+    // REMOVE LIKE FROM BACKEND
+    // ==================================================
+
+    const token =
+      localStorage.getItem(
+        "videoVerseToken"
+      );
+
+    if (liked && token) {
+      fetch(
+        `https://videoverse-content-platform.onrender.com/api/user/liked/${video.id}`,
+        {
+          method: "DELETE",
+
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      )
+        .then(
+          async (response) => {
+            const data =
+              await response.json();
+
+            if (!response.ok) {
+              throw new Error(
+                data.message ||
+                  "Unable to remove like"
+              );
+            }
+
+            const likedIds =
+              Array.isArray(
+                data.likedVideos
+              )
+                ? data.likedVideos
+                : [];
+
+            localStorage.setItem(
+              "likedVideos",
+              JSON.stringify(
+                likedIds
+              )
+            );
+
+            window.dispatchEvent(
+              new Event(
+                "activityUpdated"
+              )
+            );
+          }
+        )
+        .catch((error) => {
+          console.error(
+            "Remove like error:",
+            error
+          );
+        });
+    }
+
+    setLiked(false);
+
+    setLikeCount(
+      (prev) =>
+        Math.max(
+          0,
+          prev - 1
+        )
+    );
   };
 
   // ==================================================
@@ -1330,13 +1549,16 @@ function Watch() {
 
           {
             id: video.channelId,
+
             name: video.channel,
           },
         ];
 
         localStorage.setItem(
           "subscribedChannels",
-          JSON.stringify(updated)
+          JSON.stringify(
+            updated
+          )
         );
       }
 
@@ -1348,125 +1570,176 @@ function Watch() {
   // SHARE
   // ==================================================
 
-  const handleShare = async () => {
-    const url =
-      window.location.href;
+  const handleShare =
+    async () => {
+      const url =
+        window.location.href;
 
-    try {
-      await navigator.clipboard.writeText(
-        url
-      );
+      try {
+        await navigator.clipboard.writeText(
+          url
+        );
 
-      alert(
-        "Video link copied!"
-      );
-    } catch (error) {
-      console.error(
-        "Unable to copy link:",
-        error
-      );
-
-      alert(
-        "Unable to copy video link."
-      );
-    }
-  };
+        alert(
+          "Video link copied!"
+        );
+      } catch (error) {
+        console.error(
+          "Unable to copy link:",
+          error
+        );
+      }
+    };
 
   // ==================================================
   // DOWNLOAD
   // ==================================================
 
-  const handleDownload = () => {
-    alert(
-      "YouTube videos cannot be directly downloaded from this website."
-    );
-  };
-
-  // ==================================================
-  // WATCH LATER
-  // ==================================================
-
-  const handleWatchLater = () => {
-    if (!video) {
-      return;
-    }
-
-    const savedWatchLater =
-      JSON.parse(
-        localStorage.getItem(
-          "watchLater"
-        )
-      ) || [];
-
-    if (watchLater) {
-      const updatedWatchLater =
-        savedWatchLater.filter(
-          (item) =>
-            getVideoId(item) !==
-            video.id
-        );
-
-      localStorage.setItem(
-        "watchLater",
-        JSON.stringify(
-          updatedWatchLater
-        )
-      );
-
-      setWatchLater(false);
-
-      window.dispatchEvent(
-        new Event("activityUpdated")
-      );
-
+  const handleDownload =
+    () => {
       alert(
-        "Removed from Watch Later"
+        "YouTube videos cannot be directly downloaded from this website."
       );
-    } else {
-      const alreadySaved =
-        savedWatchLater.some(
-          (item) =>
-            getVideoId(item) ===
-            video.id
+    };
+
+  
+
+    // ==================================================
+    // WATCH LATER
+    // ==================================================
+
+    const handleWatchLater = async () => {
+      if (!video?.id) {
+        return;
+      }
+
+      const token = localStorage.getItem(
+        "videoVerseToken"
+      );
+
+      // ================================================
+      // LOGIN REQUIRED
+      // ================================================
+
+      if (!token) {
+        alert(
+          "Please login to use Watch Later."
         );
 
-      if (!alreadySaved) {
-        const updatedWatchLater = [
+        return;
+      }
+
+      try {
+        // ==============================================
+        // REMOVE FROM WATCH LATER
+        // ==============================================
+
+        if (watchLater) {
+          const response = await fetch(
+            `https://videoverse-content-platform.onrender.com/api/user/watch-later/${video.id}`,
+            {
+              method: "DELETE",
+
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          const data = await response.json();
+
+          if (!response.ok) {
+            throw new Error(
+              data.message ||
+                "Unable to remove video from Watch Later"
+            );
+          }
+
+          setWatchLater(false);
+
+          const watchLaterIds =
+            Array.isArray(data.watchLater)
+              ? data.watchLater
+              : [];
+
+          localStorage.setItem(
+            "watchLater",
+            JSON.stringify(watchLaterIds)
+          );
+
+          window.dispatchEvent(
+            new Event("activityUpdated")
+          );
+
+          alert(
+            "Removed from Watch Later"
+          );
+
+          return;
+        }
+
+        // ==============================================
+        // ADD TO WATCH LATER
+        // ==============================================
+
+        const response = await fetch(
+          "https://videoverse-content-platform.onrender.com/api/user/watch-later",
           {
-            ...video,
+            method: "POST",
 
-            image:
-              video.thumbnail ||
-              video.image,
+            headers: {
+              "Content-Type":
+                "application/json",
 
-            thumbnail:
-              video.thumbnail ||
-              video.image,
-          },
+              Authorization: `Bearer ${token}`,
+            },
 
-          ...savedWatchLater,
-        ];
+            body: JSON.stringify({
+              videoId: video.id,
+            }),
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to add video to Watch Later"
+          );
+        }
+
+        setWatchLater(true);
+
+        const watchLaterIds =
+          Array.isArray(data.watchLater)
+            ? data.watchLater
+            : [];
 
         localStorage.setItem(
           "watchLater",
-          JSON.stringify(
-            updatedWatchLater
-          )
+          JSON.stringify(watchLaterIds)
         );
 
         window.dispatchEvent(
           new Event("activityUpdated")
         );
+
+        alert(
+          "Added to Watch Later"
+        );
+      } catch (error) {
+        console.error(
+          "Watch Later error:",
+          error
+        );
+
+        alert(
+          error?.message ||
+            "Unable to update Watch Later."
+        );
       }
-
-      setWatchLater(true);
-
-      alert(
-        "Added to Watch Later"
-      );
-    }
-  };
-
+    };
   // ==================================================
   // SAVE PLAYLISTS
   // ==================================================
@@ -1544,10 +1817,6 @@ function Watch() {
                 image:
                   video.thumbnail ||
                   video.image,
-
-                thumbnail:
-                  video.thumbnail ||
-                  video.image,
               },
             ],
           };
@@ -1558,7 +1827,9 @@ function Watch() {
       updatedPlaylists
     );
 
-    setShowPlaylistModal(false);
+    setShowPlaylistModal(
+      false
+    );
 
     const selectedPlaylist =
       updatedPlaylists.find(
@@ -1597,87 +1868,91 @@ function Watch() {
   // CREATE PLAYLIST
   // ==================================================
 
-  const handleCreatePlaylist = () => {
-    const name =
-      newPlaylistName.trim();
+  const handleCreatePlaylist =
+    () => {
+      const name =
+        newPlaylistName.trim();
 
-    if (!name) {
+      if (!name) {
+        alert(
+          "Please enter a playlist name."
+        );
+
+        return;
+      }
+
+      const currentPlaylists =
+        JSON.parse(
+          localStorage.getItem(
+            "playlists"
+          )
+        ) || [];
+
+      const alreadyExists =
+        currentPlaylists.some(
+          (playlist) =>
+            playlist.name
+              ?.toLowerCase() ===
+            name.toLowerCase()
+        );
+
+      if (alreadyExists) {
+        alert(
+          "A playlist with this name already exists."
+        );
+
+        return;
+      }
+
+      const newPlaylist = {
+        id: `playlist-${Date.now()}`,
+
+        name,
+
+        description:
+          newPlaylistDescription.trim(),
+
+        videos: video
+          ? [
+              {
+                ...video,
+
+                image:
+                  video.thumbnail ||
+                  video.image,
+              },
+            ]
+          : [],
+
+        createdAt:
+          new Date().toISOString(),
+      };
+
+      const updatedPlaylists =
+        [
+          newPlaylist,
+
+          ...currentPlaylists,
+        ];
+
+      savePlaylists(
+        updatedPlaylists
+      );
+
+      setNewPlaylistName("");
+
+      setNewPlaylistDescription(
+        ""
+      );
+
+      setShowPlaylistModal(
+        false
+      );
+
       alert(
-        "Please enter a playlist name."
+        `Playlist "${name}" created and video added.`
       );
-
-      return;
-    }
-
-    const currentPlaylists =
-      JSON.parse(
-        localStorage.getItem(
-          "playlists"
-        )
-      ) || [];
-
-    const alreadyExists =
-      currentPlaylists.some(
-        (playlist) =>
-          playlist.name
-            ?.toLowerCase() ===
-          name.toLowerCase()
-      );
-
-    if (alreadyExists) {
-      alert(
-        "A playlist with this name already exists."
-      );
-
-      return;
-    }
-
-    const newPlaylist = {
-      id: `playlist-${Date.now()}`,
-
-      name,
-
-      description:
-        newPlaylistDescription.trim(),
-
-      videos: video
-        ? [
-            {
-              ...video,
-
-              image:
-                video.thumbnail ||
-                video.image,
-
-              thumbnail:
-                video.thumbnail ||
-                video.image,
-            },
-          ]
-        : [],
-
-      createdAt:
-        new Date().toISOString(),
     };
-
-    const updatedPlaylists = [
-      newPlaylist,
-
-      ...currentPlaylists,
-    ];
-
-    savePlaylists(
-      updatedPlaylists
-    );
-
-    setNewPlaylistName("");
-    setNewPlaylistDescription("");
-    setShowPlaylistModal(false);
-
-    alert(
-      `Playlist "${name}" created and video added.`
-    );
-  };
 
   // ==================================================
   // ADD COMMENT
@@ -1754,44 +2029,49 @@ function Watch() {
   // SAVE EDITED COMMENT
   // ==================================================
 
-  const handleSaveEditedComment = (
-    commentId
-  ) => {
-    const updatedText =
-      editingCommentText.trim();
+  const handleSaveEditedComment =
+    (commentId) => {
+      const updatedText =
+        editingCommentText.trim();
 
-    if (!updatedText) {
-      return;
-    }
+      if (!updatedText) {
+        return;
+      }
 
-    const updatedComments =
-      comments.map(
-        (comment) =>
-          comment.id === commentId
-            ? {
-                ...comment,
+      const updatedComments =
+        comments.map(
+          (comment) =>
+            comment.id ===
+            commentId
+              ? {
+                  ...comment,
 
-                text: updatedText,
+                  text: updatedText,
 
-                edited: true,
-              }
-            : comment
+                  edited: true,
+                }
+              : comment
+        );
+
+      setComments(
+        updatedComments
       );
 
-    setComments(
-      updatedComments
-    );
+      localStorage.setItem(
+        `comments_${id}`,
+        JSON.stringify(
+          updatedComments
+        )
+      );
 
-    localStorage.setItem(
-      `comments_${id}`,
-      JSON.stringify(
-        updatedComments
-      )
-    );
+      setEditingCommentId(
+        null
+      );
 
-    setEditingCommentId(null);
-    setEditingCommentText("");
-  };
+      setEditingCommentText(
+        ""
+      );
+    };
 
   // ==================================================
   // CANCEL EDIT
@@ -1799,8 +2079,13 @@ function Watch() {
 
   const handleCancelEditComment =
     () => {
-      setEditingCommentId(null);
-      setEditingCommentText("");
+      setEditingCommentId(
+        null
+      );
+
+      setEditingCommentText(
+        ""
+      );
     };
 
   // ==================================================
@@ -1913,153 +2198,102 @@ function Watch() {
     );
 
     setReplyText("");
-    setReplyingToCommentId(null);
+
+    setReplyingToCommentId(
+      null
+    );
   };
 
   // ==================================================
   // DELETE REPLY
   // ==================================================
 
-  const handleDeleteReply = (
-    commentId,
-    replyId
-  ) => {
-    const updatedComments =
-      comments.map(
-        (comment) => {
-          if (
-            comment.id !==
-            commentId
-          ) {
-            return comment;
+  const handleDeleteReply =
+    (
+      commentId,
+      replyId
+    ) => {
+      const updatedComments =
+        comments.map(
+          (comment) => {
+            if (
+              comment.id !==
+              commentId
+            ) {
+              return comment;
+            }
+
+            return {
+              ...comment,
+
+              replies: (
+                comment.replies ||
+                []
+              ).filter(
+                (reply) =>
+                  reply.id !==
+                  replyId
+              ),
+            };
           }
+        );
 
-          return {
-            ...comment,
-
-            replies: (
-              comment.replies || []
-            ).filter(
-              (reply) =>
-                reply.id !==
-                replyId
-            ),
-          };
-        }
+      setComments(
+        updatedComments
       );
 
-    setComments(
-      updatedComments
-    );
-
-    localStorage.setItem(
-      `comments_${id}`,
-      JSON.stringify(
-        updatedComments
-      )
-    );
-  };
+      localStorage.setItem(
+        `comments_${id}`,
+        JSON.stringify(
+          updatedComments
+        )
+      );
+    };
 
   // ==================================================
   // DELETE COMMENT
   // ==================================================
 
-  const handleDeleteComment = (
-    commentId
-  ) => {
-    const updated =
-      comments.filter(
-        (comment) =>
-          comment.id !== commentId
+  const handleDeleteComment =
+    (commentId) => {
+      const updated =
+        comments.filter(
+          (comment) =>
+            comment.id !==
+            commentId
+        );
+
+      setComments(updated);
+
+      localStorage.setItem(
+        `comments_${id}`,
+        JSON.stringify(updated)
       );
 
-    setComments(updated);
+      if (
+        editingCommentId ===
+        commentId
+      ) {
+        setEditingCommentId(
+          null
+        );
 
-    localStorage.setItem(
-      `comments_${id}`,
-      JSON.stringify(updated)
-    );
+        setEditingCommentText(
+          ""
+        );
+      }
 
-    if (
-      editingCommentId ===
-      commentId
-    ) {
-      setEditingCommentId(null);
-      setEditingCommentText("");
-    }
+      if (
+        replyingToCommentId ===
+        commentId
+      ) {
+        setReplyingToCommentId(
+          null
+        );
 
-    if (
-      replyingToCommentId ===
-      commentId
-    ) {
-      setReplyingToCommentId(null);
-      setReplyText("");
-    }
-  };
-
-  // ==================================================
-  // FORMAT DATE
-  // ==================================================
-
-  const formatDate = (date) => {
-    if (!date) {
-      return "";
-    }
-
-    const uploadedDate =
-      new Date(date);
-
-    if (
-      isNaN(
-        uploadedDate.getTime()
-      )
-    ) {
-      return "";
-    }
-
-    const now = new Date();
-
-    const diff = Math.floor(
-      (now - uploadedDate) /
-        (1000 * 60 * 60 * 24)
-    );
-
-    if (diff < 0) {
-      return "just now";
-    }
-
-    if (diff === 0) {
-      return "today";
-    }
-
-    if (diff === 1) {
-      return "1 day ago";
-    }
-
-    if (diff < 30) {
-      return `${diff} days ago`;
-    }
-
-    const months =
-      Math.floor(diff / 30);
-
-    if (months === 1) {
-      return "1 month ago";
-    }
-
-    if (months < 12) {
-      return `${months} months ago`;
-    }
-
-    const years =
-      Math.floor(months / 12);
-
-    if (years === 1) {
-      return "1 year ago";
-    }
-
-    return `${years} years ago`;
-  };
+        setReplyText("");
+      }
+    };
 
   // ==================================================
   // LOADING
@@ -2103,12 +2337,17 @@ function Watch() {
             <button
               onClick={loadVideo}
               style={{
-                marginTop: "15px",
-                padding: "10px 18px",
+                marginTop:
+                  "15px",
+                padding:
+                  "10px 18px",
                 border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontWeight: "600",
+                borderRadius:
+                  "8px",
+                cursor:
+                  "pointer",
+                fontWeight:
+                  "600",
               }}
             >
               Try Again
@@ -2162,7 +2401,9 @@ function Watch() {
 
           <div className="watch-left">
 
-            {/* VIDEO PLAYER */}
+            {/* ==================================================
+                VIDEO PLAYER
+            ================================================== */}
 
             <div className="video-player-wrapper">
               <div className="video-player">
@@ -2182,13 +2423,17 @@ function Watch() {
               </div>
             </div>
 
-            {/* TITLE */}
+            {/* ==================================================
+                TITLE
+            ================================================== */}
 
             <h1 className="watch-title">
               {video.title}
             </h1>
 
-            {/* CHANNEL + ACTIONS */}
+            {/* ==================================================
+                CHANNEL + ACTIONS
+            ================================================== */}
 
             <div className="watch-info">
 
@@ -2211,7 +2456,9 @@ function Watch() {
                         alt={
                           video.channel
                         }
-                        onError={(e) => {
+                        onError={(
+                          e
+                        ) => {
                           e.currentTarget.style.display =
                             "none";
                         }}
@@ -2219,7 +2466,9 @@ function Watch() {
                     ) : (
                       <div className="channel-avatar-fallback">
                         {video.channel
-                          ?.charAt(0)
+                          ?.charAt(
+                            0
+                          )
                           .toUpperCase() ||
                           "C"}
                       </div>
@@ -2230,7 +2479,9 @@ function Watch() {
                   <div className="watch-channel-details">
 
                     <h3>
-                      {video.channel}
+                      {
+                        video.channel
+                      }
                     </h3>
 
                     <p>
@@ -2268,14 +2519,18 @@ function Watch() {
                 {/* LIKE */}
 
                 <button
-                  onClick={handleLike}
+                  onClick={
+                    handleLike
+                  }
                   className={
                     liked
                       ? "action-btn active"
                       : "action-btn"
                   }
                 >
-                  <ThumbsUp size={22} />
+                  <ThumbsUp
+                    size={22}
+                  />
 
                   <span>
                     {formatNumber(
@@ -2296,7 +2551,9 @@ function Watch() {
                       : "action-btn"
                   }
                 >
-                  <ThumbsDown size={22} />
+                  <ThumbsDown
+                    size={22}
+                  />
 
                   <span>
                     {formatNumber(
@@ -2313,7 +2570,9 @@ function Watch() {
                   }
                   className="action-btn"
                 >
-                  <Share2 size={22} />
+                  <Share2
+                    size={22}
+                  />
 
                   <span>
                     Share
@@ -2328,7 +2587,9 @@ function Watch() {
                   }
                   className="action-btn"
                 >
-                  <Download size={22} />
+                  <Download
+                    size={22}
+                  />
 
                   <span>
                     Download
@@ -2345,7 +2606,9 @@ function Watch() {
                   }
                   className="action-btn"
                 >
-                  <ListPlus size={22} />
+                  <ListPlus
+                    size={22}
+                  />
 
                   <span>
                     Save to playlist
@@ -2364,7 +2627,9 @@ function Watch() {
                       : "action-btn"
                   }
                 >
-                  <Clock size={22} />
+                  <Clock
+                    size={22}
+                  />
 
                   <span>
                     {watchLater
@@ -2376,8 +2641,10 @@ function Watch() {
                 {/* PREVIOUS */}
 
                 {playlistId &&
-                  playlistVideosRef.current
-                    .length > 0 && (
+                  playlistVideosRef
+                    .current
+                    .length >
+                    0 && (
                     <button
                       onClick={
                         handlePreviousVideo
@@ -2393,8 +2660,10 @@ function Watch() {
                 {/* NEXT */}
 
                 {((playlistId &&
-                  playlistVideosRef.current
-                    .length > 0) ||
+                  playlistVideosRef
+                    .current
+                    .length >
+                    0) ||
                   recommendedVideos.length >
                     0) && (
                   <button
@@ -2413,7 +2682,9 @@ function Watch() {
 
             </div>
 
-            {/* PLAYLIST MODAL */}
+            {/* ==================================================
+                PLAYLIST MODAL
+            ================================================== */}
 
             {showPlaylistModal && (
               <div className="playlist-modal-overlay">
@@ -2428,8 +2699,8 @@ function Watch() {
                       </h2>
 
                       <p>
-                        Choose a playlist for
-                        this video.
+                        Choose a playlist
+                        for this video.
                       </p>
                     </div>
 
@@ -2442,7 +2713,9 @@ function Watch() {
                       }
                       aria-label="Close playlist modal"
                     >
-                      <X size={20} />
+                      <X
+                        size={20}
+                      />
                     </button>
 
                   </div>
@@ -2453,15 +2726,20 @@ function Watch() {
                     0 ? (
                       <p className="playlist-empty-message">
                         No playlists yet.
-                        Create your first
-                        playlist below.
+                        Create your
+                        first playlist
+                        below.
                       </p>
                     ) : (
                       playlists.map(
-                        (playlist) => {
+                        (
+                          playlist
+                        ) => {
                           const alreadyAdded =
                             playlist.videos?.some(
-                              (item) =>
+                              (
+                                item
+                              ) =>
                                 item?.id ===
                                 video.id
                             );
@@ -2497,7 +2775,8 @@ function Watch() {
                                       .videos
                                       ?.length ||
                                     0
-                                  ) === 1
+                                  ) ===
+                                  1
                                     ? "video"
                                     : "videos"}
                                 </span>
@@ -2519,7 +2798,8 @@ function Watch() {
                   <div className="create-playlist-form">
 
                     <h3>
-                      Create new playlist
+                      Create new
+                      playlist
                     </h3>
 
                     <input
@@ -2528,9 +2808,12 @@ function Watch() {
                       value={
                         newPlaylistName
                       }
-                      onChange={(e) =>
+                      onChange={(
+                        e
+                      ) =>
                         setNewPlaylistName(
-                          e.target.value
+                          e.target
+                            .value
                         )
                       }
                     />
@@ -2540,9 +2823,12 @@ function Watch() {
                       value={
                         newPlaylistDescription
                       }
-                      onChange={(e) =>
+                      onChange={(
+                        e
+                      ) =>
                         setNewPlaylistDescription(
-                          e.target.value
+                          e.target
+                            .value
                         )
                       }
                       rows="3"
@@ -2564,7 +2850,9 @@ function Watch() {
               </div>
             )}
 
-            {/* DESCRIPTION */}
+            {/* ==================================================
+                DESCRIPTION
+            ================================================== */}
 
             <div className="video-description">
 
@@ -2582,7 +2870,9 @@ function Watch() {
 
             </div>
 
-            {/* COMMENTS */}
+            {/* ==================================================
+                COMMENTS
+            ================================================== */}
 
             <div className="comments-section">
 
@@ -2593,8 +2883,11 @@ function Watch() {
                 </h2>
 
                 <span className="comment-count-badge">
-                  {totalCommentCount}{" "}
-                  {totalCommentCount === 1
+                  {
+                    totalCommentCount
+                  }{" "}
+                  {totalCommentCount ===
+                  1
                     ? "comment"
                     : "comments"}
                 </span>
@@ -2611,14 +2904,20 @@ function Watch() {
                   value={
                     commentText
                   }
-                  onChange={(e) =>
+                  onChange={(
+                    e
+                  ) =>
                     setCommentText(
-                      e.target.value
+                      e.target
+                        .value
                     )
                   }
-                  onKeyDown={(e) => {
+                  onKeyDown={(
+                    e
+                  ) => {
                     if (
-                      e.key === "Enter"
+                      e.key ===
+                      "Enter"
                     ) {
                       handleComment();
                     }
@@ -2646,7 +2945,9 @@ function Watch() {
                   </p>
                 ) : (
                   comments.map(
-                    (comment) => (
+                    (
+                      comment
+                    ) => (
                       <div
                         className="comment"
                         key={
@@ -2691,7 +2992,8 @@ function Watch() {
                                   e
                                 ) =>
                                   setEditingCommentText(
-                                    e.target
+                                    e
+                                      .target
                                       .value
                                   )
                                 }
@@ -2780,7 +3082,8 @@ function Watch() {
                               <span>
                                 {Number(
                                   comment.likes
-                                ) || 0}
+                                ) ||
+                                  0}
                               </span>
                             </button>
 
@@ -2810,7 +3113,9 @@ function Watch() {
                                       : comment.id
                                   );
 
-                                  setReplyText("");
+                                  setReplyText(
+                                    ""
+                                  );
                                 }}
                               >
                                 Reply
@@ -2846,13 +3151,18 @@ function Watch() {
                                 value={
                                   replyText
                                 }
-                                onChange={(e) =>
+                                onChange={(
+                                  e
+                                ) =>
                                   setReplyText(
-                                    e.target
+                                    e
+                                      .target
                                       .value
                                   )
                                 }
-                                onKeyDown={(e) => {
+                                onKeyDown={(
+                                  e
+                                ) => {
                                   if (
                                     e.key ===
                                     "Enter"
@@ -2870,7 +3180,9 @@ function Watch() {
                                       null
                                     );
 
-                                    setReplyText("");
+                                    setReplyText(
+                                      ""
+                                    );
                                   }
                                 }}
                                 autoFocus
@@ -2896,7 +3208,9 @@ function Watch() {
                                       null
                                     );
 
-                                    setReplyText("");
+                                    setReplyText(
+                                      ""
+                                    );
                                   }}
                                 >
                                   Cancel
@@ -2909,12 +3223,16 @@ function Watch() {
 
                           {/* REPLIES */}
 
-                          {(comment.replies || [])
-                            .length > 0 && (
+                          {(comment.replies ||
+                            [])
+                            .length >
+                            0 && (
                             <div className="comment-replies">
 
                               {comment.replies.map(
-                                (reply) => (
+                                (
+                                  reply
+                                ) => (
                                   <div
                                     className="comment-reply"
                                     key={
@@ -2960,7 +3278,9 @@ function Watch() {
                                         }
                                       >
                                         <Trash2
-                                          size={14}
+                                          size={
+                                            14
+                                          }
                                         />
 
                                         Delete
@@ -3001,14 +3321,16 @@ function Watch() {
             {recommendedError ? (
               <div className="page-message">
                 <p>
-                  {recommendedError}
+                  {
+                    recommendedError
+                  }
                 </p>
               </div>
             ) : recommendedVideos.length ===
               0 ? (
               <p className="page-message">
-                No recommended videos
-                available.
+                No recommended
+                videos available.
               </p>
             ) : (
               <VideoGrid
