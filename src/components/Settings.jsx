@@ -267,16 +267,15 @@ function Settings() {
     alert("Profile updated successfully.");
   };
 
-  const handleChangePassword = () => {
+  const handleChangePassword = async () => {
     if (!currentUser) return;
 
-    if (!currentPassword || !newPassword || !confirmPassword) {
+    if (
+      !currentPassword ||
+      !newPassword ||
+      !confirmPassword
+    ) {
       alert("Please fill in all password fields.");
-      return;
-    }
-
-    if (currentPassword !== currentUser.password) {
-      alert("Current password is incorrect.");
       return;
     }
 
@@ -290,28 +289,64 @@ function Settings() {
       return;
     }
 
-    if (newPassword === currentPassword) {
-      alert("New password must be different from your current password.");
-      return;
+    try {
+      const token =
+        localStorage.getItem("videoVerseToken");
+
+      if (!token) {
+        alert(
+          "Your session has expired. Please login again."
+        );
+
+        navigate("/login");
+        return;
+      }
+
+      const API_URL =
+        "https://videoverse-content-platform.onrender.com/api";
+
+      const response = await fetch(
+        `${API_URL}/auth/change-password`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            currentPassword,
+            newPassword,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(
+          data.message ||
+            "Unable to change password."
+        );
+        return;
+      }
+
+      setCurrentPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+      setIsChangingPassword(false);
+
+      alert("Password changed successfully.");
+    } catch (error) {
+      console.error(
+        "Change password error:",
+        error
+      );
+
+      alert(
+        "Unable to connect to the backend."
+      );
     }
-
-    const users = JSON.parse(localStorage.getItem("videoVerseUsers")) || [];
-    const updatedUser = { ...currentUser, password: newPassword };
-    const updatedUsers = users.map((user) =>
-      user.id === currentUser.id ? updatedUser : user
-    );
-
-    localStorage.setItem("videoVerseUsers", JSON.stringify(updatedUsers));
-    localStorage.setItem("videoVerseCurrentUser", JSON.stringify(updatedUser));
-    setCurrentUser(updatedUser);
-    setCurrentPassword("");
-    setNewPassword("");
-    setConfirmPassword("");
-    setIsChangingPassword(false);
-    window.dispatchEvent(new Event("authUpdated"));
-    alert("Password changed successfully.");
   };
-
   const handleDeleteAccount = async () => {
     if (!currentUser) return;
 

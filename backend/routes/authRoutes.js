@@ -6,6 +6,7 @@ const {
   getMe,
   updateProfile,
   deleteAccount,
+  changePassword,
 } = require("../controllers/authController");
 
 const protect = require("../middleware/authMiddleware");
@@ -27,5 +28,8 @@ router.put("/profile", protect, updateProfile);
 // Delete logged-in user account
 
 router.delete("/profile", protect, deleteAccount);
+
+// Change logged-in user's password
+router.put("/change-password", protect, changePassword);
 
 module.exports = router;
