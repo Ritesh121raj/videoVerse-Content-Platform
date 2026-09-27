@@ -71,7 +71,7 @@ const userSchema = new mongoose.Schema(
         },
 
         videos: {
-          type: [String],
+          type: [mongoose.Schema.Types.Mixed],
           default: [],
         },
 
