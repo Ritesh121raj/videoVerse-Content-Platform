@@ -1870,196 +1870,220 @@ function Watch() {
   // ADD TO PLAYLIST
   // ==================================================
 
-  const handleAddToPlaylist = (
-    playlistIdToAdd
-  ) => {
-    if (!video) {
+  const handleAddToPlaylist = async (playlistIdToAdd) => {
+    if (!video?.id) {
       return;
     }
 
-    const currentPlaylists =
-      JSON.parse(
-        localStorage.getItem(
-          "playlists"
-        )
-      ) || [];
+    const token = localStorage.getItem(
+      "videoVerseToken"
+    );
 
-    const updatedPlaylists =
-      currentPlaylists.map(
-        (playlist) => {
-          if (
-            playlist.id !==
-            playlistIdToAdd
-          ) {
-            return playlist;
-          }
+    if (!token) {
+      alert("Please login to add videos to playlist.");
+      return;
+    }
 
-          const existingVideos =
-            Array.isArray(
-              playlist.videos
-            )
-              ? playlist.videos
-              : [];
+    try {
+      // Find selected playlist
+      const selectedPlaylist = playlists.find(
+        (playlist) =>
+          playlist.id === playlistIdToAdd
+      );
 
-          const alreadyExists =
-            existingVideos.some(
-              (item) =>
-                item?.id ===
-                video.id
-            );
+      if (!selectedPlaylist) {
+        alert("Playlist not found.");
+        return;
+      }
 
-          if (alreadyExists) {
-            return playlist;
-          }
+      // Check duplicate
+      const existingVideos = Array.isArray(
+        selectedPlaylist.videos
+      )
+        ? selectedPlaylist.videos
+        : [];
 
-          return {
-            ...playlist,
+      const alreadyExists = existingVideos.some(
+        (item) =>
+          (typeof item === "string"
+            ? item
+            : item?.id) === video.id
+      );
 
-            videos: [
-              ...existingVideos,
+      if (alreadyExists) {
+        alert(
+          `Already in ${selectedPlaylist.name}`
+        );
+        return;
+      }
 
-              {
-                ...video,
+      // Add current video
+      const updatedVideos = [
+        ...existingVideos,
+        {
+          ...video,
+          image:
+            video.thumbnail ||
+            video.image,
+        },
+      ];
 
-                image:
-                  video.thumbnail ||
-                  video.image,
-              },
-            ],
-          };
+      // Update playlist in backend
+      const response = await fetch(
+        `https://videoverse-content-platform.onrender.com/api/user/playlists/${playlistIdToAdd}`,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            videos: updatedVideos,
+          }),
         }
       );
 
-    savePlaylists(
-      updatedPlaylists
-    );
+      const data = await response.json();
 
-    setShowPlaylistModal(
-      false
-    );
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to add video to playlist"
+        );
+      }
 
-    const selectedPlaylist =
-      updatedPlaylists.find(
-        (playlist) =>
-          playlist.id ===
-          playlistIdToAdd
+      // Update React state from backend response
+      setPlaylists(
+        Array.isArray(data.playlists)
+          ? data.playlists
+          : []
       );
 
-    const wasAlreadyAdded =
-      currentPlaylists
-        .find(
-          (playlist) =>
-            playlist.id ===
-            playlistIdToAdd
-        )
-        ?.videos?.some(
-          (item) =>
-            item?.id ===
-            video.id
-        );
+      setShowPlaylistModal(false);
 
-    alert(
-      wasAlreadyAdded
-        ? `Already in ${
-            selectedPlaylist?.name ||
-            "playlist"
-          }`
-        : `Added to ${
-            selectedPlaylist?.name ||
-            "playlist"
-          }`
-    );
+      alert(
+        `Added to ${selectedPlaylist.name}`
+      );
+    } catch (error) {
+      console.error(
+        "Add video to playlist error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Unable to add video to playlist."
+      );
+    }
   };
 
   // ==================================================
   // CREATE PLAYLIST
   // ==================================================
 
-  const handleCreatePlaylist =
-    () => {
-      const name =
-        newPlaylistName.trim();
+  const handleCreatePlaylist = async () => {
+    const name = newPlaylistName.trim();
 
-      if (!name) {
-        alert(
-          "Please enter a playlist name."
-        );
+    if (!name) {
+      alert("Please enter a playlist name.");
+      return;
+    }
 
-        return;
-      }
+    const token = localStorage.getItem(
+      "videoVerseToken"
+    );
 
-      const currentPlaylists =
-        JSON.parse(
-          localStorage.getItem(
-            "playlists"
-          )
-        ) || [];
+    if (!token) {
+      alert("Please login to create a playlist.");
+      return;
+    }
 
-      const alreadyExists =
-        currentPlaylists.some(
-          (playlist) =>
-            playlist.name
-              ?.toLowerCase() ===
-            name.toLowerCase()
-        );
+    try {
+      // Check duplicate playlist name
+      const alreadyExists = playlists.some(
+        (playlist) =>
+          playlist.name?.toLowerCase() ===
+          name.toLowerCase()
+      );
 
       if (alreadyExists) {
         alert(
           "A playlist with this name already exists."
         );
-
         return;
       }
 
-      const newPlaylist = {
-        id: `playlist-${Date.now()}`,
+      // Current video will be added initially
+      const videos = video
+        ? [
+            {
+              ...video,
+              image:
+                video.thumbnail ||
+                video.image,
+            },
+          ]
+        : [];
 
-        name,
+      const response = await fetch(
+        "https://videoverse-content-platform.onrender.com/api/user/playlists",
+        {
+          method: "POST",
 
-        description:
-          newPlaylistDescription.trim(),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
 
-        videos: video
-          ? [
-              {
-                ...video,
-
-                image:
-                  video.thumbnail ||
-                  video.image,
-              },
-            ]
-          : [],
-
-        createdAt:
-          new Date().toISOString(),
-      };
-
-      const updatedPlaylists =
-        [
-          newPlaylist,
-
-          ...currentPlaylists,
-        ];
-
-      savePlaylists(
-        updatedPlaylists
+          body: JSON.stringify({
+            id: `playlist-${Date.now()}`,
+            name,
+            description:
+              newPlaylistDescription.trim(),
+            videos,
+          }),
+        }
       );
 
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to create playlist"
+        );
+      }
+
+      // Update state from backend response
+      setPlaylists(
+        Array.isArray(data.playlists)
+          ? data.playlists
+          : []
+      );
+
+      // Reset form
       setNewPlaylistName("");
+      setNewPlaylistDescription("");
 
-      setNewPlaylistDescription(
-        ""
-      );
-
-      setShowPlaylistModal(
-        false
-      );
+      setShowPlaylistModal(false);
 
       alert(
         `Playlist "${name}" created and video added.`
       );
-    };
+    } catch (error) {
+      console.error(
+        "Create playlist error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Unable to create playlist."
+      );
+    }
+  };
 
   // ==================================================
   // ADD COMMENT

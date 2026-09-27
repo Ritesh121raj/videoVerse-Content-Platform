@@ -427,10 +427,17 @@ router.post("/playlists", protect, async (req, res) => {
       id: id || `playlist-${Date.now()}`,
       name: name.trim(),
       description: description?.trim() || "",
-      videos: Array.isArray(videos) ? videos : [],
+      videos: Array.isArray(videos)
+        ? videos
+            .map((video) =>
+              typeof video === "string"
+                ? video
+                : video.id || video.videoId
+            )
+            .filter(Boolean)
+        : [],
       createdAt: new Date(),
     };
-
     user.playlists.push(playlist);
 
     await user.save();
@@ -498,6 +505,86 @@ router.delete(
     } catch (error) {
       console.error(
         "Delete playlist error:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Server error",
+      });
+    }
+  }
+);
+// ======================================================
+// UPDATE PLAYLIST
+// ======================================================
+
+router.put(
+  "/playlists/:playlistId",
+  protect,
+  async (req, res) => {
+    try {
+      const { playlistId } = req.params;
+
+      const {
+        name,
+        description,
+        videos,
+      } = req.body;
+
+      const user = await User.findById(
+        req.user.userId
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      const playlist =
+        user.playlists.find(
+          (item) =>
+            item.id === playlistId
+        );
+
+      if (!playlist) {
+        return res.status(404).json({
+          message: "Playlist not found",
+        });
+      }
+
+      if (
+        typeof name === "string" &&
+        name.trim()
+      ) {
+        playlist.name =
+          name.trim();
+      }
+
+      if (
+        typeof description ===
+        "string"
+      ) {
+        playlist.description =
+          description.trim();
+      }
+
+      if (Array.isArray(videos)) {
+        playlist.videos = videos;
+      }
+
+      await user.save();
+
+      res.status(200).json({
+        message:
+          "Playlist updated successfully",
+        playlist,
+        playlists:
+          user.playlists,
+      });
+    } catch (error) {
+      console.error(
+        "Update playlist error:",
         error
       );
 
