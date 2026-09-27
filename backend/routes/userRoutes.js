@@ -32,7 +32,6 @@ router.get("/liked", protect, async (req, res) => {
   }
 });
 
-
 // ======================================================
 // ADD VIDEO TO LIKED VIDEOS
 // ======================================================
@@ -55,7 +54,6 @@ router.post("/liked", protect, async (req, res) => {
       });
     }
 
-    // Avoid duplicate video IDs
     if (!user.likedVideos.includes(videoId)) {
       user.likedVideos.push(videoId);
       await user.save();
@@ -73,7 +71,6 @@ router.post("/liked", protect, async (req, res) => {
     });
   }
 });
-
 
 // ======================================================
 // REMOVE VIDEO FROM LIKED VIDEOS
@@ -109,6 +106,7 @@ router.delete("/liked/:videoId", protect, async (req, res) => {
     });
   }
 });
+
 // ======================================================
 // GET LOGGED-IN USER'S WATCH LATER VIDEOS
 // ======================================================
@@ -139,7 +137,6 @@ router.get("/watch-later", protect, async (req, res) => {
     });
   }
 });
-
 
 // ======================================================
 // ADD VIDEO TO WATCH LATER
@@ -184,7 +181,6 @@ router.post("/watch-later", protect, async (req, res) => {
   }
 });
 
-
 // ======================================================
 // REMOVE VIDEO FROM WATCH LATER
 // ======================================================
@@ -214,13 +210,154 @@ router.delete(
       await user.save();
 
       res.status(200).json({
-        message:
-          "Video removed from Watch Later",
+        message: "Video removed from Watch Later",
         watchLater: user.watchLater,
       });
     } catch (error) {
       console.error(
         "Remove watch later video error:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Server error",
+      });
+    }
+  }
+);
+
+// ======================================================
+// GET LOGGED-IN USER'S SUBSCRIBED CHANNELS
+// ======================================================
+
+router.get(
+  "/subscriptions",
+  protect,
+  async (req, res) => {
+    try {
+      const user = await User.findById(
+        req.user.userId
+      ).select("subscribedChannels");
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      res.status(200).json({
+        subscribedChannels:
+          user.subscribedChannels || [],
+      });
+    } catch (error) {
+      console.error(
+        "Get subscriptions error:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Server error",
+      });
+    }
+  }
+);
+
+// ======================================================
+// SUBSCRIBE TO CHANNEL
+// ======================================================
+
+router.post(
+  "/subscriptions",
+  protect,
+  async (req, res) => {
+    try {
+      const { channelId } = req.body;
+
+      if (!channelId) {
+        return res.status(400).json({
+          message: "Channel ID is required",
+        });
+      }
+
+      const user = await User.findById(
+        req.user.userId
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      // Avoid duplicate subscriptions
+      if (
+        !user.subscribedChannels.includes(
+          channelId
+        )
+      ) {
+        user.subscribedChannels.push(
+          channelId
+        );
+
+        await user.save();
+      }
+
+      res.status(200).json({
+        message:
+          "Channel subscribed successfully",
+        subscribedChannels:
+          user.subscribedChannels,
+      });
+    } catch (error) {
+      console.error(
+        "Subscribe channel error:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Server error",
+      });
+    }
+  }
+);
+
+// ======================================================
+// UNSUBSCRIBE FROM CHANNEL
+// ======================================================
+
+router.delete(
+  "/subscriptions/:channelId",
+  protect,
+  async (req, res) => {
+    try {
+      const { channelId } = req.params;
+
+      const user = await User.findById(
+        req.user.userId
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      user.subscribedChannels =
+        user.subscribedChannels.filter(
+          (id) => id !== channelId
+        );
+
+      await user.save();
+
+      res.status(200).json({
+        message:
+          "Channel unsubscribed successfully",
+        subscribedChannels:
+          user.subscribedChannels,
+      });
+    } catch (error) {
+      console.error(
+        "Unsubscribe channel error:",
         error
       );
 

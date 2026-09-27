@@ -2,6 +2,10 @@ const mongoose = require("mongoose");
 
 const userSchema = new mongoose.Schema(
   {
+    // ==================================================
+    // BASIC USER INFORMATION
+    // ==================================================
+
     name: {
       type: String,
       required: true,
@@ -18,15 +22,37 @@ const userSchema = new mongoose.Schema(
       required: true,
     },
 
+    // ==================================================
+    // LIKED VIDEOS
+    // ==================================================
+
     likedVideos: {
       type: [String],
       default: [],
     },
 
+    // ==================================================
+    // WATCH LATER
+    // ==================================================
+
     watchLater: {
       type: [String],
       default: [],
     },
+
+    // ==================================================
+    // SUBSCRIBED CHANNELS
+    // ==================================================
+
+    subscribedChannels: {
+      type: [String],
+      default: [],
+    },
+
+    // ==================================================
+    // PLAYLISTS
+    // ==================================================
+
     playlists: [
       {
         id: {
@@ -55,14 +81,16 @@ const userSchema = new mongoose.Schema(
         },
       },
     ],
-
-    // other fields...
   },
+
   {
     timestamps: true,
   }
 );
 
-const User = mongoose.model("User", userSchema);
+const User = mongoose.model(
+  "User",
+  userSchema
+);
 
 module.exports = User;
