@@ -367,5 +367,147 @@ router.delete(
     }
   }
 );
+// ======================================================
+// GET LOGGED-IN USER'S PLAYLISTS
+// ======================================================
+
+router.get("/playlists", protect, async (req, res) => {
+  try {
+    const user = await User.findById(req.user.userId).select(
+      "playlists"
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      playlists: user.playlists || [],
+    });
+  } catch (error) {
+    console.error("Get playlists error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+// ======================================================
+// CREATE PLAYLIST
+// ======================================================
+
+router.post("/playlists", protect, async (req, res) => {
+  try {
+    const {
+      id,
+      name,
+      description,
+      videos,
+    } = req.body;
+
+    if (!name || !name.trim()) {
+      return res.status(400).json({
+        message: "Playlist name is required",
+      });
+    }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const playlist = {
+      id: id || `playlist-${Date.now()}`,
+      name: name.trim(),
+      description: description?.trim() || "",
+      videos: Array.isArray(videos) ? videos : [],
+      createdAt: new Date(),
+    };
+
+    user.playlists.push(playlist);
+
+    await user.save();
+
+    res.status(201).json({
+      message: "Playlist created successfully",
+      playlist,
+      playlists: user.playlists,
+    });
+  } catch (error) {
+    console.error("Create playlist error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+// ======================================================
+// DELETE PLAYLIST
+// ======================================================
+
+router.delete(
+  "/playlists/:playlistId",
+  protect,
+  async (req, res) => {
+    try {
+      const { playlistId } = req.params;
+
+      const user = await User.findById(
+        req.user.userId
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      const playlistExists =
+        user.playlists.some(
+          (playlist) =>
+            playlist.id === playlistId
+        );
+
+      if (!playlistExists) {
+        return res.status(404).json({
+          message: "Playlist not found",
+        });
+      }
+
+      user.playlists =
+        user.playlists.filter(
+          (playlist) =>
+            playlist.id !== playlistId
+        );
+
+      await user.save();
+
+      res.status(200).json({
+        message: "Playlist deleted successfully",
+        playlists: user.playlists,
+      });
+    } catch (error) {
+      console.error(
+        "Delete playlist error:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Server error",
+      });
+    }
+  }
+);
+
 
 module.exports = router;
+

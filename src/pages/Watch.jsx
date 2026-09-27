@@ -589,34 +589,58 @@ function Watch() {
     setShowPlaylistModal(false);
   }, [loadVideo]);
 
+
   // ==================================================
-  // LOAD PLAYLISTS
+  // LOAD PLAYLISTS FROM BACKEND
   // ==================================================
 
   useEffect(() => {
-    try {
-      const savedPlaylists =
-        JSON.parse(
-          localStorage.getItem(
-            "playlists"
-          )
-        ) || [];
+    const loadPlaylists = async () => {
+      const token =
+        localStorage.getItem("videoVerseToken");
 
-      setPlaylists(
-        Array.isArray(
-          savedPlaylists
-        )
-          ? savedPlaylists
-          : []
-      );
-    } catch (error) {
-      console.error(
-        "Playlist loading error:",
-        error
-      );
+      // User not logged in
+      if (!token) {
+        setPlaylists([]);
+        return;
+      }
 
-      setPlaylists([]);
-    }
+      try {
+        const response = await fetch(
+          "https://videoverse-content-platform.onrender.com/api/user/playlists",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to load playlists"
+          );
+        }
+
+        setPlaylists(
+          Array.isArray(data.playlists)
+            ? data.playlists
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Load playlists error:",
+          error
+        );
+
+        setPlaylists([]);
+      }
+    };
+
+    loadPlaylists();
   }, []);
 
   // ==================================================
@@ -1509,60 +1533,143 @@ function Watch() {
   // SUBSCRIBE
   // ==================================================
 
-  const handleSubscribe = () => {
-    if (!video) {
+  const handleSubscribe = async () => {
+    if (!video?.channelId) {
       return;
     }
 
-    const subscriptions =
-      JSON.parse(
-        localStorage.getItem(
-          "subscribedChannels"
-        )
-      ) || [];
+    const token = localStorage.getItem(
+      "videoVerseToken"
+    );
 
-    if (subscribed) {
-      const updated =
-        subscriptions.filter(
-          (channel) =>
-            channel.id !==
-            video.channelId
-        );
+    // ==================================================
+    // NOT LOGGED IN
+    // ==================================================
 
-      localStorage.setItem(
-        "subscribedChannels",
-        JSON.stringify(updated)
-      );
+    if (!token) {
+      alert("Please login to subscribe.");
+      return;
+    }
 
-      setSubscribed(false);
-    } else {
-      const alreadyExists =
-        subscriptions.some(
-          (channel) =>
-            channel.id ===
-            video.channelId
-        );
+    try {
+      // ==================================================
+      // UNSUBSCRIBE
+      // ==================================================
 
-      if (!alreadyExists) {
-        const updated = [
-          ...subscriptions,
-
+      if (subscribed) {
+        const response = await fetch(
+          `https://videoverse-content-platform.onrender.com/api/user/subscriptions/${video.channelId}`,
           {
-            id: video.channelId,
+            method: "DELETE",
 
-            name: video.channel,
-          },
-        ];
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to unsubscribe"
+          );
+        }
+
+        setSubscribed(false);
+
+        // Keep localStorage in sync
+        const updatedSubscriptions =
+          Array.isArray(data.subscribedChannels)
+            ? data.subscribedChannels.map(
+                (channelId) => ({
+                  id: channelId,
+                })
+              )
+            : [];
 
         localStorage.setItem(
           "subscribedChannels",
           JSON.stringify(
-            updated
+            updatedSubscriptions
           )
+        );
+
+        window.dispatchEvent(
+          new Event("activityUpdated")
+        );
+
+        alert("Unsubscribed successfully");
+
+        return;
+      }
+
+      // ==================================================
+      // SUBSCRIBE
+      // ==================================================
+
+      const response = await fetch(
+        "https://videoverse-content-platform.onrender.com/api/user/subscriptions",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            channelId: video.channelId,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to subscribe"
         );
       }
 
       setSubscribed(true);
+
+      // Keep localStorage in sync
+      const updatedSubscriptions =
+        Array.isArray(data.subscribedChannels)
+          ? data.subscribedChannels.map(
+              (channelId) => ({
+                id: channelId,
+              })
+            )
+          : [];
+
+      localStorage.setItem(
+        "subscribedChannels",
+        JSON.stringify(
+          updatedSubscriptions
+        )
+      );
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
+
+      alert("Subscribed successfully");
+    } catch (error) {
+      console.error(
+        "Subscription error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Unable to update subscription."
+      );
     }
   };
 
