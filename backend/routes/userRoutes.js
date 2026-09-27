@@ -364,6 +364,7 @@ router.get("/playlists", protect, async (req, res) => {
 // CREATE PLAYLIST
 // ======================================================
 
+
 router.post("/playlists", protect, async (req, res) => {
   try {
     const {
@@ -373,13 +374,17 @@ router.post("/playlists", protect, async (req, res) => {
       videos,
     } = req.body;
 
+    // Check playlist name
     if (!name || !name.trim()) {
       return res.status(400).json({
         message: "Playlist name is required",
       });
     }
 
-    const user = await User.findById(req.user.userId);
+    // Find logged-in user
+    const user = await User.findById(
+      req.user.userId
+    );
 
     if (!user) {
       return res.status(404).json({
@@ -394,40 +399,58 @@ router.post("/playlists", protect, async (req, res) => {
     const playlistVideos = Array.isArray(videos)
       ? videos
           .map((video) => {
-            // If frontend sends a complete video object
+            // Frontend sent complete video object
             if (
               typeof video === "object" &&
               video !== null
             ) {
               return {
-                id: video.id || video.videoId || "",
-                title: video.title || "",
+                id:
+                  video.id ||
+                  video.videoId ||
+                  "",
+
+                title:
+                  video.title || "",
+
                 image:
                   video.image ||
                   video.thumbnail ||
                   "",
+
                 thumbnail:
                   video.thumbnail ||
                   video.image ||
                   "",
-                channel: video.channel || "",
+
+                channel:
+                  video.channel || "",
+
                 channelImage:
                   video.channelImage || "",
-                views: video.views || "",
+
+                views:
+                  video.views || "",
+
                 time:
                   video.time ||
                   video.publishedAt ||
                   "",
+
                 publishedAt:
                   video.publishedAt ||
                   video.time ||
                   "",
-                duration: video.duration || "",
+
+                duration:
+                  video.duration || "",
               };
             }
 
-            // If frontend sends only video ID
-            if (typeof video === "string") {
+            // Frontend sent only video ID
+            if (
+              typeof video === "string"
+            ) {
               return {
                 id: video,
                 title: "",
@@ -445,7 +468,8 @@ router.post("/playlists", protect, async (req, res) => {
             return null;
           })
           .filter(
-            (video) => video && video.id
+            (video) =>
+              video && video.id
           )
       : [];
 
@@ -458,22 +482,30 @@ router.post("/playlists", protect, async (req, res) => {
         id ||
         `playlist-${Date.now()}`,
 
-      name: name.trim(),
+      name:
+        name.trim(),
 
       description:
         typeof description === "string"
           ? description.trim()
           : "",
 
-      videos: playlistVideos,
+      videos:
+        playlistVideos,
 
-      createdAt: new Date(),
+      createdAt:
+        new Date(),
     };
 
-    user.playlists.push(playlist);
+    // Add playlist to user
+    user.playlists.push(
+      playlist
+    );
 
+    // Save user
     await user.save();
 
+    // Send response
     res.status(201).json({
       message:
         "Playlist created successfully",

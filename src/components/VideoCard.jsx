@@ -600,7 +600,6 @@ function VideoCard({
         <div className="video-card">
 
           <div className="thumbnail-container">
-
             {videoThumbnail ? (
               <img
                 src={videoThumbnail}
@@ -609,9 +608,7 @@ function VideoCard({
               />
             ) : (
               <div className="thumbnail-placeholder">
-                <span>
-                  No thumbnail
-                </span>
+                <span>No thumbnail</span>
               </div>
             )}
 
@@ -620,7 +617,6 @@ function VideoCard({
                 {duration}
               </span>
             )}
-
           </div>
 
           <div className="video-info">
