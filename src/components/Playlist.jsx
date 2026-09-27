@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+
 import {
   Play,
   Trash2,
@@ -9,60 +10,84 @@ import {
 
 import VideoCard from "./VideoCard";
 
+const API_BASE =
+  "https://videoverse-content-platform.onrender.com";
+
 function Playlist() {
   const { id } = useParams();
   const navigate = useNavigate();
 
-  const [playlist, setPlaylist] = useState(null);
-  const [loading, setLoading] = useState(true);
+  const [playlist, setPlaylist] =
+    useState(null);
+
+  const [loading, setLoading] =
+    useState(true);
+
+  const [deleting, setDeleting] =
+    useState(false);
+
+  const [removingVideo, setRemovingVideo] =
+    useState(null);
 
   // ======================================================
-  // LOAD PLAYLIST FROM BACKEND
+  // LOAD PLAYLIST
   // ======================================================
 
   useEffect(() => {
     const loadPlaylist = async () => {
       try {
-        const token = localStorage.getItem(
-          "videoVerseToken"
-        );
+        setLoading(true);
+
+        const token =
+          localStorage.getItem(
+            "videoVerseToken"
+          );
 
         if (!token) {
           setPlaylist(null);
-          setLoading(false);
           return;
         }
 
-        const response = await fetch(
-          "https://videoverse-content-platform.onrender.com/api/user/playlists",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+        const response =
+          await fetch(
+            `${API_BASE}/api/user/playlists`,
+            {
+              method: "GET",
 
-        const data = await response.json();
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const data =
+          await response.json();
 
         if (!response.ok) {
           throw new Error(
-            data.message || "Failed to load playlists"
+            data.message ||
+              "Failed to load playlists"
           );
         }
 
-        const savedPlaylists = Array.isArray(
-          data.playlists
-        )
-          ? data.playlists
-          : [];
+        const playlists =
+          Array.isArray(
+            data.playlists
+          )
+            ? data.playlists
+            : [];
 
         const foundPlaylist =
-          savedPlaylists.find(
-            (item) => item.id === id
+          playlists.find(
+            (item) =>
+              String(item.id) ===
+              String(id)
           );
 
-        setPlaylist(foundPlaylist || null);
+        setPlaylist(
+          foundPlaylist || null
+        );
       } catch (error) {
         console.error(
           "Playlist loading error:",
@@ -82,42 +107,66 @@ function Playlist() {
   // REMOVE VIDEO FROM PLAYLIST
   // ======================================================
 
-  const removeVideo = async (videoId) => {
+  const removeVideo = async (
+    videoId
+  ) => {
     if (!playlist) return;
 
-    try {
-      const token = localStorage.getItem(
+    const token =
+      localStorage.getItem(
         "videoVerseToken"
       );
 
-      if (!token) {
-        alert("Please login.");
-        return;
-      }
+    if (!token) {
+      alert(
+        "Please login first."
+      );
+      return;
+    }
 
-      // Remove selected video
+    try {
+      setRemovingVideo(videoId);
+
       const updatedVideos =
-        (playlist.videos || []).filter(
-          (video) => video?.id !== videoId
+        (
+          playlist.videos ||
+          []
+        ).filter((video) => {
+          const currentId =
+            typeof video ===
+            "string"
+              ? video
+              : video?.id;
+
+          return (
+            currentId !==
+            videoId
+          );
+        });
+
+      const response =
+        await fetch(
+          `${API_BASE}/api/user/playlists/${playlist.id}`,
+          {
+            method: "PUT",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              videos:
+                updatedVideos,
+            }),
+          }
         );
 
-      const response = await fetch(
-        `https://videoverse-content-platform.onrender.com/api/user/playlists/${playlist.id}`,
-        {
-          method: "PUT",
-
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
-
-          body: JSON.stringify({
-            videos: updatedVideos,
-          }),
-        }
-      );
-
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -126,8 +175,15 @@ function Playlist() {
         );
       }
 
-      // Update UI from backend response
-      setPlaylist(data.playlist);
+      setPlaylist(
+        data.playlist
+      );
+
+      window.dispatchEvent(
+        new Event(
+          "playlistsUpdated"
+        )
+      );
     } catch (error) {
       console.error(
         "Remove video error:",
@@ -135,9 +191,10 @@ function Playlist() {
       );
 
       alert(
-        error.message ||
-          "Unable to remove video from playlist."
+        "Unable to remove video from playlist."
       );
+    } finally {
+      setRemovingVideo(null);
     }
   };
 
@@ -148,36 +205,45 @@ function Playlist() {
   const deletePlaylist = async () => {
     if (!playlist) return;
 
-    const confirmDelete = window.confirm(
-      `Delete playlist "${playlist.name}"?`
-    );
+    const confirmDelete =
+      window.confirm(
+        `Delete playlist "${playlist.name}"?`
+      );
 
     if (!confirmDelete) {
       return;
     }
 
-    try {
-      const token = localStorage.getItem(
+    const token =
+      localStorage.getItem(
         "videoVerseToken"
       );
 
-      if (!token) {
-        alert("Please login.");
-        return;
-      }
-
-      const response = await fetch(
-        `https://videoverse-content-platform.onrender.com/api/user/playlists/${playlist.id}`,
-        {
-          method: "DELETE",
-
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
+    if (!token) {
+      alert(
+        "Please login first."
       );
+      return;
+    }
 
-      const data = await response.json();
+    try {
+      setDeleting(true);
+
+      const response =
+        await fetch(
+          `${API_BASE}/api/user/playlists/${playlist.id}`,
+          {
+            method: "DELETE",
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -186,7 +252,12 @@ function Playlist() {
         );
       }
 
-      // Playlist successfully deleted
+      window.dispatchEvent(
+        new Event(
+          "playlistsUpdated"
+        )
+      );
+
       navigate("/playlists");
     } catch (error) {
       console.error(
@@ -195,26 +266,33 @@ function Playlist() {
       );
 
       alert(
-        error.message ||
-          "Unable to delete playlist."
+        "Unable to delete playlist."
       );
+    } finally {
+      setDeleting(false);
     }
   };
 
   // ======================================================
-  // PLAY ALL VIDEOS
+  // PLAY ALL
   // ======================================================
 
   const playAll = () => {
     const firstVideo =
       playlist?.videos?.[0];
 
-    if (!firstVideo?.id) {
+    const firstVideoId =
+      typeof firstVideo ===
+      "string"
+        ? firstVideo
+        : firstVideo?.id;
+
+    if (!firstVideoId) {
       return;
     }
 
     navigate(
-      `/watch/${firstVideo.id}?playlist=${playlist.id}`
+      `/watch/${firstVideoId}?playlist=${playlist.id}`
     );
   };
 
@@ -222,14 +300,18 @@ function Playlist() {
   // PLAY SINGLE VIDEO
   // ======================================================
 
-  const playVideo = (videoId) => {
+  const playVideo = (
+    videoId
+  ) => {
+    if (!videoId) return;
+
     navigate(
       `/watch/${videoId}?playlist=${playlist.id}`
     );
   };
 
   // ======================================================
-  // LOADING STATE
+  // LOADING
   // ======================================================
 
   if (loading) {
@@ -241,7 +323,7 @@ function Playlist() {
   }
 
   // ======================================================
-  // PLAYLIST NOT FOUND
+  // NOT FOUND
   // ======================================================
 
   if (!playlist) {
@@ -249,19 +331,27 @@ function Playlist() {
       <div className="playlist-not-found">
         <ListVideo size={50} />
 
-        <h2>Playlist not found</h2>
+        <h2>
+          Playlist not found
+        </h2>
 
         <p>
-          This playlist may have been deleted.
+          This playlist may have
+          been deleted.
         </p>
 
         <button
           onClick={() =>
-            navigate("/playlists")
+            navigate(
+              "/playlists"
+            )
           }
           className="playlist-back-btn"
         >
-          <ArrowLeft size={17} />
+          <ArrowLeft
+            size={17}
+          />
+
           Back to playlists
         </button>
       </div>
@@ -269,50 +359,55 @@ function Playlist() {
   }
 
   // ======================================================
-  // SAFE VIDEOS ARRAY
+  // VIDEOS
   // ======================================================
 
-  const videos = Array.isArray(
-    playlist.videos
-  )
-    ? playlist.videos
-    : [];
+  const videos =
+    Array.isArray(
+      playlist.videos
+    )
+      ? playlist.videos
+      : [];
 
   // ======================================================
-  // MAIN UI
+  // UI
   // ======================================================
 
   return (
     <div className="page-container playlist-detail-page">
 
       {/* ==================================================
-          PLAYLIST HEADER
+          HEADER
       ================================================== */}
 
       <div className="playlist-detail-header">
 
-        {/* Back button */}
-
         <button
           className="playlist-back-icon"
           onClick={() =>
-            navigate("/playlists")
+            navigate(
+              "/playlists"
+            )
           }
           title="Back to playlists"
         >
-          <ArrowLeft size={21} />
+          <ArrowLeft
+            size={21}
+          />
         </button>
-
-        {/* Playlist information */}
 
         <div className="playlist-detail-info">
 
           <div className="playlist-detail-icon">
-            <ListVideo size={38} />
+            <ListVideo
+              size={38}
+            />
           </div>
 
           <div>
-            <h1>{playlist.name}</h1>
+            <h1>
+              {playlist.name}
+            </h1>
 
             <p className="playlist-detail-description">
               {playlist.description ||
@@ -326,18 +421,18 @@ function Playlist() {
                 : "videos"}
             </span>
           </div>
-        </div>
 
-        {/* Playlist actions */}
+        </div>
 
         <div className="playlist-detail-actions">
 
-          {/* Play all */}
-
-          {videos.length > 0 && (
+          {videos.length >
+            0 && (
             <button
               className="playlist-play-all-btn"
-              onClick={playAll}
+              onClick={
+                playAll
+              }
             >
               <Play
                 size={17}
@@ -348,15 +443,22 @@ function Playlist() {
             </button>
           )}
 
-          {/* Delete playlist */}
-
           <button
             className="playlist-delete-main-btn"
-            onClick={deletePlaylist}
+            onClick={
+              deletePlaylist
+            }
+            disabled={
+              deleting
+            }
           >
-            <Trash2 size={17} />
+            <Trash2
+              size={17}
+            />
 
-            Delete playlist
+            {deleting
+              ? "Deleting..."
+              : "Delete playlist"}
           </button>
 
         </div>
@@ -366,18 +468,22 @@ function Playlist() {
           EMPTY PLAYLIST
       ================================================== */}
 
-      {videos.length === 0 ? (
+      {videos.length ===
+      0 ? (
         <div className="playlist-detail-empty">
 
-          <ListVideo size={55} />
+          <ListVideo
+            size={55}
+          />
 
           <h2>
             This playlist is empty
           </h2>
 
           <p>
-            Add videos using the
-            "Save to playlist" option.
+            Add videos using
+            the "Save to playlist"
+            option.
           </p>
 
           <button
@@ -393,73 +499,164 @@ function Playlist() {
       ) : (
 
         /* ==================================================
-           PLAYLIST VIDEOS
+           VIDEO LIST
         ================================================== */
 
         <div className="playlist-detail-list">
 
           {videos.map(
-            (video, index) => (
+            (
+              video,
+              index
+            ) => {
 
-              <div
-                className="playlist-detail-video"
-                key={`${video.id}-${index}`}
-              >
+              /*
+               * Backward compatibility:
+               * old playlists may still contain
+               * only video IDs.
+               */
 
-                {/* Video number */}
+              const videoId =
+                typeof video ===
+                "string"
+                  ? video
+                  : video?.id;
 
-                <div className="playlist-number">
-                  {index + 1}
-                </div>
+              if (!videoId) {
+                return null;
+              }
 
-                <div className="playlist-video-content">
+              /*
+               * Old DB video may only contain id.
+               * In that case VideoCard will NOT
+               * render an empty img because of
+               * the VideoCard fix below.
+               */
 
-                  {/* Video card */}
-
-                  <div
-                    onClick={() =>
-                      playVideo(video.id)
+              const videoObject =
+                typeof video ===
+                "string"
+                  ? {
+                      id: video,
+                      title:
+                        "Video",
+                      channel:
+                        "",
                     }
-                    style={{
-                      cursor: "pointer",
-                    }}
-                  >
-                    <VideoCard
-                      id={video.id}
-                      image={video.image || video.thumbnail || null}
-                      thumbnail={video.thumbnail || video.image || null}
-                      title={video.title}
-                      channel={video.channel}
-                      channelImage={video.channelImage || null}
-                      views={video.views}
-                      time={video.time || video.publishedAt}
-                      publishedAt={video.publishedAt || video.time}
-                      duration={video.duration}
-                    />
+                  : video;
+
+              return (
+                <div
+                  className="playlist-detail-video"
+                  key={`${videoId}-${index}`}
+                >
+
+                  <div className="playlist-number">
+                    {index + 1}
                   </div>
 
-                  {/* Remove video */}
+                  <div className="playlist-video-content">
 
-                  <button
-                    className="playlist-remove-video-btn"
-                    onClick={() =>
-                      removeVideo(
-                        video.id
-                      )
-                    }
-                  >
-                    <Trash2 size={15} />
+                    <div
+                      onClick={() =>
+                        playVideo(
+                          videoId
+                        )
+                      }
+                      style={{
+                        cursor:
+                          "pointer",
+                      }}
+                    >
 
-                    Remove from playlist
-                  </button>
+                      <VideoCard
+                        id={
+                          videoObject.id
+                        }
 
+                        image={
+                          videoObject.image ||
+                          videoObject.thumbnail ||
+                          null
+                        }
+
+                        thumbnail={
+                          videoObject.thumbnail ||
+                          videoObject.image ||
+                          null
+                        }
+
+                        title={
+                          videoObject.title ||
+                          "Video"
+                        }
+
+                        channel={
+                          videoObject.channel ||
+                          ""
+                        }
+
+                        channelImage={
+                          videoObject.channelImage ||
+                          null
+                        }
+
+                        views={
+                          videoObject.views ||
+                          ""
+                        }
+
+                        time={
+                          videoObject.time ||
+                          videoObject.publishedAt ||
+                          ""
+                        }
+
+                        publishedAt={
+                          videoObject.publishedAt ||
+                          videoObject.time ||
+                          ""
+                        }
+
+                        duration={
+                          videoObject.duration ||
+                          ""
+                        }
+                      />
+
+                    </div>
+
+                    <button
+                      className="playlist-remove-video-btn"
+                      onClick={() =>
+                        removeVideo(
+                          videoId
+                        )
+                      }
+                      disabled={
+                        removingVideo ===
+                        videoId
+                      }
+                    >
+                      <Trash2
+                        size={15}
+                      />
+
+                      {removingVideo ===
+                      videoId
+                        ? "Removing..."
+                        : "Remove from playlist"}
+                    </button>
+
+                  </div>
                 </div>
-              </div>
-            )
+              );
+            }
           )}
 
         </div>
       )}
+
     </div>
   );
 }

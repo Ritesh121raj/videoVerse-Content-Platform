@@ -70,6 +70,7 @@ const userSchema = new mongoose.Schema(
           default: "",
         },
 
+        // Store COMPLETE video objects
         videos: {
           type: [mongoose.Schema.Types.Mixed],
           default: [],
@@ -88,9 +89,6 @@ const userSchema = new mongoose.Schema(
   }
 );
 
-const User = mongoose.model(
-  "User",
-  userSchema
-);
+const User = mongoose.model("User", userSchema);
 
 module.exports = User;

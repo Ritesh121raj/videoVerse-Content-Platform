@@ -108,7 +108,7 @@ router.delete("/liked/:videoId", protect, async (req, res) => {
 });
 
 // ======================================================
-// GET LOGGED-IN USER'S WATCH LATER VIDEOS
+// GET WATCH LATER
 // ======================================================
 
 router.get("/watch-later", protect, async (req, res) => {
@@ -127,10 +127,7 @@ router.get("/watch-later", protect, async (req, res) => {
       watchLater: user.watchLater || [],
     });
   } catch (error) {
-    console.error(
-      "Get watch later videos error:",
-      error
-    );
+    console.error("Get watch later videos error:", error);
 
     res.status(500).json({
       message: "Server error",
@@ -139,7 +136,7 @@ router.get("/watch-later", protect, async (req, res) => {
 });
 
 // ======================================================
-// ADD VIDEO TO WATCH LATER
+// ADD WATCH LATER
 // ======================================================
 
 router.post("/watch-later", protect, async (req, res) => {
@@ -170,10 +167,7 @@ router.post("/watch-later", protect, async (req, res) => {
       watchLater: user.watchLater,
     });
   } catch (error) {
-    console.error(
-      "Add watch later video error:",
-      error
-    );
+    console.error("Add watch later video error:", error);
 
     res.status(500).json({
       message: "Server error",
@@ -182,7 +176,7 @@ router.post("/watch-later", protect, async (req, res) => {
 });
 
 // ======================================================
-// REMOVE VIDEO FROM WATCH LATER
+// REMOVE WATCH LATER
 // ======================================================
 
 router.delete(
@@ -192,9 +186,7 @@ router.delete(
     try {
       const { videoId } = req.params;
 
-      const user = await User.findById(
-        req.user.userId
-      );
+      const user = await User.findById(req.user.userId);
 
       if (!user) {
         return res.status(404).json({
@@ -202,10 +194,9 @@ router.delete(
         });
       }
 
-      user.watchLater =
-        user.watchLater.filter(
-          (id) => id !== videoId
-        );
+      user.watchLater = user.watchLater.filter(
+        (id) => id !== videoId
+      );
 
       await user.save();
 
@@ -227,102 +218,77 @@ router.delete(
 );
 
 // ======================================================
-// GET LOGGED-IN USER'S SUBSCRIBED CHANNELS
+// GET SUBSCRIPTIONS
 // ======================================================
 
-router.get(
-  "/subscriptions",
-  protect,
-  async (req, res) => {
-    try {
-      const user = await User.findById(
-        req.user.userId
-      ).select("subscribedChannels");
+router.get("/subscriptions", protect, async (req, res) => {
+  try {
+    const user = await User.findById(
+      req.user.userId
+    ).select("subscribedChannels");
 
-      if (!user) {
-        return res.status(404).json({
-          message: "User not found",
-        });
-      }
-
-      res.status(200).json({
-        subscribedChannels:
-          user.subscribedChannels || [],
-      });
-    } catch (error) {
-      console.error(
-        "Get subscriptions error:",
-        error
-      );
-
-      res.status(500).json({
-        message: "Server error",
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
       });
     }
+
+    res.status(200).json({
+      subscribedChannels:
+        user.subscribedChannels || [],
+    });
+  } catch (error) {
+    console.error("Get subscriptions error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
-);
+});
 
 // ======================================================
-// SUBSCRIBE TO CHANNEL
+// SUBSCRIBE
 // ======================================================
 
-router.post(
-  "/subscriptions",
-  protect,
-  async (req, res) => {
-    try {
-      const { channelId } = req.body;
+router.post("/subscriptions", protect, async (req, res) => {
+  try {
+    const { channelId } = req.body;
 
-      if (!channelId) {
-        return res.status(400).json({
-          message: "Channel ID is required",
-        });
-      }
-
-      const user = await User.findById(
-        req.user.userId
-      );
-
-      if (!user) {
-        return res.status(404).json({
-          message: "User not found",
-        });
-      }
-
-      // Avoid duplicate subscriptions
-      if (
-        !user.subscribedChannels.includes(
-          channelId
-        )
-      ) {
-        user.subscribedChannels.push(
-          channelId
-        );
-
-        await user.save();
-      }
-
-      res.status(200).json({
-        message:
-          "Channel subscribed successfully",
-        subscribedChannels:
-          user.subscribedChannels,
-      });
-    } catch (error) {
-      console.error(
-        "Subscribe channel error:",
-        error
-      );
-
-      res.status(500).json({
-        message: "Server error",
+    if (!channelId) {
+      return res.status(400).json({
+        message: "Channel ID is required",
       });
     }
+
+    const user = await User.findById(req.user.userId);
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    if (!user.subscribedChannels.includes(channelId)) {
+      user.subscribedChannels.push(channelId);
+      await user.save();
+    }
+
+    res.status(200).json({
+      message: "Channel subscribed successfully",
+      subscribedChannels:
+        user.subscribedChannels,
+    });
+  } catch (error) {
+    console.error("Subscribe channel error:", error);
+
+    res.status(500).json({
+      message: "Server error",
+    });
   }
-);
+});
 
 // ======================================================
-// UNSUBSCRIBE FROM CHANNEL
+// UNSUBSCRIBE
 // ======================================================
 
 router.delete(
@@ -332,9 +298,7 @@ router.delete(
     try {
       const { channelId } = req.params;
 
-      const user = await User.findById(
-        req.user.userId
-      );
+      const user = await User.findById(req.user.userId);
 
       if (!user) {
         return res.status(404).json({
@@ -367,15 +331,16 @@ router.delete(
     }
   }
 );
+
 // ======================================================
-// GET LOGGED-IN USER'S PLAYLISTS
+// GET PLAYLISTS
 // ======================================================
 
 router.get("/playlists", protect, async (req, res) => {
   try {
-    const user = await User.findById(req.user.userId).select(
-      "playlists"
-    );
+    const user = await User.findById(
+      req.user.userId
+    ).select("playlists");
 
     if (!user) {
       return res.status(404).json({
@@ -394,7 +359,6 @@ router.get("/playlists", protect, async (req, res) => {
     });
   }
 });
-
 
 // ======================================================
 // CREATE PLAYLIST
@@ -423,39 +387,113 @@ router.post("/playlists", protect, async (req, res) => {
       });
     }
 
+    // --------------------------------------------------
+    // KEEP COMPLETE VIDEO OBJECT
+    // --------------------------------------------------
+
+    const playlistVideos = Array.isArray(videos)
+      ? videos
+          .map((video) => {
+            // If frontend sends a complete video object
+            if (
+              typeof video === "object" &&
+              video !== null
+            ) {
+              return {
+                id: video.id || video.videoId || "",
+                title: video.title || "",
+                image:
+                  video.image ||
+                  video.thumbnail ||
+                  "",
+                thumbnail:
+                  video.thumbnail ||
+                  video.image ||
+                  "",
+                channel: video.channel || "",
+                channelImage:
+                  video.channelImage || "",
+                views: video.views || "",
+                time:
+                  video.time ||
+                  video.publishedAt ||
+                  "",
+                publishedAt:
+                  video.publishedAt ||
+                  video.time ||
+                  "",
+                duration: video.duration || "",
+              };
+            }
+
+            // If frontend sends only video ID
+            if (typeof video === "string") {
+              return {
+                id: video,
+                title: "",
+                image: "",
+                thumbnail: "",
+                channel: "",
+                channelImage: "",
+                views: "",
+                time: "",
+                publishedAt: "",
+                duration: "",
+              };
+            }
+
+            return null;
+          })
+          .filter(
+            (video) => video && video.id
+          )
+      : [];
+
+    // --------------------------------------------------
+    // CREATE PLAYLIST
+    // --------------------------------------------------
+
     const playlist = {
-      id: id || `playlist-${Date.now()}`,
+      id:
+        id ||
+        `playlist-${Date.now()}`,
+
       name: name.trim(),
-      description: description?.trim() || "",
-      videos: Array.isArray(videos)
-        ? videos
-            .map((video) =>
-              typeof video === "string"
-                ? video
-                : video.id || video.videoId
-            )
-            .filter(Boolean)
-        : [],
+
+      description:
+        typeof description === "string"
+          ? description.trim()
+          : "",
+
+      videos: playlistVideos,
+
       createdAt: new Date(),
     };
+
     user.playlists.push(playlist);
 
     await user.save();
 
     res.status(201).json({
-      message: "Playlist created successfully",
+      message:
+        "Playlist created successfully",
+
       playlist,
-      playlists: user.playlists,
+
+      playlists:
+        user.playlists,
     });
   } catch (error) {
-    console.error("Create playlist error:", error);
+    console.error(
+      "Create playlist error:",
+      error
+    );
 
     res.status(500).json({
       message: "Server error",
     });
   }
 });
-
 
 // ======================================================
 // DELETE PLAYLIST
@@ -499,8 +537,11 @@ router.delete(
       await user.save();
 
       res.status(200).json({
-        message: "Playlist deleted successfully",
-        playlists: user.playlists,
+        message:
+          "Playlist deleted successfully",
+
+        playlists:
+          user.playlists,
       });
     } catch (error) {
       console.error(
@@ -514,6 +555,7 @@ router.delete(
     }
   }
 );
+
 // ======================================================
 // UPDATE PLAYLIST
 // ======================================================
@@ -569,8 +611,74 @@ router.put(
           description.trim();
       }
 
+      /*
+       * When updating videos,
+       * preserve complete video objects.
+       */
+
       if (Array.isArray(videos)) {
-        playlist.videos = videos;
+        playlist.videos =
+          videos
+            .map((video) => {
+              if (!video) return null;
+
+              if (
+                typeof video ===
+                "string"
+              ) {
+                return {
+                  id: video,
+                };
+              }
+
+              return {
+                id:
+                  video.id ||
+                  video.videoId ||
+                  "",
+
+                image:
+                  video.image ||
+                  video.thumbnail ||
+                  "",
+
+                thumbnail:
+                  video.thumbnail ||
+                  video.image ||
+                  "",
+
+                title:
+                  video.title || "",
+
+                channel:
+                  video.channel || "",
+
+                channelImage:
+                  video.channelImage ||
+                  "",
+
+                views:
+                  video.views || "",
+
+                time:
+                  video.time ||
+                  video.publishedAt ||
+                  "",
+
+                publishedAt:
+                  video.publishedAt ||
+                  video.time ||
+                  "",
+
+                duration:
+                  video.duration || "",
+              };
+            })
+            .filter(
+              (video) =>
+                video &&
+                video.id
+            );
       }
 
       await user.save();
@@ -578,7 +686,9 @@ router.put(
       res.status(200).json({
         message:
           "Playlist updated successfully",
+
         playlist,
+
         playlists:
           user.playlists,
       });
@@ -595,6 +705,4 @@ router.put(
   }
 );
 
-
 module.exports = router;
-
