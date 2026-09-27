@@ -580,9 +580,9 @@ function VideoCard({
   };
 
   const videoThumbnail =
-    thumbnail ||
-    image ||
-    null;
+  thumbnail ||
+  image ||
+  `https://i.ytimg.com/vi/${id}/hqdefault.jpg`;
 
   const uploadDate =
     publishedAt || time;
@@ -605,10 +605,24 @@ function VideoCard({
                 src={videoThumbnail}
                 alt={title || "Video thumbnail"}
                 className="thumbnail"
+                onError={(event) => {
+                  const fallbackUrl = id
+                    ? `https://i.ytimg.com/vi/${id}/hqdefault.jpg`
+                    : null;
+
+                  if (
+                    fallbackUrl &&
+                    event.currentTarget.src !== fallbackUrl
+                  ) {
+                    event.currentTarget.src = fallbackUrl;
+                  } else {
+                    event.currentTarget.style.display = "none";
+                  }
+                }}
               />
             ) : (
               <div className="thumbnail-placeholder">
-                <span>No thumbnail</span>
+                No thumbnail
               </div>
             )}
 

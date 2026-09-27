@@ -5,6 +5,7 @@ const mongoose = require("mongoose");
 
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
+const videoRoutes = require("./routes/videoRoutes");
 
 dotenv.config();
 
@@ -18,6 +19,10 @@ app.use(express.json());
 app.use("/api/auth", authRoutes);
 
 app.use("/api/user", userRoutes);
+
+// Video routes
+app.use("/api/videos", videoRoutes);
+
 
 // Test route
 app.get("/", (req, res) => {

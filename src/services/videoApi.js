@@ -1518,11 +1518,15 @@ export async function getChannelShorts(
 // Get Shorts
 // ======================================================
 
+// ======================================================
+// Get Shorts
+// ======================================================
+
 export async function getShortsVideos() {
   const cacheKey = "shorts-videos";
 
   // ==========================================
-  // Check Cache First
+  // Check Frontend Cache First
   // ==========================================
 
   const cachedShorts =
@@ -1530,7 +1534,7 @@ export async function getShortsVideos() {
 
   if (cachedShorts) {
     console.log(
-      "SHORTS: Loaded from cache"
+      "SHORTS: Loaded from frontend cache"
     );
 
     return cachedShorts;
@@ -1538,35 +1542,23 @@ export async function getShortsVideos() {
 
   try {
     // ==========================================
-    // Step 1: Search Shorts
+    // Backend API
     // ==========================================
 
-    const searchUrl =
-      `${BASE_URL}/search?part=snippet` +
-      `&q=%23shorts` +
-      `&type=video` +
-      `&maxResults=20` +
-      `&order=date` +
-      `&key=${API_KEY}`;
-
-    const response =
-      await fetch(searchUrl);
+    const response = await fetch(
+      "http://localhost:5000/api/videos/shorts"
+    );
 
     if (!response.ok) {
       const errorData =
         await response.json().catch(() => null);
 
       const error = new Error(
-        errorData?.error?.message ||
-          getApiErrorMessage(response.status)
+        errorData?.message ||
+          `Shorts API error (${response.status})`
       );
 
-      error.status =
-        response.status;
-
-      error.reason =
-        errorData?.error?.errors?.[0]?.reason ||
-        null;
+      error.status = response.status;
 
       throw error;
     }
@@ -1574,147 +1566,27 @@ export async function getShortsVideos() {
     const data =
       await response.json();
 
-    const videoIds =
-      (data.items || [])
-        .map(
-          (video) =>
-            video.id?.videoId
-        )
-        .filter(Boolean);
-
-    if (videoIds.length === 0) {
-      setCachedData(cacheKey, []);
-      return [];
-    }
+    const shorts =
+      data.shorts || [];
 
     // ==========================================
-    // Step 2: Get Duration + Views
-    // ==========================================
-
-    const detailsUrl =
-      `${BASE_URL}/videos?part=contentDetails,statistics` +
-      `&id=${videoIds.join(",")}` +
-      `&key=${API_KEY}`;
-
-    const detailsResponse =
-      await fetch(detailsUrl);
-
-    if (!detailsResponse.ok) {
-      const errorData =
-        await detailsResponse
-          .json()
-          .catch(() => null);
-
-      const error = new Error(
-        errorData?.error?.message ||
-          getApiErrorMessage(
-            detailsResponse.status
-          )
-      );
-
-      error.status =
-        detailsResponse.status;
-
-      error.reason =
-        errorData?.error?.errors?.[0]?.reason ||
-        null;
-
-      throw error;
-    }
-
-    const detailsData =
-      await detailsResponse.json();
-
-    // ==========================================
-    // Step 3: Create Lookup
-    // ==========================================
-
-    const detailsMap = {};
-
-    (detailsData.items || []).forEach(
-      (video) => {
-        detailsMap[video.id] = video;
-      }
-    );
-
-    // ==========================================
-    // Step 4: Combine Search + Details
-    // ==========================================
-
-    const result =
-      (data.items || []).map(
-        (video) => {
-          const videoId =
-            video.id?.videoId;
-
-          const details =
-            detailsMap[videoId];
-
-          const rawDuration =
-            details?.contentDetails?.duration ||
-            "";
-
-          return {
-            id: videoId,
-
-            title:
-              video.snippet?.title ||
-              "Short",
-
-            channel:
-              video.snippet?.channelTitle ||
-              "Unknown Channel",
-
-            channelId:
-              video.snippet?.channelId ||
-              "",
-
-            channelImage:
-              video.snippet?.thumbnails?.default?.url ||
-              "",
-
-            thumbnail:
-              video.snippet?.thumbnails?.high?.url ||
-              video.snippet?.thumbnails?.medium?.url ||
-              video.snippet?.thumbnails?.default?.url ||
-              "",
-
-            duration:
-              formatDuration(
-                rawDuration
-              ),
-
-            views:
-              details?.statistics?.viewCount ||
-              "0",
-
-            publishedAt:
-              video.snippet?.publishedAt ||
-              "",
-
-            isShort: true,
-          };
-        }
-      );
-
-    // ==========================================
-    // Save Result In Cache
+    // Save In Frontend Cache
     // ==========================================
 
     setCachedData(
       cacheKey,
-      result
+      shorts
     );
 
     console.log(
-      "SHORTS: Fresh API data saved to cache"
+      "SHORTS: Backend data saved to cache"
     );
 
-    return result;
+    return shorts;
 
   } catch (error) {
     console.error(
-      "Error fetching Shorts:",
+      "Error fetching Shorts from backend:",
       error
     );
 
