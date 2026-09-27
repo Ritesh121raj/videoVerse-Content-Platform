@@ -4,40 +4,139 @@ import { useNavigate } from "react-router-dom";
 
 function Playlists() {
   const [playlists, setPlaylists] = useState([]);
+  const [loading, setLoading] = useState(true);
+
   const navigate = useNavigate();
 
+  // ======================================================
+  // LOAD PLAYLISTS FROM BACKEND
+  // ======================================================
+
   useEffect(() => {
+    const loadPlaylists = async () => {
+      try {
+        const token = localStorage.getItem(
+          "videoVerseToken"
+        );
+
+        if (!token) {
+          setPlaylists([]);
+          setLoading(false);
+          return;
+        }
+
+        const response = await fetch(
+          "https://videoverse-content-platform.onrender.com/api/user/playlists",
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Failed to load playlists"
+          );
+        }
+
+        setPlaylists(
+          Array.isArray(data.playlists)
+            ? data.playlists
+            : []
+        );
+      } catch (error) {
+        console.error(
+          "Load playlists error:",
+          error
+        );
+
+        setPlaylists([]);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadPlaylists();
+  }, []);
+
+  // ======================================================
+  // DELETE PLAYLIST
+  // ======================================================
+
+  const deletePlaylist = async (playlistId) => {
     try {
-      const savedPlaylists =
-        JSON.parse(localStorage.getItem("playlists")) || [];
+      const token = localStorage.getItem(
+        "videoVerseToken"
+      );
+
+      if (!token) {
+        alert("Please login.");
+        return;
+      }
+
+      const response = await fetch(
+        `https://videoverse-content-platform.onrender.com/api/user/playlists/${playlistId}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Failed to delete playlist"
+        );
+      }
 
       setPlaylists(
-        Array.isArray(savedPlaylists)
-          ? savedPlaylists
+        Array.isArray(data.playlists)
+          ? data.playlists
           : []
       );
     } catch (error) {
-      console.error("Playlists error:", error);
-      setPlaylists([]);
+      console.error(
+        "Delete playlist error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to delete playlist."
+      );
     }
-  }, []);
-
-  const deletePlaylist = (playlistId) => {
-    const updatedPlaylists = playlists.filter(
-      (playlist) => playlist.id !== playlistId
-    );
-
-    localStorage.setItem(
-      "playlists",
-      JSON.stringify(updatedPlaylists)
-    );
-
-    setPlaylists(updatedPlaylists);
   };
+
+  // ======================================================
+  // OPEN PLAYLIST
+  // ======================================================
 
   const openPlaylist = (playlistId) => {
     navigate(`/playlist/${playlistId}`);
   };
+
+  // ======================================================
+  // LOADING
+  // ======================================================
+
+  if (loading) {
+    return (
+      <div className="page-message">
+        Loading playlists...
+      </div>
+    );
+  }
+
+  // ======================================================
+  // UI
+  // ======================================================
 
   return (
     <div className="page-container">
@@ -72,6 +171,10 @@ function Playlists() {
               className="playlist-card"
               key={playlist.id}
             >
+              {/* ======================================
+                  THUMBNAIL
+              ====================================== */}
+
               <div
                 className="playlist-thumbnail"
                 onClick={() =>
@@ -81,8 +184,9 @@ function Playlists() {
                 {playlist.videos?.length > 0 ? (
                   <img
                     src={
-                      playlist.videos[0].thumbnail ||
-                      playlist.videos[0].image
+                      playlist.videos[0]?.thumbnail ||
+                      playlist.videos[0]?.image ||
+                      ""
                     }
                     alt={playlist.name}
                   />
@@ -99,6 +203,10 @@ function Playlists() {
                     : "videos"}
                 </div>
               </div>
+
+              {/* ======================================
+                  CONTENT
+              ====================================== */}
 
               <div className="playlist-card-content">
                 <h2>{playlist.name}</h2>

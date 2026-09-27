@@ -598,11 +598,17 @@ function VideoCard({
         <div className="video-card">
 
           <div className="thumbnail-container">
-            <img
-              src={videoThumbnail}
-              alt={title}
-              className="thumbnail"
-            />
+            {videoThumbnail ? (
+              <img
+                src={videoThumbnail}
+                alt={title || "Video thumbnail"}
+                className="thumbnail"
+              />
+            ) : (
+              <div className="thumbnail-placeholder">
+                <span>No thumbnail</span>
+              </div>
+            )}
 
             {duration && (
               <span className="duration">

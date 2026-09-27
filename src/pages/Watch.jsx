@@ -1991,9 +1991,7 @@ function Watch() {
       return;
     }
 
-    const token = localStorage.getItem(
-      "videoVerseToken"
-    );
+    const token = localStorage.getItem("videoVerseToken");
 
     if (!token) {
       alert("Please login to create a playlist.");
@@ -2004,44 +2002,29 @@ function Watch() {
       // Check duplicate playlist name
       const alreadyExists = playlists.some(
         (playlist) =>
-          playlist.name?.toLowerCase() ===
-          name.toLowerCase()
+          playlist.name?.toLowerCase() === name.toLowerCase()
       );
 
       if (alreadyExists) {
-        alert(
-          "A playlist with this name already exists."
-        );
+        alert("A playlist with this name already exists.");
         return;
       }
 
-      // Current video will be added initially
-      const videos = video
-        ? [
-            {
-              ...video,
-              image:
-                video.thumbnail ||
-                video.image,
-            },
-          ]
-        : [];
+      // Only store the YouTube video ID in MongoDB
+      const videos = video?.id ? [video.id] : [];
 
       const response = await fetch(
         "https://videoverse-content-platform.onrender.com/api/user/playlists",
         {
           method: "POST",
-
           headers: {
             "Content-Type": "application/json",
             Authorization: `Bearer ${token}`,
           },
-
           body: JSON.stringify({
             id: `playlist-${Date.now()}`,
             name,
-            description:
-              newPlaylistDescription.trim(),
+            description: newPlaylistDescription.trim(),
             videos,
           }),
         }
@@ -2051,12 +2034,11 @@ function Watch() {
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Unable to create playlist"
+          data.message || "Unable to create playlist"
         );
       }
 
-      // Update state from backend response
+      // Update playlists state from backend
       setPlaylists(
         Array.isArray(data.playlists)
           ? data.playlists
@@ -2066,17 +2048,13 @@ function Watch() {
       // Reset form
       setNewPlaylistName("");
       setNewPlaylistDescription("");
-
       setShowPlaylistModal(false);
 
       alert(
         `Playlist "${name}" created and video added.`
       );
     } catch (error) {
-      console.error(
-        "Create playlist error:",
-        error
-      );
+      console.error("Create playlist error:", error);
 
       alert(
         error?.message ||
@@ -2084,7 +2062,6 @@ function Watch() {
       );
     }
   };
-
   // ==================================================
   // ADD COMMENT
   // ==================================================
