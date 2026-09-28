@@ -1535,7 +1535,7 @@ export async function getShortsVideos() {
 
   try {
     const response = await fetch(
-      "http://localhost:5000/api/videos/shorts"
+      "https://videoverse-content-platform.onrender.com/api/videos/shorts"
     );
 
     const data =

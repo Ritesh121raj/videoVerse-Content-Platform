@@ -26,6 +26,17 @@ import VideoGrid from "../components/VideoGrid";
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 
+// ==================================================
+// BACKEND API
+// ==================================================
+
+const API_BASE_URL =
+  "https://videoverse-content-platform.onrender.com/api";
+
+// ==================================================
+// WATCH PAGE
+// ==================================================
+
 function Watch() {
   const { id } = useParams();
   const [searchParams] = useSearchParams();
@@ -129,6 +140,18 @@ function Watch() {
   };
 
   // ==================================================
+  // GET VIDEO ID
+  // ==================================================
+
+  const getVideoId = (item) => {
+    if (typeof item === "string") {
+      return item;
+    }
+
+    return item?.id;
+  };
+
+  // ==================================================
   // SAVE HISTORY
   // ==================================================
 
@@ -148,28 +171,24 @@ function Watch() {
       watchedAt: Date.now(),
     };
 
+    const token =
+      localStorage.getItem("videoVerseToken");
+
     // ==================================================
     // BACKEND HISTORY
     // ==================================================
 
-    const token =
-      localStorage.getItem(
-        "videoVerseToken"
-      );
-
     if (token) {
       try {
         const response = await fetch(
-          "https://videoverse-content-platform.onrender.com/api/user/history",
+          `${API_BASE_URL}/user/history`,
           {
             method: "POST",
 
             headers: {
-              "Content-Type":
-                "application/json",
+              "Content-Type": "application/json",
 
-              Authorization:
-                `Bearer ${token}`,
+              Authorization: `Bearer ${token}`,
             },
 
             body: JSON.stringify({
@@ -178,8 +197,7 @@ function Watch() {
           }
         );
 
-        const data =
-          await response.json();
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -188,15 +206,10 @@ function Watch() {
           );
         }
 
-        // Keep localStorage synced
-        if (
-          Array.isArray(data.history)
-        ) {
+        if (Array.isArray(data.history)) {
           localStorage.setItem(
             "history",
-            JSON.stringify(
-              data.history
-            )
+            JSON.stringify(data.history)
           );
         }
 
@@ -210,9 +223,6 @@ function Watch() {
           "Backend history save error:",
           error
         );
-
-        // Backend fail hone par
-        // localStorage fallback chalega.
       }
     }
 
@@ -223,9 +233,7 @@ function Watch() {
     try {
       const savedHistory =
         JSON.parse(
-          localStorage.getItem(
-            "history"
-          )
+          localStorage.getItem("history")
         ) || [];
 
       const updatedHistory = [
@@ -233,17 +241,13 @@ function Watch() {
 
         ...savedHistory.filter(
           (item) =>
-            (typeof item === "string"
-              ? item
-              : item?.id) !== video.id
+            getVideoId(item) !== video.id
         ),
       ].slice(0, 50);
 
       localStorage.setItem(
         "history",
-        JSON.stringify(
-          updatedHistory
-        )
+        JSON.stringify(updatedHistory)
       );
 
       window.dispatchEvent(
@@ -302,6 +306,10 @@ function Watch() {
           )
         ) || [];
 
+      // ==================================================
+      // VIDEO COMPLETED
+      // ==================================================
+
       if (currentTime >= duration - 10) {
         const updated = saved.filter(
           (item) =>
@@ -313,15 +321,24 @@ function Watch() {
           JSON.stringify(updated)
         );
 
+        window.dispatchEvent(
+          new Event("activityUpdated")
+        );
+
         return;
       }
+
+      // ==================================================
+      // SAVE PROGRESS
+      // ==================================================
 
       const continueVideo = {
         ...video,
 
         image:
           video.thumbnail ||
-          video.image,
+          video.image ||
+          "",
 
         currentTime,
 
@@ -345,6 +362,10 @@ function Watch() {
       localStorage.setItem(
         "continueWatching",
         JSON.stringify(updated)
+      );
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
       );
     } catch (error) {
       console.error(
@@ -370,6 +391,104 @@ function Watch() {
     );
 
   // ==================================================
+  // LOAD PLAYLISTS
+  // ==================================================
+
+  const loadPlaylists = useCallback(async () => {
+    const token =
+      localStorage.getItem(
+        "videoVerseToken"
+      );
+
+    if (!token) {
+      setPlaylists([]);
+      return [];
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/user/playlists`,
+        {
+          method: "GET",
+
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to load playlists"
+        );
+      }
+
+      const backendPlaylists =
+        Array.isArray(data.playlists)
+          ? data.playlists
+          : [];
+
+      setPlaylists(
+        backendPlaylists
+      );
+
+      // Keep local cache synced
+      localStorage.setItem(
+        "playlists",
+        JSON.stringify(
+          backendPlaylists
+        )
+      );
+
+      return backendPlaylists;
+    } catch (error) {
+      console.error(
+        "Load playlists error:",
+        error
+      );
+
+      // ==================================================
+      // LOCAL FALLBACK
+      // ==================================================
+
+      try {
+        const localPlaylists =
+          JSON.parse(
+            localStorage.getItem(
+              "playlists"
+            )
+          ) || [];
+
+        setPlaylists(
+          Array.isArray(
+            localPlaylists
+          )
+            ? localPlaylists
+            : []
+        );
+
+        return Array.isArray(
+          localPlaylists
+        )
+          ? localPlaylists
+          : [];
+      } catch (localError) {
+        console.error(
+          "Local playlist fallback error:",
+          localError
+        );
+
+        setPlaylists([]);
+
+        return [];
+      }
+    }
+  }, []);
+
+  // ==================================================
   // LOAD VIDEO
   // ==================================================
 
@@ -382,7 +501,17 @@ function Watch() {
       setLoading(true);
       setError(null);
 
-      const data = await getVideoById(id);
+      // Reset states while switching video
+      setLiked(false);
+      setDisliked(false);
+      setWatchLater(false);
+      setSubscribed(false);
+      setRecommendedVideos([]);
+      setRecommendedError(null);
+      setComments([]);
+
+      const data =
+        await getVideoById(id);
 
       if (!data) {
         setVideo(null);
@@ -397,6 +526,26 @@ function Watch() {
       setVideo(data);
 
       // ==================================================
+      // LIKE / DISLIKE COUNTS
+      // ==================================================
+
+      setLikeCount(
+        Number(
+          data.likeCount ??
+            data.likes ??
+            1200
+        )
+      );
+
+      setDislikeCount(
+        Number(
+          data.dislikeCount ??
+            data.dislikes ??
+            25
+        )
+      );
+
+      // ==================================================
       // RECOMMENDED VIDEOS
       // ==================================================
 
@@ -404,16 +553,23 @@ function Watch() {
         setRecommendedError(null);
 
         const recommended =
-          await searchVideos(data.title);
+          await searchVideos(
+            data.title
+          );
 
         const filtered =
-          Array.isArray(recommended)
+          Array.isArray(
+            recommended
+          )
             ? recommended.filter(
-                (item) => item.id !== id
+                (item) =>
+                  item?.id !== data.id
               )
             : [];
 
-        setRecommendedVideos(filtered);
+        setRecommendedVideos(
+          filtered
+        );
       } catch (error) {
         console.error(
           "Error loading recommendations:",
@@ -443,11 +599,13 @@ function Watch() {
         const isSubscribed =
           subscriptions.some(
             (channel) =>
-              channel?.id ===
+              getVideoId(channel) ===
               data.channelId
           );
 
-        setSubscribed(isSubscribed);
+        setSubscribed(
+          isSubscribed
+        );
       } catch (error) {
         console.error(
           "Subscription loading error:",
@@ -458,7 +616,7 @@ function Watch() {
       }
 
       // ==================================================
-      // LIKE FROM BACKEND
+      // BACKEND AUTH DATA
       // ==================================================
 
       const token =
@@ -466,16 +624,21 @@ function Watch() {
           "videoVerseToken"
         );
 
+      // ==================================================
+      // LOAD LIKED VIDEOS
+      // ==================================================
+
       if (token) {
         try {
           const response =
             await fetch(
-              "https://videoverse-content-platform.onrender.com/api/user/liked",
+              `${API_BASE_URL}/user/liked`,
               {
                 method: "GET",
 
                 headers: {
-                  Authorization: `Bearer ${token}`,
+                  Authorization:
+                    `Bearer ${token}`,
                 },
               }
             );
@@ -492,30 +655,50 @@ function Watch() {
                 : [];
 
             setLiked(
-              likedIds.includes(data.id)
+              likedIds.includes(
+                data.id
+              )
             );
 
-            // IMPORTANT:
-            // localStorage contains ONLY IDs
             localStorage.setItem(
               "likedVideos",
               JSON.stringify(
                 likedIds
               )
             );
-          } else {
-            setLiked(false);
           }
         } catch (error) {
           console.error(
             "Load liked videos error:",
             error
           );
-
-          setLiked(false);
         }
       } else {
-        setLiked(false);
+        // ==================================================
+        // LOCAL LIKE FALLBACK
+        // ==================================================
+
+        try {
+          const localLiked =
+            JSON.parse(
+              localStorage.getItem(
+                "likedVideos"
+              )
+            ) || [];
+
+          setLiked(
+            localLiked.some(
+              (item) =>
+                getVideoId(item) ===
+                data.id
+            )
+          );
+        } catch (error) {
+          console.error(
+            "Local liked videos error:",
+            error
+          );
+        }
       }
 
       // ==================================================
@@ -530,16 +713,6 @@ function Watch() {
             )
           ) || [];
 
-        const getVideoId = (item) => {
-          if (
-            typeof item === "string"
-          ) {
-            return item;
-          }
-
-          return item?.id;
-        };
-
         setDisliked(
           dislikedVideos.some(
             (item) =>
@@ -552,24 +725,23 @@ function Watch() {
           "Dislike loading error:",
           error
         );
-
-        setDisliked(false);
       }
 
       // ==================================================
-      // WATCH LATER FROM BACKEND
+      // WATCH LATER
       // ==================================================
 
       if (token) {
         try {
           const response =
             await fetch(
-              "https://videoverse-content-platform.onrender.com/api/user/watch-later",
+              `${API_BASE_URL}/user/watch-later`,
               {
                 method: "GET",
 
                 headers: {
-                  Authorization: `Bearer ${token}`,
+                  Authorization:
+                    `Bearer ${token}`,
                 },
               }
             );
@@ -591,27 +763,43 @@ function Watch() {
               )
             );
 
-            // Backend IDs ko local cache me rakho
             localStorage.setItem(
               "watchLater",
               JSON.stringify(
                 watchLaterIds
               )
             );
-          } else {
-            setWatchLater(false);
           }
         } catch (error) {
           console.error(
             "Load watch later error:",
             error
           );
-
-          setWatchLater(false);
         }
       } else {
-        setWatchLater(false);
+        try {
+          const localWatchLater =
+            JSON.parse(
+              localStorage.getItem(
+                "watchLater"
+              )
+            ) || [];
+
+          setWatchLater(
+            localWatchLater.some(
+              (item) =>
+                getVideoId(item) ===
+                data.id
+            )
+          );
+        } catch (error) {
+          console.error(
+            "Local watch later error:",
+            error
+          );
+        }
       }
+
       // ==================================================
       // COMMENTS
       // ==================================================
@@ -666,62 +854,16 @@ function Watch() {
     setShowPlaylistModal(false);
   }, [loadVideo]);
 
-
   // ==================================================
-  // LOAD PLAYLISTS FROM BACKEND
+  // LOAD PLAYLISTS
   // ==================================================
 
   useEffect(() => {
-    const loadPlaylists = async () => {
-      const token =
-        localStorage.getItem("videoVerseToken");
-
-      // User not logged in
-      if (!token) {
-        setPlaylists([]);
-        return;
-      }
-
-      try {
-        const response = await fetch(
-          "https://videoverse-content-platform.onrender.com/api/user/playlists",
-          {
-            method: "GET",
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Unable to load playlists"
-          );
-        }
-
-        setPlaylists(
-          Array.isArray(data.playlists)
-            ? data.playlists
-            : []
-        );
-      } catch (error) {
-        console.error(
-          "Load playlists error:",
-          error
-        );
-
-        setPlaylists([]);
-      }
-    };
-
     loadPlaylists();
-  }, []);
+  }, [loadPlaylists]);
 
   // ==================================================
-  // PLAYLIST PLAYBACK
+  // UPDATE PLAYLIST PLAYBACK
   // ==================================================
 
   useEffect(() => {
@@ -731,6 +873,29 @@ function Watch() {
       return;
     }
 
+    const currentPlaylist =
+      playlists.find(
+        (playlist) =>
+          String(playlist?.id) ===
+          String(playlistId)
+      );
+
+    if (
+      currentPlaylist &&
+      Array.isArray(
+        currentPlaylist.videos
+      )
+    ) {
+      playlistVideosRef.current =
+        currentPlaylist.videos;
+
+      return;
+    }
+
+    // ==================================================
+    // LOCAL FALLBACK
+    // ==================================================
+
     try {
       const savedPlaylists =
         JSON.parse(
@@ -739,18 +904,18 @@ function Watch() {
           )
         ) || [];
 
-      const currentPlaylist =
+      const localPlaylist =
         savedPlaylists.find(
           (playlist) =>
-            playlist.id ===
-            playlistId
+            String(playlist?.id) ===
+            String(playlistId)
         );
 
       playlistVideosRef.current =
         Array.isArray(
-          currentPlaylist?.videos
+          localPlaylist?.videos
         )
-          ? currentPlaylist.videos
+          ? localPlaylist.videos
           : [];
     } catch (error) {
       console.error(
@@ -760,7 +925,7 @@ function Watch() {
 
       playlistVideosRef.current = [];
     }
-  }, [playlistId, id]);
+  }, [playlistId, playlists, id]);
 
   // ==================================================
   // RECOMMENDED REF
@@ -786,11 +951,8 @@ function Watch() {
     let cancelled = false;
 
     const initializePlayer = () => {
-      if (cancelled) {
-        return;
-      }
-
       if (
+        cancelled ||
         !window.YT ||
         !window.YT.Player ||
         !iframeRef.current
@@ -837,10 +999,12 @@ function Watch() {
 
                 onReady: (event) => {
                   try {
-                    // Save to history
                     saveHistory();
 
-                    // Resume Continue Watching
+                    // ==================================
+                    // RESUME CONTINUE WATCHING
+                    // ==================================
+
                     const saved =
                       JSON.parse(
                         localStorage.getItem(
@@ -887,9 +1051,7 @@ function Watch() {
                     window.YT.PlayerState
                       .PLAYING
                   ) {
-                    // Save history whenever playback starts
                     saveHistory();
-
                     return;
                   }
 
@@ -900,9 +1062,7 @@ function Watch() {
                       .PAUSED
                   ) {
                     saveHistory();
-
                     saveContinueWatching();
-
                     return;
                   }
 
@@ -936,6 +1096,12 @@ function Watch() {
                           updated
                         )
                       );
+
+                      window.dispatchEvent(
+                        new Event(
+                          "activityUpdated"
+                        )
+                      );
                     } catch (error) {
                       console.error(
                         "Continue Watching cleanup error:",
@@ -943,7 +1109,10 @@ function Watch() {
                       );
                     }
 
-                    // Autoplay disabled
+                    // ==================================
+                    // AUTOPLAY CHECK
+                    // ==================================
+
                     if (
                       localStorage.getItem(
                         "autoplay"
@@ -1003,6 +1172,10 @@ function Watch() {
                     }
                   }
                 },
+
+                // ======================================
+                // PLAYER ERROR
+                // ======================================
 
                 onError: (event) => {
                   console.error(
@@ -1250,10 +1423,6 @@ function Watch() {
         "videoVerseToken"
       );
 
-    // ==================================================
-    // NOT LOGGED IN
-    // ==================================================
-
     if (!token) {
       alert(
         "Please login to like videos."
@@ -1270,12 +1439,13 @@ function Watch() {
       if (liked) {
         const response =
           await fetch(
-            `https://videoverse-content-platform.onrender.com/api/user/liked/${video.id}`,
+            `${API_BASE_URL}/user/liked/${video.id}`,
             {
               method: "DELETE",
 
               headers: {
-                Authorization: `Bearer ${token}`,
+                Authorization:
+                  `Bearer ${token}`,
               },
             }
           );
@@ -1307,7 +1477,6 @@ function Watch() {
             ? data.likedVideos
             : [];
 
-        // ONLY IDs
         localStorage.setItem(
           "likedVideos",
           JSON.stringify(
@@ -1330,7 +1499,7 @@ function Watch() {
 
       const response =
         await fetch(
-          "https://videoverse-content-platform.onrender.com/api/user/liked",
+          `${API_BASE_URL}/user/liked`,
           {
             method: "POST",
 
@@ -1338,7 +1507,8 @@ function Watch() {
               "Content-Type":
                 "application/json",
 
-              Authorization: `Bearer ${token}`,
+              Authorization:
+                `Bearer ${token}`,
             },
 
             body: JSON.stringify({
@@ -1370,7 +1540,6 @@ function Watch() {
           ? data.likedVideos
           : [];
 
-      // ONLY IDs
       localStorage.setItem(
         "likedVideos",
         JSON.stringify(
@@ -1396,13 +1565,6 @@ function Watch() {
                 "dislikedVideos"
               )
             ) || [];
-
-          const getVideoId =
-            (item) =>
-              typeof item ===
-              "string"
-                ? item
-                : item?.id;
 
           const updatedDislikedVideos =
             dislikedVideos.filter(
@@ -1451,8 +1613,8 @@ function Watch() {
   // DISLIKE
   // ==================================================
 
-  const handleDislike = () => {
-    if (!video) {
+  const handleDislike = async () => {
+    if (!video?.id) {
       return;
     }
 
@@ -1463,16 +1625,9 @@ function Watch() {
         )
       ) || [];
 
-    const getVideoId = (item) => {
-      if (
-        typeof item ===
-        "string"
-      ) {
-        return item;
-      }
-
-      return item?.id;
-    };
+    // ==================================================
+    // REMOVE DISLIKE
+    // ==================================================
 
     if (disliked) {
       const updated =
@@ -1500,6 +1655,10 @@ function Watch() {
       return;
     }
 
+    // ==================================================
+    // ADD DISLIKE
+    // ==================================================
+
     const alreadyDisliked =
       dislikedVideos.some(
         (item) =>
@@ -1516,7 +1675,8 @@ function Watch() {
 
           image:
             video.thumbnail ||
-            video.image,
+            video.image ||
+            "",
         },
       ];
 
@@ -1535,7 +1695,7 @@ function Watch() {
     setDisliked(true);
 
     // ==================================================
-    // REMOVE LIKE FROM BACKEND
+    // REMOVE LIKE
     // ==================================================
 
     const token =
@@ -1544,66 +1704,78 @@ function Watch() {
       );
 
     if (liked && token) {
-      fetch(
-        `https://videoverse-content-platform.onrender.com/api/user/liked/${video.id}`,
-        {
-          method: "DELETE",
+      try {
+        const response =
+          await fetch(
+            `${API_BASE_URL}/user/liked/${video.id}`,
+            {
+              method: "DELETE",
 
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      )
-        .then(
-          async (response) => {
-            const data =
-              await response.json();
-
-            if (!response.ok) {
-              throw new Error(
-                data.message ||
-                  "Unable to remove like"
-              );
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
             }
-
-            const likedIds =
-              Array.isArray(
-                data.likedVideos
-              )
-                ? data.likedVideos
-                : [];
-
-            localStorage.setItem(
-              "likedVideos",
-              JSON.stringify(
-                likedIds
-              )
-            );
-
-            window.dispatchEvent(
-              new Event(
-                "activityUpdated"
-              )
-            );
-          }
-        )
-        .catch((error) => {
-          console.error(
-            "Remove like error:",
-            error
           );
-        });
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to remove like"
+          );
+        }
+
+        const likedIds =
+          Array.isArray(
+            data.likedVideos
+          )
+            ? data.likedVideos
+            : [];
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(
+            likedIds
+          )
+        );
+
+        window.dispatchEvent(
+          new Event(
+            "activityUpdated"
+          )
+        );
+
+        setLiked(false);
+
+        setLikeCount(
+          (prev) =>
+            Math.max(
+              0,
+              prev - 1
+            )
+        );
+      } catch (error) {
+        console.error(
+          "Remove like error:",
+          error
+        );
+      }
+    } else {
+      setLiked(false);
+
+      if (liked) {
+        setLikeCount(
+          (prev) =>
+            Math.max(
+              0,
+              prev - 1
+            )
+        );
+      }
     }
-
-    setLiked(false);
-
-    setLikeCount(
-      (prev) =>
-        Math.max(
-          0,
-          prev - 1
-        )
-    );
   };
 
   // ==================================================
@@ -1615,16 +1787,16 @@ function Watch() {
       return;
     }
 
-    const token = localStorage.getItem(
-      "videoVerseToken"
-    );
-
-    // ==================================================
-    // NOT LOGGED IN
-    // ==================================================
+    const token =
+      localStorage.getItem(
+        "videoVerseToken"
+      );
 
     if (!token) {
-      alert("Please login to subscribe.");
+      alert(
+        "Please login to subscribe."
+      );
+
       return;
     }
 
@@ -1634,18 +1806,21 @@ function Watch() {
       // ==================================================
 
       if (subscribed) {
-        const response = await fetch(
-          `https://videoverse-content-platform.onrender.com/api/user/subscriptions/${video.channelId}`,
-          {
-            method: "DELETE",
+        const response =
+          await fetch(
+            `${API_BASE_URL}/user/subscriptions/${video.channelId}`,
+            {
+              method: "DELETE",
 
-            headers: {
-              Authorization: `Bearer ${token}`,
-            },
-          }
-        );
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
 
-        const data = await response.json();
+        const data =
+          await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -1656,9 +1831,10 @@ function Watch() {
 
         setSubscribed(false);
 
-        // Keep localStorage in sync
         const updatedSubscriptions =
-          Array.isArray(data.subscribedChannels)
+          Array.isArray(
+            data.subscribedChannels
+          )
             ? data.subscribedChannels.map(
                 (channelId) => ({
                   id: channelId,
@@ -1674,10 +1850,14 @@ function Watch() {
         );
 
         window.dispatchEvent(
-          new Event("activityUpdated")
+          new Event(
+            "activityUpdated"
+          )
         );
 
-        alert("Unsubscribed successfully");
+        alert(
+          "Unsubscribed successfully"
+        );
 
         return;
       }
@@ -1686,25 +1866,29 @@ function Watch() {
       // SUBSCRIBE
       // ==================================================
 
-      const response = await fetch(
-        "https://videoverse-content-platform.onrender.com/api/user/subscriptions",
-        {
-          method: "POST",
+      const response =
+        await fetch(
+          `${API_BASE_URL}/user/subscriptions`,
+          {
+            method: "POST",
 
-          headers: {
-            "Content-Type":
-              "application/json",
+            headers: {
+              "Content-Type":
+                "application/json",
 
-            Authorization: `Bearer ${token}`,
-          },
+              Authorization:
+                `Bearer ${token}`,
+            },
 
-          body: JSON.stringify({
-            channelId: video.channelId,
-          }),
-        }
-      );
+            body: JSON.stringify({
+              channelId:
+                video.channelId,
+            }),
+          }
+        );
 
-      const data = await response.json();
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -1715,9 +1899,10 @@ function Watch() {
 
       setSubscribed(true);
 
-      // Keep localStorage in sync
       const updatedSubscriptions =
-        Array.isArray(data.subscribedChannels)
+        Array.isArray(
+          data.subscribedChannels
+        )
           ? data.subscribedChannels.map(
               (channelId) => ({
                 id: channelId,
@@ -1733,10 +1918,14 @@ function Watch() {
       );
 
       window.dispatchEvent(
-        new Event("activityUpdated")
+        new Event(
+          "activityUpdated"
+        )
       );
 
-      alert("Subscribed successfully");
+      alert(
+        "Subscribed successfully"
+      );
     } catch (error) {
       console.error(
         "Subscription error:",
@@ -1754,120 +1943,123 @@ function Watch() {
   // SHARE
   // ==================================================
 
-  const handleShare =
-    async () => {
-      const url =
-        window.location.href;
+  const handleShare = async () => {
+    const url =
+      window.location.href;
 
-      try {
-        await navigator.clipboard.writeText(
-          url
-        );
+    try {
+      await navigator.clipboard.writeText(
+        url
+      );
 
-        alert(
-          "Video link copied!"
-        );
-      } catch (error) {
-        console.error(
-          "Unable to copy link:",
-          error
-        );
-      }
-    };
+      alert(
+        "Video link copied!"
+      );
+    } catch (error) {
+      console.error(
+        "Unable to copy link:",
+        error
+      );
+    }
+  };
 
   // ==================================================
   // DOWNLOAD
   // ==================================================
 
-  const handleDownload =
-    () => {
-      alert(
-        "YouTube videos cannot be directly downloaded from this website."
-      );
-    };
+  const handleDownload = () => {
+    alert(
+      "YouTube videos cannot be directly downloaded from this website."
+    );
+  };
 
-  
+  // ==================================================
+  // WATCH LATER
+  // ==================================================
 
-    // ==================================================
-    // WATCH LATER
-    // ==================================================
+  const handleWatchLater = async () => {
+    if (!video?.id) {
+      return;
+    }
 
-    const handleWatchLater = async () => {
-      if (!video?.id) {
-        return;
-      }
-
-      const token = localStorage.getItem(
+    const token =
+      localStorage.getItem(
         "videoVerseToken"
       );
 
-      // ================================================
-      // LOGIN REQUIRED
-      // ================================================
+    if (!token) {
+      alert(
+        "Please login to use Watch Later."
+      );
 
-      if (!token) {
+      return;
+    }
+
+    try {
+      // ==================================================
+      // REMOVE
+      // ==================================================
+
+      if (watchLater) {
+        const response =
+          await fetch(
+            `${API_BASE_URL}/user/watch-later/${video.id}`,
+            {
+              method: "DELETE",
+
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
+          );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to remove video from Watch Later"
+          );
+        }
+
+        setWatchLater(false);
+
+        const watchLaterIds =
+          Array.isArray(
+            data.watchLater
+          )
+            ? data.watchLater
+            : [];
+
+        localStorage.setItem(
+          "watchLater",
+          JSON.stringify(
+            watchLaterIds
+          )
+        );
+
+        window.dispatchEvent(
+          new Event(
+            "activityUpdated"
+          )
+        );
+
         alert(
-          "Please login to use Watch Later."
+          "Removed from Watch Later"
         );
 
         return;
       }
 
-      try {
-        // ==============================================
-        // REMOVE FROM WATCH LATER
-        // ==============================================
+      // ==================================================
+      // ADD
+      // ==================================================
 
-        if (watchLater) {
-          const response = await fetch(
-            `https://videoverse-content-platform.onrender.com/api/user/watch-later/${video.id}`,
-            {
-              method: "DELETE",
-
-              headers: {
-                Authorization: `Bearer ${token}`,
-              },
-            }
-          );
-
-          const data = await response.json();
-
-          if (!response.ok) {
-            throw new Error(
-              data.message ||
-                "Unable to remove video from Watch Later"
-            );
-          }
-
-          setWatchLater(false);
-
-          const watchLaterIds =
-            Array.isArray(data.watchLater)
-              ? data.watchLater
-              : [];
-
-          localStorage.setItem(
-            "watchLater",
-            JSON.stringify(watchLaterIds)
-          );
-
-          window.dispatchEvent(
-            new Event("activityUpdated")
-          );
-
-          alert(
-            "Removed from Watch Later"
-          );
-
-          return;
-        }
-
-        // ==============================================
-        // ADD TO WATCH LATER
-        // ==============================================
-
-        const response = await fetch(
-          "https://videoverse-content-platform.onrender.com/api/user/watch-later",
+      const response =
+        await fetch(
+          `${API_BASE_URL}/user/watch-later`,
           {
             method: "POST",
 
@@ -1875,7 +2067,8 @@ function Watch() {
               "Content-Type":
                 "application/json",
 
-              Authorization: `Bearer ${token}`,
+              Authorization:
+                `Bearer ${token}`,
             },
 
             body: JSON.stringify({
@@ -1884,203 +2077,405 @@ function Watch() {
           }
         );
 
-        const data = await response.json();
+      const data =
+        await response.json();
 
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Unable to add video to Watch Later"
-          );
-        }
-
-        setWatchLater(true);
-
-        const watchLaterIds =
-          Array.isArray(data.watchLater)
-            ? data.watchLater
-            : [];
-
-        localStorage.setItem(
-          "watchLater",
-          JSON.stringify(watchLaterIds)
-        );
-
-        window.dispatchEvent(
-          new Event("activityUpdated")
-        );
-
-        alert(
-          "Added to Watch Later"
-        );
-      } catch (error) {
-        console.error(
-          "Watch Later error:",
-          error
-        );
-
-        alert(
-          error?.message ||
-            "Unable to update Watch Later."
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to add video to Watch Later"
         );
       }
-    };
+
+      setWatchLater(true);
+
+      const watchLaterIds =
+        Array.isArray(
+          data.watchLater
+        )
+          ? data.watchLater
+          : [];
+
+      localStorage.setItem(
+        "watchLater",
+        JSON.stringify(
+          watchLaterIds
+        )
+      );
+
+      window.dispatchEvent(
+        new Event(
+          "activityUpdated"
+        )
+      );
+
+      alert(
+        "Added to Watch Later"
+      );
+    } catch (error) {
+      console.error(
+        "Watch Later error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Unable to update Watch Later."
+      );
+    }
+  };
+
   // ==================================================
-  // SAVE PLAYLISTS
+  // SAVE PLAYLISTS LOCAL CACHE
   // ==================================================
 
   const savePlaylists = (
     updatedPlaylists
   ) => {
+    const safePlaylists =
+      Array.isArray(
+        updatedPlaylists
+      )
+        ? updatedPlaylists
+        : [];
+
     localStorage.setItem(
       "playlists",
       JSON.stringify(
-        updatedPlaylists
+        safePlaylists
       )
     );
 
     setPlaylists(
-      updatedPlaylists
+      safePlaylists
     );
   };
 
   // ==================================================
-  // ADD TO PLAYLIST
+  // ADD VIDEO TO PLAYLIST
   // ==================================================
 
-  const handleAddToPlaylist = async (playlistId, video) => {
+  const handleAddToPlaylist = async (
+    selectedPlaylistId
+  ) => {
+    if (!video?.id) {
+      return;
+    }
+
     try {
-      const token = localStorage.getItem("videoVerseToken");
+      const token =
+        localStorage.getItem(
+          "videoVerseToken"
+        );
 
       if (!token) {
-        alert("Please login first");
+        alert(
+          "Please login first."
+        );
+
         return;
       }
 
-      // Get current playlists from backend
-      const response = await fetch(
-        "http://localhost:5000/api/user/playlists",
-        {
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+      // ==================================================
+      // GET CURRENT PLAYLISTS
+      // ==================================================
+
+      const response =
+        await fetch(
+          `${API_BASE_URL}/user/playlists`,
+          {
+            method: "GET",
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
-        throw new Error("Failed to fetch playlists");
+        throw new Error(
+          data.message ||
+            "Failed to fetch playlists"
+        );
       }
 
-      const data = await response.json();
+      const currentPlaylists =
+        Array.isArray(
+          data.playlists
+        )
+          ? data.playlists
+          : [];
 
-      const playlist = data.playlists.find(
-        (item) => item.id === playlistId
-      );
+      const playlist =
+        currentPlaylists.find(
+          (item) =>
+            String(item?.id) ===
+            String(selectedPlaylistId)
+        );
 
       if (!playlist) {
-        alert("Playlist not found");
+        alert(
+          "Playlist not found."
+        );
+
         return;
       }
 
-      // Prevent duplicate video
-      const alreadyExists = playlist.videos.some(
-        (item) => item.id === video.id
-      );
+      // ==================================================
+      // CHECK DUPLICATE
+      // ==================================================
+
+      const playlistVideos =
+        Array.isArray(
+          playlist.videos
+        )
+          ? playlist.videos
+          : [];
+
+      const alreadyExists =
+        playlistVideos.some(
+          (item) =>
+            getVideoId(item) ===
+            video.id
+        );
 
       if (alreadyExists) {
-        alert("Video already exists in this playlist");
+        alert(
+          "Video already exists in this playlist."
+        );
+
         return;
       }
 
-      // Add video
+      // ==================================================
+      // ADD VIDEO
+      // ==================================================
+
       const updatedVideos = [
-        ...playlist.videos,
-        video,
+        ...playlistVideos,
+
+        {
+          ...video,
+
+          image:
+            video.thumbnail ||
+            video.image ||
+            "",
+        },
       ];
 
-      // Update playlist in MongoDB
-      const updateResponse = await fetch(
-        `http://localhost:5000/api/user/playlists/${playlistId}`,
-        {
-          method: "PUT",
+      // ==================================================
+      // UPDATE BACKEND
+      // ==================================================
 
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+      const updateResponse =
+        await fetch(
+          `${API_BASE_URL}/user/playlists/${selectedPlaylistId}`,
+          {
+            method: "PUT",
 
-          body: JSON.stringify({
-            videos: updatedVideos,
-          }),
-        }
-      );
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              videos:
+                updatedVideos,
+            }),
+          }
+        );
+
+      const updateData =
+        await updateResponse.json();
 
       if (!updateResponse.ok) {
-        throw new Error("Failed to add video to playlist");
+        throw new Error(
+          updateData.message ||
+            "Failed to add video to playlist"
+        );
       }
 
-      alert("Video added to playlist ✅");
+      // ==================================================
+      // UPDATE FRONTEND STATE
+      // ==================================================
+
+      if (
+        Array.isArray(
+          updateData.playlists
+        )
+      ) {
+        savePlaylists(
+          updateData.playlists
+        );
+      } else {
+        const updatedPlaylists =
+          currentPlaylists.map(
+            (item) =>
+              String(item.id) ===
+              String(selectedPlaylistId)
+                ? {
+                    ...item,
+
+                    videos:
+                      updatedVideos,
+                  }
+                : item
+          );
+
+        savePlaylists(
+          updatedPlaylists
+        );
+      }
+
+      // Update playlist playback ref
+      if (
+        String(
+          playlistId
+        ) ===
+        String(selectedPlaylistId)
+      ) {
+        playlistVideosRef.current =
+          updatedVideos;
+      }
+
+      window.dispatchEvent(
+        new Event(
+          "activityUpdated"
+        )
+      );
+
+      alert(
+        "Video added to playlist ✅"
+      );
     } catch (error) {
-      console.error("Add to playlist error:", error);
-      alert("Failed to add video to playlist");
+      console.error(
+        "Add to playlist error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Failed to add video to playlist."
+      );
     }
   };
+
   // ==================================================
   // CREATE PLAYLIST
   // ==================================================
 
   const handleCreatePlaylist = async () => {
     try {
-      const token = localStorage.getItem("videoVerseToken");
+      const token =
+        localStorage.getItem(
+          "videoVerseToken"
+        );
 
       if (!token) {
-        alert("Please login first");
+        alert(
+          "Please login first."
+        );
+
         return;
       }
 
-      if (!newPlaylistName.trim()) {
-        alert("Enter playlist name");
+      const playlistName =
+        newPlaylistName.trim();
+
+      const playlistDescription =
+        newPlaylistDescription.trim();
+
+      if (!playlistName) {
+        alert(
+          "Enter playlist name."
+        );
+
         return;
       }
 
-      const response = await fetch(
-        "http://localhost:5000/api/user/playlists",
-        {
-          method: "POST",
+      const response =
+        await fetch(
+          `${API_BASE_URL}/user/playlists`,
+          {
+            method: "POST",
 
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${token}`,
-          },
+            headers: {
+              "Content-Type":
+                "application/json",
 
-          body: JSON.stringify({
-            id: `playlist-${Date.now()}`,
-            name: newPlaylistName.trim(),
-            description: "",
-            videos: [],
-          }),
-        }
-      );
+              Authorization:
+                `Bearer ${token}`,
+            },
 
-      const data = await response.json();
+            body: JSON.stringify({
+              id: `playlist-${Date.now()}`,
+
+              name: playlistName,
+
+              description:
+                playlistDescription,
+
+              videos: [],
+            }),
+          }
+        );
+
+      const data =
+        await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message || "Failed to create playlist"
+          data.message ||
+            "Failed to create playlist"
         );
       }
 
-      // Update frontend state
-      setPlaylists(data.playlists);
+      if (
+        Array.isArray(
+          data.playlists
+        )
+      ) {
+        savePlaylists(
+          data.playlists
+        );
+      } else {
+        await loadPlaylists();
+      }
 
       setNewPlaylistName("");
 
-      alert("Playlist created successfully ✅");
-    } catch (error) {
-      console.error("Create playlist error:", error);
+      setNewPlaylistDescription("");
 
-      alert("Failed to create playlist");
+      window.dispatchEvent(
+        new Event(
+          "activityUpdated"
+        )
+      );
+
+      alert(
+        "Playlist created successfully ✅"
+      );
+    } catch (error) {
+      console.error(
+        "Create playlist error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Failed to create playlist."
+      );
     }
   };
+
   // ==================================================
   // ADD COMMENT
   // ==================================================
@@ -2095,9 +2490,11 @@ function Watch() {
 
       name: "You",
 
-      text: commentText.trim(),
+      text:
+        commentText.trim(),
 
-      date: new Date().toLocaleString(),
+      date:
+        new Date().toLocaleString(),
 
       likes: 0,
 
@@ -2173,7 +2570,8 @@ function Watch() {
               ? {
                   ...comment,
 
-                  text: updatedText,
+                  text:
+                    updatedText,
 
                   edited: true,
                 }
@@ -2238,7 +2636,8 @@ function Watch() {
           return {
             ...comment,
 
-            liked: !alreadyLiked,
+            liked:
+              !alreadyLiked,
 
             likes:
               Math.max(
@@ -2282,9 +2681,11 @@ function Watch() {
 
       name: "You",
 
-      text: replyText.trim(),
+      text:
+        replyText.trim(),
 
-      date: new Date().toLocaleString(),
+      date:
+        new Date().toLocaleString(),
     };
 
     const updatedComments =
@@ -2335,47 +2736,46 @@ function Watch() {
   // DELETE REPLY
   // ==================================================
 
-  const handleDeleteReply =
-    (
-      commentId,
-      replyId
-    ) => {
-      const updatedComments =
-        comments.map(
-          (comment) => {
-            if (
-              comment.id !==
-              commentId
-            ) {
-              return comment;
-            }
-
-            return {
-              ...comment,
-
-              replies: (
-                comment.replies ||
-                []
-              ).filter(
-                (reply) =>
-                  reply.id !==
-                  replyId
-              ),
-            };
+  const handleDeleteReply = (
+    commentId,
+    replyId
+  ) => {
+    const updatedComments =
+      comments.map(
+        (comment) => {
+          if (
+            comment.id !==
+            commentId
+          ) {
+            return comment;
           }
-        );
 
-      setComments(
+          return {
+            ...comment,
+
+            replies: (
+              comment.replies ||
+              []
+            ).filter(
+              (reply) =>
+                reply.id !==
+                replyId
+            ),
+          };
+        }
+      );
+
+    setComments(
+      updatedComments
+    );
+
+    localStorage.setItem(
+      `comments_${id}`,
+      JSON.stringify(
         updatedComments
-      );
-
-      localStorage.setItem(
-        `comments_${id}`,
-        JSON.stringify(
-          updatedComments
-        )
-      );
-    };
+      )
+    );
+  };
 
   // ==================================================
   // DELETE COMMENT
@@ -2394,7 +2794,9 @@ function Watch() {
 
       localStorage.setItem(
         `comments_${id}`,
-        JSON.stringify(updated)
+        JSON.stringify(
+          updated
+        )
       );
 
       if (
@@ -2466,13 +2868,18 @@ function Watch() {
               style={{
                 marginTop:
                   "15px",
+
                 padding:
                   "10px 18px",
+
                 border: "none",
+
                 borderRadius:
                   "8px",
+
                 cursor:
                   "pointer",
+
                 fontWeight:
                   "600",
               }}
@@ -2523,7 +2930,7 @@ function Watch() {
         <div className="watch-main-layout">
 
           {/* ==================================================
-              LEFT
+              LEFT SIDE
           ================================================== */}
 
           <div className="watch-left">
@@ -2564,7 +2971,9 @@ function Watch() {
 
             <div className="watch-info">
 
-              {/* CHANNEL */}
+              {/* ==================================================
+                  CHANNEL
+              ================================================== */}
 
               <div className="watch-channel">
 
@@ -2572,7 +2981,6 @@ function Watch() {
                   to={`/channel/${video.channelId}`}
                   className="watch-channel-link"
                 >
-
                   <div className="watch-channel-avatar">
 
                     {video.channelImage ? (
@@ -2581,7 +2989,8 @@ function Watch() {
                           video.channelImage
                         }
                         alt={
-                          video.channel
+                          video.channel ||
+                          "Channel"
                         }
                         onError={(
                           e
@@ -2619,7 +3028,6 @@ function Watch() {
                     </p>
 
                   </div>
-
                 </Link>
 
                 <button
@@ -2639,7 +3047,9 @@ function Watch() {
 
               </div>
 
-              {/* ACTIONS */}
+              {/* ==================================================
+                  ACTIONS
+              ================================================== */}
 
               <div className="watch-actions">
 
@@ -2806,7 +3216,6 @@ function Watch() {
                 )}
 
               </div>
-
             </div>
 
             {/* ==================================================
@@ -2847,6 +3256,8 @@ function Watch() {
 
                   </div>
 
+                  {/* PLAYLIST LIST */}
+
                   <div className="playlist-list">
 
                     {playlists.length ===
@@ -2863,11 +3274,16 @@ function Watch() {
                           playlist
                         ) => {
                           const alreadyAdded =
-                            playlist.videos?.some(
+                            Array.isArray(
+                              playlist.videos
+                            ) &&
+                            playlist.videos.some(
                               (
                                 item
                               ) =>
-                                item?.id ===
+                                getVideoId(
+                                  item
+                                ) ===
                                 video.id
                             );
 
@@ -2922,6 +3338,8 @@ function Watch() {
 
                   </div>
 
+                  {/* CREATE PLAYLIST */}
+
                   <div className="create-playlist-form">
 
                     <h3>
@@ -2973,7 +3391,6 @@ function Watch() {
                   </div>
 
                 </div>
-
               </div>
             )}
 
@@ -2991,8 +3408,8 @@ function Watch() {
               </strong>
 
               <p>
-                Watch this video and
-                learn something new.
+                {video.description ||
+                  "Watch this video and learn something new."}
               </p>
 
             </div>
@@ -3104,7 +3521,7 @@ function Watch() {
 
                           </div>
 
-                          {/* EDIT */}
+                          {/* EDIT COMMENT */}
 
                           {editingCommentId ===
                           comment.id ? (
@@ -3423,20 +3840,17 @@ function Watch() {
                           )}
 
                         </div>
-
                       </div>
                     )
                   )
                 )}
 
               </div>
-
             </div>
-
           </div>
 
           {/* ==================================================
-              RIGHT SIDE
+              RIGHT SIDE - RECOMMENDED
           ================================================== */}
 
           <aside className="watch-recommended">
