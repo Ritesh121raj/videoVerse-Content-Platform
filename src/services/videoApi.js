@@ -1518,16 +1518,9 @@ export async function getChannelShorts(
 // Get Shorts
 // ======================================================
 
-// ======================================================
-// Get Shorts
-// ======================================================
 
 export async function getShortsVideos() {
   const cacheKey = "shorts-videos";
-
-  // ==========================================
-  // Check Frontend Cache First
-  // ==========================================
 
   const cachedShorts =
     getCachedData(cacheKey);
@@ -1541,37 +1534,27 @@ export async function getShortsVideos() {
   }
 
   try {
-    // ==========================================
-    // Backend API
-    // ==========================================
-
     const response = await fetch(
       "http://localhost:5000/api/videos/shorts"
     );
 
-    if (!response.ok) {
-      const errorData =
-        await response.json().catch(() => null);
+    const data =
+      await response.json().catch(() => null);
 
+    if (!response.ok) {
       const error = new Error(
-        errorData?.message ||
-          `Shorts API error (${response.status})`
+        data?.message ||
+        `Shorts API error (${response.status})`
       );
 
-      error.status = response.status;
+      error.status =
+        response.status;
 
       throw error;
     }
 
-    const data =
-      await response.json();
-
     const shorts =
-      data.shorts || [];
-
-    // ==========================================
-    // Save In Frontend Cache
-    // ==========================================
+      data?.shorts || [];
 
     setCachedData(
       cacheKey,

@@ -6,10 +6,9 @@ const {
 
 const router = express.Router();
 
-// ======================================================
-// GET SHORTS
-// ======================================================
-
-router.get("/shorts", getShortsVideos);
+router.get(
+  "/shorts",
+  getShortsVideos
+);
 
 module.exports = router;

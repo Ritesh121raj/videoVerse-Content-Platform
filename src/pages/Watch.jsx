@@ -132,26 +132,101 @@ function Watch() {
   // SAVE HISTORY
   // ==================================================
 
-  const saveHistory = useCallback(() => {
+  const saveHistory = useCallback(async () => {
     if (!video?.id) {
       return;
     }
 
+    const historyItem = {
+      ...video,
+
+      image:
+        video.thumbnail ||
+        video.image ||
+        "",
+
+      watchedAt: Date.now(),
+    };
+
+    // ==================================================
+    // BACKEND HISTORY
+    // ==================================================
+
+    const token =
+      localStorage.getItem(
+        "videoVerseToken"
+      );
+
+    if (token) {
+      try {
+        const response = await fetch(
+          "https://videoverse-content-platform.onrender.com/api/user/history",
+          {
+            method: "POST",
+
+            headers: {
+              "Content-Type":
+                "application/json",
+
+              Authorization:
+                `Bearer ${token}`,
+            },
+
+            body: JSON.stringify({
+              video: historyItem,
+            }),
+          }
+        );
+
+        const data =
+          await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to save watch history"
+          );
+        }
+
+        // Keep localStorage synced
+        if (
+          Array.isArray(data.history)
+        ) {
+          localStorage.setItem(
+            "history",
+            JSON.stringify(
+              data.history
+            )
+          );
+        }
+
+        window.dispatchEvent(
+          new Event("activityUpdated")
+        );
+
+        return;
+      } catch (error) {
+        console.error(
+          "Backend history save error:",
+          error
+        );
+
+        // Backend fail hone par
+        // localStorage fallback chalega.
+      }
+    }
+
+    // ==================================================
+    // LOCAL STORAGE FALLBACK
+    // ==================================================
+
     try {
       const savedHistory =
         JSON.parse(
-          localStorage.getItem("history")
+          localStorage.getItem(
+            "history"
+          )
         ) || [];
-
-      const historyItem = {
-        ...video,
-
-        image:
-          video.thumbnail ||
-          video.image,
-
-        watchedAt: Date.now(),
-      };
 
       const updatedHistory = [
         historyItem,
@@ -166,7 +241,9 @@ function Watch() {
 
       localStorage.setItem(
         "history",
-        JSON.stringify(updatedHistory)
+        JSON.stringify(
+          updatedHistory
+        )
       );
 
       window.dispatchEvent(
@@ -174,7 +251,7 @@ function Watch() {
       );
     } catch (error) {
       console.error(
-        "History save error:",
+        "History local save error:",
         error
       );
     }
@@ -1870,373 +1947,138 @@ function Watch() {
   // ADD TO PLAYLIST
   // ==================================================
 
-  const handleAddToPlaylist = async (
-      playlistIdToAdd
-    ) => {
-      if (!video) {
-        return;
-      }
-
-      const token =
-        localStorage.getItem(
-          "videoVerseToken"
-        );
+  const handleAddToPlaylist = async (playlistId, video) => {
+    try {
+      const token = localStorage.getItem("videoVerseToken");
 
       if (!token) {
-        alert("Please login first.");
+        alert("Please login first");
         return;
       }
 
-      try {
-        const currentPlaylist =
-          playlists.find(
-            (playlist) =>
-              String(playlist.id) ===
-              String(playlistIdToAdd)
-          );
-
-        if (!currentPlaylist) {
-          alert("Playlist not found.");
-          return;
+      // Get current playlists from backend
+      const response = await fetch(
+        "http://localhost:5000/api/user/playlists",
+        {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
         }
+      );
 
-        const existingVideos =
-          Array.isArray(
-            currentPlaylist.videos
-          )
-            ? currentPlaylist.videos
-            : [];
-
-        const alreadyExists =
-          existingVideos.some(
-            (item) => {
-              const existingId =
-                typeof item === "string"
-                  ? item
-                  : item?.id;
-
-              return (
-                String(existingId) ===
-                String(video.id)
-              );
-            }
-          );
-
-        if (alreadyExists) {
-          setShowPlaylistModal(false);
-
-          alert(
-            `Already in ${
-              currentPlaylist.name ||
-              "playlist"
-            }`
-          );
-
-          return;
-        }
-
-        const videoForPlaylist = {
-          id: video.id,
-
-          title:
-            video.title ||
-            "Untitled Video",
-
-          channel:
-            video.channel ||
-            "Unknown Channel",
-
-          channelId:
-            video.channelId ||
-            "",
-
-          thumbnail:
-            video.thumbnail ||
-            video.image ||
-            `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
-
-          image:
-            video.thumbnail ||
-            video.image ||
-            `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
-
-          channelImage:
-            video.channelImage ||
-            "",
-
-          views:
-            video.views ||
-            "0",
-
-          publishedAt:
-            video.publishedAt ||
-            "",
-
-          duration:
-            video.duration ||
-            "",
-        };
-
-        const updatedVideos = [
-          ...existingVideos,
-          videoForPlaylist,
-        ];
-
-        const response =
-          await fetch(
-            `https://videoverse-content-platform.onrender.com/api/user/playlists/${currentPlaylist.id}`,
-            {
-              method: "PUT",
-
-              headers: {
-                "Content-Type":
-                  "application/json",
-
-                Authorization:
-                  `Bearer ${token}`,
-              },
-
-              body: JSON.stringify({
-                videos:
-                  updatedVideos,
-              }),
-            }
-          );
-
-        const data =
-          await response.json();
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Unable to add video to playlist"
-          );
-        }
-
-        const updatedPlaylist =
-          data.playlist;
-
-        const updatedPlaylists =
-          playlists.map(
-            (playlist) =>
-              String(playlist.id) ===
-              String(updatedPlaylist.id)
-                ? updatedPlaylist
-                : playlist
-          );
-
-        setPlaylists(
-          updatedPlaylists
-        );
-
-        localStorage.setItem(
-          "playlists",
-          JSON.stringify(
-            updatedPlaylists
-          )
-        );
-
-        window.dispatchEvent(
-          new Event(
-            "playlistsUpdated"
-          )
-        );
-
-        setShowPlaylistModal(false);
-
-        alert(
-          `Added to ${
-            updatedPlaylist.name ||
-            "playlist"
-          }`
-        );
-      } catch (error) {
-        console.error(
-          "Add to playlist error:",
-          error
-        );
-
-        alert(
-          error?.message ||
-            "Unable to add video to playlist."
-        );
+      if (!response.ok) {
+        throw new Error("Failed to fetch playlists");
       }
-    };
+
+      const data = await response.json();
+
+      const playlist = data.playlists.find(
+        (item) => item.id === playlistId
+      );
+
+      if (!playlist) {
+        alert("Playlist not found");
+        return;
+      }
+
+      // Prevent duplicate video
+      const alreadyExists = playlist.videos.some(
+        (item) => item.id === video.id
+      );
+
+      if (alreadyExists) {
+        alert("Video already exists in this playlist");
+        return;
+      }
+
+      // Add video
+      const updatedVideos = [
+        ...playlist.videos,
+        video,
+      ];
+
+      // Update playlist in MongoDB
+      const updateResponse = await fetch(
+        `http://localhost:5000/api/user/playlists/${playlistId}`,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            videos: updatedVideos,
+          }),
+        }
+      );
+
+      if (!updateResponse.ok) {
+        throw new Error("Failed to add video to playlist");
+      }
+
+      alert("Video added to playlist ✅");
+    } catch (error) {
+      console.error("Add to playlist error:", error);
+      alert("Failed to add video to playlist");
+    }
+  };
   // ==================================================
   // CREATE PLAYLIST
   // ==================================================
 
-  const handleCreatePlaylist =
-  async () => {
-    const name =
-      newPlaylistName.trim();
-
-    if (!name) {
-      alert(
-        "Please enter a playlist name."
-      );
-
-      return;
-    }
-
-    const token =
-      localStorage.getItem(
-        "videoVerseToken"
-      );
-
-    if (!token) {
-      alert("Please login first.");
-      return;
-    }
-
+  const handleCreatePlaylist = async () => {
     try {
-      const alreadyExists =
-        playlists.some(
-          (playlist) =>
-            playlist.name
-              ?.toLowerCase() ===
-            name.toLowerCase()
-        );
+      const token = localStorage.getItem("videoVerseToken");
 
-      if (alreadyExists) {
-        alert(
-          "A playlist with this name already exists."
-        );
-
+      if (!token) {
+        alert("Please login first");
         return;
       }
 
-      const newPlaylist = {
-        id: `playlist-${Date.now()}`,
+      if (!newPlaylistName.trim()) {
+        alert("Enter playlist name");
+        return;
+      }
 
-        name,
+      const response = await fetch(
+        "http://localhost:5000/api/user/playlists",
+        {
+          method: "POST",
 
-        description:
-          newPlaylistDescription.trim(),
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
 
-        videos: video
-          ? [
-              {
-                id: video.id,
+          body: JSON.stringify({
+            id: `playlist-${Date.now()}`,
+            name: newPlaylistName.trim(),
+            description: "",
+            videos: [],
+          }),
+        }
+      );
 
-                title:
-                  video.title ||
-                  "Untitled Video",
-
-                channel:
-                  video.channel ||
-                  "Unknown Channel",
-
-                channelId:
-                  video.channelId ||
-                  "",
-
-                thumbnail:
-                  video.thumbnail ||
-                  video.image ||
-                  `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
-
-                image:
-                  video.thumbnail ||
-                  video.image ||
-                  `https://i.ytimg.com/vi/${video.id}/hqdefault.jpg`,
-
-                channelImage:
-                  video.channelImage ||
-                  "",
-
-                views:
-                  video.views ||
-                  "0",
-
-                publishedAt:
-                  video.publishedAt ||
-                  "",
-
-                duration:
-                  video.duration ||
-                  "",
-              },
-            ]
-          : [],
-      };
-
-      const response =
-        await fetch(
-          "https://videoverse-content-platform.onrender.com/api/user/playlists",
-          {
-            method: "POST",
-
-            headers: {
-              "Content-Type":
-                "application/json",
-
-              Authorization:
-                `Bearer ${token}`,
-            },
-
-            body: JSON.stringify(
-              newPlaylist
-            ),
-          }
-        );
-
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Unable to create playlist"
+          data.message || "Failed to create playlist"
         );
       }
 
-      const updatedPlaylists =
-        Array.isArray(
-          data.playlists
-        )
-          ? data.playlists
-          : [
-              ...playlists,
-              data.playlist,
-            ];
-
-      setPlaylists(
-        updatedPlaylists
-      );
-
-      localStorage.setItem(
-        "playlists",
-        JSON.stringify(
-          updatedPlaylists
-        )
-      );
-
-      window.dispatchEvent(
-        new Event(
-          "playlistsUpdated"
-        )
-      );
+      // Update frontend state
+      setPlaylists(data.playlists);
 
       setNewPlaylistName("");
 
-      setNewPlaylistDescription("");
-
-      setShowPlaylistModal(false);
-
-      alert(
-        `Playlist "${name}" created successfully.`
-      );
+      alert("Playlist created successfully ✅");
     } catch (error) {
-      console.error(
-        "Create playlist error:",
-        error
-      );
+      console.error("Create playlist error:", error);
 
-      alert(
-        error?.message ||
-          "Unable to create playlist."
-      );
+      alert("Failed to create playlist");
     }
   };
   // ==================================================

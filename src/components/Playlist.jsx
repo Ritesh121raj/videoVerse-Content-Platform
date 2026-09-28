@@ -107,94 +107,49 @@ function Playlist() {
   // REMOVE VIDEO FROM PLAYLIST
   // ======================================================
 
-  const removeVideo = async (
-    videoId
-  ) => {
-    if (!playlist) return;
-
-    const token =
-      localStorage.getItem(
-        "videoVerseToken"
-      );
-
-    if (!token) {
-      alert(
-        "Please login first."
-      );
-      return;
-    }
-
+  const removeVideo = async (videoId) => {
     try {
-      setRemovingVideo(videoId);
+      const token = localStorage.getItem("videoVerseToken");
 
-      const updatedVideos =
-        (
-          playlist.videos ||
-          []
-        ).filter((video) => {
-          const currentId =
-            typeof video ===
-            "string"
-              ? video
-              : video?.id;
+      if (!token) {
+        alert("Please login first");
+        return;
+      }
 
-          return (
-            currentId !==
-            videoId
-          );
-        });
+      const updatedVideos = playlist.videos.filter(
+        (video) => video.id !== videoId
+      );
 
-      const response =
-        await fetch(
-          `${API_BASE}/api/user/playlists/${playlist.id}`,
-          {
-            method: "PUT",
+      const response = await fetch(
+        `http://localhost:5000/api/user/playlists/${playlist.id}`,
+        {
+          method: "PUT",
 
-            headers: {
-              "Content-Type":
-                "application/json",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
 
-              Authorization:
-                `Bearer ${token}`,
-            },
+          body: JSON.stringify({
+            videos: updatedVideos,
+          }),
+        }
+      );
 
-            body: JSON.stringify({
-              videos:
-                updatedVideos,
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Failed to remove video"
+          data.message || "Failed to remove video"
         );
       }
 
-      setPlaylist(
-        data.playlist
-      );
-
-      window.dispatchEvent(
-        new Event(
-          "playlistsUpdated"
-        )
-      );
+      // Update current playlist
+      setPlaylist(data.playlist);
     } catch (error) {
-      console.error(
-        "Remove video error:",
-        error
-      );
+      console.error("Remove video error:", error);
 
-      alert(
-        "Unable to remove video from playlist."
-      );
-    } finally {
-      setRemovingVideo(null);
+      alert("Failed to remove video");
     }
   };
 
@@ -203,76 +158,49 @@ function Playlist() {
   // ======================================================
 
   const deletePlaylist = async () => {
-    if (!playlist) return;
-
-    const confirmDelete =
-      window.confirm(
-        `Delete playlist "${playlist.name}"?`
-      );
-
-    if (!confirmDelete) {
-      return;
-    }
-
-    const token =
-      localStorage.getItem(
-        "videoVerseToken"
-      );
-
-    if (!token) {
-      alert(
-        "Please login first."
-      );
-      return;
-    }
-
     try {
-      setDeleting(true);
+      const token = localStorage.getItem("videoVerseToken");
 
-      const response =
-        await fetch(
-          `${API_BASE}/api/user/playlists/${playlist.id}`,
-          {
-            method: "DELETE",
+      if (!token) {
+        alert("Please login first");
+        return;
+      }
 
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-            },
-          }
-        );
+      const confirmed = window.confirm(
+        "Are you sure you want to delete this playlist?"
+      );
 
-      const data =
-        await response.json();
+      if (!confirmed) return;
+
+      const response = await fetch(
+        `http://localhost:5000/api/user/playlists/${playlist.id}`,
+        {
+          method: "DELETE",
+
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Failed to delete playlist"
+          data.message || "Failed to delete playlist"
         );
       }
 
-      window.dispatchEvent(
-        new Event(
-          "playlistsUpdated"
-        )
-      );
+      alert("Playlist deleted successfully ✅");
 
+      // Go back to playlists page
       navigate("/playlists");
     } catch (error) {
-      console.error(
-        "Delete playlist error:",
-        error
-      );
+      console.error("Delete playlist error:", error);
 
-      alert(
-        "Unable to delete playlist."
-      );
-    } finally {
-      setDeleting(false);
+      alert("Failed to delete playlist");
     }
   };
-
   // ======================================================
   // PLAY ALL
   // ======================================================

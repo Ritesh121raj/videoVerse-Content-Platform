@@ -48,6 +48,14 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // ==================================================
+    // WATCH HISTORY
+    // ==================================================
+
+    history: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [],
+    },
 
     // ==================================================
     // PLAYLISTS

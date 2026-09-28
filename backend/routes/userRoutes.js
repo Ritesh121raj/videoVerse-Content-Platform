@@ -216,6 +216,207 @@ router.delete(
     }
   }
 );
+// ======================================================
+// GET WATCH HISTORY
+// ======================================================
+
+router.get("/history", protect, async (req, res) => {
+  try {
+    const user = await User.findById(
+      req.user.userId
+    ).select("history");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      history: user.history || [],
+    });
+  } catch (error) {
+    console.error(
+      "Get watch history error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+// ======================================================
+// ADD / UPDATE WATCH HISTORY
+// ======================================================
+
+router.post("/history", protect, async (req, res) => {
+  try {
+    const { video } = req.body;
+
+    if (!video || !video.id) {
+      return res.status(400).json({
+        message: "Valid video data is required",
+      });
+    }
+
+    const user = await User.findById(
+      req.user.userId
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    const historyItem = {
+      ...video,
+
+      image:
+        video.thumbnail ||
+        video.image ||
+        "",
+
+      watchedAt:
+        video.watchedAt ||
+        Date.now(),
+    };
+
+    // Remove old copy of same video
+    user.history = (
+      user.history || []
+    ).filter((item) => {
+      const itemId =
+        typeof item === "string"
+          ? item
+          : item?.id;
+
+      return itemId !== video.id;
+    });
+
+    // Add latest watched video at beginning
+    user.history.unshift(historyItem);
+
+    // Keep maximum 50 history items
+    user.history =
+      user.history.slice(0, 50);
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Watch history updated",
+      history: user.history,
+    });
+  } catch (error) {
+    console.error(
+      "Add watch history error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+// ======================================================
+// CLEAR WATCH HISTORY
+// ======================================================
+
+router.delete("/history", protect, async (req, res) => {
+  try {
+    const user = await User.findById(
+      req.user.userId
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    user.history = [];
+
+    await user.save();
+
+    res.status(200).json({
+      message: "Watch history cleared",
+      history: [],
+    });
+  } catch (error) {
+    console.error(
+      "Clear watch history error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+// ======================================================
+// REMOVE SINGLE HISTORY ITEM
+// ======================================================
+
+router.delete(
+  "/history/:videoId",
+  protect,
+  async (req, res) => {
+    try {
+      const { videoId } = req.params;
+
+      if (!videoId) {
+        return res.status(400).json({
+          message: "Video ID is required",
+        });
+      }
+
+      const user = await User.findById(
+        req.user.userId
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      user.history = (
+        user.history || []
+      ).filter((item) => {
+        const itemId =
+          typeof item === "string"
+            ? item
+            : item?.id;
+
+        return itemId !== videoId;
+      });
+
+      await user.save();
+
+      res.status(200).json({
+        message:
+          "History item removed",
+        history: user.history,
+      });
+    } catch (error) {
+      console.error(
+        "Remove history item error:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Server error",
+      });
+    }
+  }
+);
 
 // ======================================================
 // GET SUBSCRIPTIONS
