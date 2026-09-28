@@ -1576,6 +1576,67 @@ export async function getShortsVideos() {
     throw error;
   }
 }
+// ======================================================
+// Get Music Videos
+// ======================================================
+
+export async function getMusicVideos() {
+  const cacheKey = "music-videos";
+
+  const cachedMusic =
+    getCachedData(cacheKey);
+
+  if (cachedMusic) {
+    console.log(
+      "MUSIC: Loaded from frontend cache"
+    );
+
+    return cachedMusic;
+  }
+
+  try {
+    const response = await fetch(
+      "https://videoverse-content-platform.onrender.com/api/videos/music"
+    );
+
+    const data =
+      await response.json().catch(() => null);
+
+    if (!response.ok) {
+      const error = new Error(
+        data?.message ||
+          `Music API error (${response.status})`
+      );
+
+      error.status =
+        response.status;
+
+      throw error;
+    }
+
+    const music =
+      data?.music || [];
+
+    setCachedData(
+      cacheKey,
+      music
+    );
+
+    console.log(
+      "MUSIC: Backend data saved to cache"
+    );
+
+    return music;
+
+  } catch (error) {
+    console.error(
+      "Error fetching Music from backend:",
+      error
+    );
+
+    throw error;
+  }
+}
 export async function getChannelImages(channelIds) {
   // ==========================================
   // Validate Channel IDs

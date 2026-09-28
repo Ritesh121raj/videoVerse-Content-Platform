@@ -253,6 +253,166 @@ const getShortsVideos = async (req, res) => {
     });
   }
 };
+// ======================================================
+// GET MUSIC VIDEOS
+// ======================================================
+
+const getMusicVideos = async (req, res) => {
+  try {
+    const API_KEY = process.env.YOUTUBE_API_KEY;
+
+    // ==================================================
+    // CHECK API KEY
+    // ==================================================
+
+    if (!API_KEY) {
+      return res.status(500).json({
+        message:
+          "YOUTUBE_API_KEY is missing in backend .env",
+      });
+    }
+
+    // ==================================================
+    // GET POPULAR VIDEOS
+    // ==================================================
+
+    const params = new URLSearchParams({
+      part: "snippet,contentDetails,statistics",
+      chart: "mostPopular",
+      regionCode: "IN",
+      videoCategoryId: "10",
+      maxResults: "50",
+      key: API_KEY,
+    });
+
+    const url =
+      `https://www.googleapis.com/youtube/v3/videos?${params.toString()}`;
+
+    console.log(
+      "MUSIC: Fetching popular music videos..."
+    );
+
+    const response = await fetch(url);
+
+    const data = await response
+      .json()
+      .catch(() => null);
+
+    // ==================================================
+    // HANDLE YOUTUBE API ERROR
+    // ==================================================
+
+    if (!response.ok) {
+      console.error(
+        "MUSIC YOUTUBE API ERROR:",
+        data
+      );
+
+      return res.status(response.status).json({
+        message:
+          data?.error?.message ||
+          getApiErrorMessage(response.status),
+      });
+    }
+
+    // ==================================================
+    // CREATE MUSIC DATA
+    // ==================================================
+
+    const videos = data?.items || [];
+
+    console.log(
+      "MUSIC: Videos received:",
+      videos.length
+    );
+
+    if (videos.length === 0) {
+      return res.status(200).json({
+        music: [],
+      });
+    }
+
+    const musicVideos = videos.map(
+      (video) => ({
+        id: video.id,
+
+        title:
+          video.snippet?.title ||
+          "Untitled Music Video",
+
+        channel:
+          video.snippet?.channelTitle ||
+          "Unknown Channel",
+
+        channelId:
+          video.snippet?.channelId ||
+          "",
+
+        channelImage:
+          video.snippet?.thumbnails?.default?.url ||
+          "",
+
+        thumbnail:
+          video.snippet?.thumbnails?.high?.url ||
+          video.snippet?.thumbnails?.medium?.url ||
+          video.snippet?.thumbnails?.default?.url ||
+          "",
+
+        duration:
+          video.contentDetails?.duration ||
+          "",
+
+        views:
+          video.statistics?.viewCount ||
+          "0",
+
+        publishedAt:
+          video.snippet?.publishedAt ||
+          "",
+
+        isMusic: true,
+      })
+    );
+
+    // ==================================================
+    // REMOVE DUPLICATES
+    // ==================================================
+
+    const uniqueMusicVideos =
+      Array.from(
+        new Map(
+          musicVideos.map((video) => [
+            video.id,
+            video,
+          ])
+        ).values()
+      );
+
+    console.log(
+      "MUSIC FINAL COUNT:",
+      uniqueMusicVideos.length
+    );
+
+    // ==================================================
+    // SEND RESPONSE
+    // ==================================================
+
+    return res.status(200).json({
+      music: uniqueMusicVideos,
+    });
+
+  } catch (error) {
+    console.error(
+      "GET MUSIC BACKEND ERROR:",
+      error
+    );
+
+    return res.status(500).json({
+      message:
+        "Server error while fetching music videos",
+    });
+  }
+};
 
 module.exports = {
   getShortsVideos,

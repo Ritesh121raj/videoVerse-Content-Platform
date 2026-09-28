@@ -32,6 +32,7 @@ import {
   getChannelVideos,
   getShortsVideos,
   getChannelImages,
+  getMusicVideos,
 } from "./services/videoApi";
 
 import Watch from "./pages/Watch";
@@ -871,9 +872,7 @@ function Music() {
         setError(null);
 
         const data =
-          await getCategoryVideos(
-            "Music"
-          );
+          await getMusicVideos();;
 
         setVideos(data);
       } catch (error) {

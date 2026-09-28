@@ -33,7 +33,7 @@ function Settings() {
         localStorage.getItem("videoVerseCurrentUser")
       );
 
-      return storedUser || null;
+      return storedUser?.user || storedUser || null;
     } catch {
       return null;
     }
@@ -45,7 +45,9 @@ function Settings() {
           localStorage.getItem("videoVerseCurrentUser")
         );
 
-        setCurrentUser(storedUser?.user || null);
+        setCurrentUser(
+          storedUser?.user || storedUser || null
+        );
       } catch {
         setCurrentUser(null);
       }
@@ -212,59 +214,114 @@ function Settings() {
     setIsEditingProfile(false);
   };
 
-  const handleSaveProfile = () => {
+  const handleSaveProfile = async () => {
+    if (!currentUser) return;
+
     if (!editName.trim() || !editEmail.trim()) {
       alert("Name and email cannot be empty.");
       return;
     }
 
-    const users =
-      JSON.parse(
-        localStorage.getItem("videoVerseUsers")
-      ) || [];
+    try {
+      const token =
+        localStorage.getItem("videoVerseToken");
 
-    const emailAlreadyExists = users.some(
-      (user) =>
-        user.id !== currentUser.id &&
-        user.email.toLowerCase() ===
-          editEmail.trim().toLowerCase()
-    );
+      if (!token) {
+        alert(
+          "Your session has expired. Please login again."
+        );
 
-    if (emailAlreadyExists) {
-      alert("An account with this email already exists.");
-      return;
+        navigate("/login");
+        return;
+      }
+
+      const API_URL =
+        "https://videoverse-content-platform.onrender.com/api";
+
+      const response = await fetch(
+        `${API_URL}/auth/profile`,
+        {
+          method: "PUT",
+
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            name: editName.trim(),
+            email: editEmail.trim(),
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        alert(
+          data.message ||
+            "Unable to update profile."
+        );
+
+        return;
+      }
+
+      /*
+      * Backend updated successfully.
+      */
+
+      const updatedUser =
+        data.user || {
+          ...currentUser,
+          name: editName.trim(),
+          email: editEmail.trim(),
+        };
+
+      /*
+      * Keep frontend auth state updated.
+      */
+
+      setCurrentUser(updatedUser);
+
+      /*
+      * Store the updated user locally.
+      */
+
+      const storedAuth =
+        JSON.parse(
+          localStorage.getItem(
+            "videoVerseCurrentUser"
+          )
+        ) || {};
+
+      localStorage.setItem(
+        "videoVerseCurrentUser",
+        JSON.stringify({
+          ...storedAuth,
+          user: updatedUser,
+        })
+      );
+
+      setIsEditingProfile(false);
+
+      window.dispatchEvent(
+        new Event("authUpdated")
+      );
+
+      alert(
+        "Profile updated successfully."
+      );
+
+    } catch (error) {
+      console.error(
+        "Profile update error:",
+        error
+      );
+
+      alert(
+        "Unable to connect to the backend."
+      );
     }
-
-    const updatedUser = {
-      ...currentUser,
-      name: editName.trim(),
-      email: editEmail.trim(),
-    };
-
-    const updatedUsers = users.map((user) =>
-      user.id === currentUser.id
-        ? updatedUser
-        : user
-    );
-
-    localStorage.setItem(
-      "videoVerseUsers",
-      JSON.stringify(updatedUsers)
-    );
-
-    localStorage.setItem(
-      "videoVerseCurrentUser",
-      JSON.stringify(updatedUser)
-    );
-
-    setCurrentUser(updatedUser);
-    setIsEditingProfile(false);
-
-    window.dispatchEvent(
-      new Event("authUpdated")
-    );
-
-    alert("Profile updated successfully.");
   };
 
   const handleChangePassword = async () => {
