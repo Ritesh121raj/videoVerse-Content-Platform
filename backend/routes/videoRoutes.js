@@ -2,21 +2,10 @@ const express = require("express");
 
 const {
   getShortsVideos,
-  getMusicVideos,
 } = require("../controllers/videoController");
 
 const router = express.Router();
 
-// Shorts
-router.get(
-  "/shorts",
-  getShortsVideos
-);
-
-// Music
-router.get(
-  "/music",
-  getMusicVideos
-);
+router.get("/shorts", getShortsVideos);
 
 module.exports = router;
