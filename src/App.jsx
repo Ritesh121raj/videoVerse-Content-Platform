@@ -153,10 +153,15 @@ function ProtectedRoute({ children }) {
 // HOME
 // ======================================================
 
-function Home({ videos }) {
+
+function Home({
+  videos,
+  loading,
+  error,
+  loadVideos,
+}) {
   const [search, setSearch] = useState("");
-  const [category, setCategory] =
-    useState("All");
+  const [category, setCategory] = useState("All");
 
   const [displayVideos, setDisplayVideos] =
     useState(videos || []);
@@ -174,11 +179,19 @@ function Home({ videos }) {
     "Sports",
   ];
 
+  // ================================================
+  // UPDATE VIDEOS WHEN HOME VIDEOS CHANGE
+  // ================================================
+
   useEffect(() => {
     if (category === "All") {
       setDisplayVideos(videos || []);
     }
   }, [videos, category]);
+
+  // ================================================
+  // CATEGORY HANDLER
+  // ================================================
 
   const handleCategory = async (item) => {
     setCategory(item);
@@ -225,6 +238,10 @@ function Home({ videos }) {
 
       <main className="main-content">
 
+        {/* ==========================================
+            CATEGORIES
+        ========================================== */}
+
         <div className="categories">
           {categories.map((item) => (
             <button
@@ -243,13 +260,51 @@ function Home({ videos }) {
           ))}
         </div>
 
+        {/* ==========================================
+            CATEGORY HEADING
+        ========================================== */}
+
         {category !== "All" && (
           <h2 className="category-heading">
             {category}
           </h2>
         )}
 
-        {searching ? (
+        {/* ==========================================
+            HOME VIDEO LOADING
+        ========================================== */}
+
+        {loading ? (
+          <p className="page-message">
+            Loading videos...
+          </p>
+        ) : error ? (
+          <div className="page-message">
+
+            <h2>
+              Something went wrong
+            </h2>
+
+            <p>
+              {error}
+            </p>
+
+            <button
+              onClick={loadVideos}
+              style={{
+                marginTop: "15px",
+                padding: "10px 18px",
+                border: "none",
+                borderRadius: "8px",
+                cursor: "pointer",
+                fontWeight: "600",
+              }}
+            >
+              Try Again
+            </button>
+
+          </div>
+        ) : searching ? (
           <p className="page-message">
             Loading {category} videos...
           </p>
@@ -267,7 +322,6 @@ function Home({ videos }) {
     </>
   );
 }
-
 
 // ======================================================
 // TRENDING
@@ -985,35 +1039,36 @@ function App() {
 
   useEffect(() => {
     const verifyAuthentication = async () => {
+      const token = localStorage.getItem("videoVerseToken");
+
+      // No token = simply continue
+      if (!token) {
+        return;
+      }
+
+      const API_URL =
+        "https://videoverse-content-platform.onrender.com/api";
+
+      const controller = new AbortController();
+
+      const timeout = setTimeout(() => {
+        controller.abort();
+      }, 8000);
+
       try {
-        const token = localStorage.getItem(
-          "videoVerseToken"
+        const response = await fetch(
+          `${API_URL}/auth/me`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+            signal: controller.signal,
+          }
         );
-
-        // No token = user is not logged in
-        if (!token) {
-          setAuthChecking(false);
-          return;
-        }
-
-        const API_URL =
-          "https://videoverse-content-platform.onrender.com/api";
-
-        const response =
-          await fetch(
-            `${API_URL}/auth/me`,
-            {
-              method: "GET",
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
-          );
 
         const data = await response.json();
 
-        // Token invalid / expired
         if (!response.ok) {
           localStorage.removeItem(
             "videoVerseToken"
@@ -1027,11 +1082,9 @@ function App() {
             new Event("authUpdated")
           );
 
-          setAuthChecking(false);
           return;
         }
 
-        // Token valid
         localStorage.setItem(
           "videoVerseCurrentUser",
           JSON.stringify(data)
@@ -1043,17 +1096,24 @@ function App() {
 
       } catch (error) {
         console.error(
-          "Authentication verification failed:",
+          "Background authentication check failed:",
           error
         );
 
-        // Don't delete token if backend is temporarily unavailable
+        // IMPORTANT:
+        // Backend slow/down hone par user ko block nahi karna.
       } finally {
+        clearTimeout(timeout);
         setAuthChecking(false);
       }
     };
 
+    // App ko block nahi karna
+    setAuthChecking(false);
+
+    // Authentication background mein verify hogi
     verifyAuthentication();
+
   }, []);
 
   // ================================================
@@ -1094,57 +1154,57 @@ function App() {
   // AUTH CHECK SCREEN
   // ================================================
 
-  if (authChecking) {
-    return (
-      <div className="page-message">
-        Checking authentication...
-      </div>
-    );
-  }
+  // if (authChecking) {
+  //   return (
+  //     <div className="page-message">
+  //       Checking authentication...
+  //     </div>
+  //   );
+  // }
 
   // ================================================
   // VIDEO LOADING SCREEN
   // ================================================
 
-  if (loading) {
-    return (
-      <div className="page-message">
-        Loading videos...
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="page-message">
+  //       Loading videos...
+  //     </div>
+  //   );
+  // }
 
   // ================================================
   // VIDEO API ERROR
   // ================================================
 
-  if (error) {
-    return (
-      <div className="page-message">
+  // if (error) {
+  //   return (
+  //     <div className="page-message">
 
-        <h2>
-          Something went wrong
-        </h2>
+  //       <h2>
+  //         Something went wrong
+  //       </h2>
 
-        <p>{error}</p>
+  //       <p>{error}</p>
 
-        <button
-          onClick={loadVideos}
-          style={{
-            marginTop: "15px",
-            padding: "10px 18px",
-            border: "none",
-            borderRadius: "8px",
-            cursor: "pointer",
-            fontWeight: "600",
-          }}
-        >
-          Try Again
-        </button>
+  //       <button
+  //         onClick={loadVideos}
+  //         style={{
+  //           marginTop: "15px",
+  //           padding: "10px 18px",
+  //           border: "none",
+  //           borderRadius: "8px",
+  //           cursor: "pointer",
+  //           fontWeight: "600",
+  //         }}
+  //       >
+  //         Try Again
+  //       </button>
 
-      </div>
-    );
-  }
+  //     </div>
+  //   );
+  // }
 
   // ================================================
   // ROUTES
@@ -1160,7 +1220,12 @@ function App() {
         <Route
           path="/"
           element={
-            <Home videos={videos} />
+            <Home
+              videos={videos}
+              loading={loading}
+              error={error}
+              loadVideos={loadVideos}
+            />
           }
         />
 
