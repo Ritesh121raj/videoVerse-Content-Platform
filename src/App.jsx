@@ -32,9 +32,7 @@ import {
   getChannelVideos,
   getShortsVideos,
   getChannelImages,
-  getMusicVideos,
 } from "./services/videoApi";
-
 import Watch from "./pages/Watch";
 
 
@@ -910,41 +908,34 @@ function Subscriptions() {
 // ======================================================
 
 function Music() {
-  const [videos, setVideos] =
-    useState([]);
+  const [videos, setVideos] = useState([]);
 
-  const [loading, setLoading] =
-    useState(true);
+  const [loading, setLoading] = useState(true);
 
-  const [error, setError] =
-    useState(null);
+  const [error, setError] = useState(null);
 
-  const loadMusicVideos =
-    async () => {
-      try {
-        setLoading(true);
-        setError(null);
+  const loadMusicVideos = async () => {
+    try {
+      setLoading(true);
+      setError(null);
 
-        const data =
-          await getMusicVideos();;
+      // Use existing YouTube API function
+      const data = await getCategoryVideos("music");
 
-        setVideos(data);
-      } catch (error) {
-        console.error(
-          "Music error:",
-          error
-        );
+      setVideos(data || []);
+    } catch (error) {
+      console.error("Music error:", error);
 
-        setVideos([]);
+      setVideos([]);
 
-        setError(
-          error?.message ||
-            "Unable to load music videos. Please try again."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+      setError(
+        error?.message ||
+          "Unable to load music videos. Please try again."
+      );
+    } finally {
+      setLoading(false);
+    }
+  };
 
   useEffect(() => {
     loadMusicVideos();
@@ -956,24 +947,18 @@ function Music() {
       <Sidebar />
 
       <main className="main-content">
-
         {loading ? (
           <p className="page-message">
             Loading music videos...
           </p>
         ) : error ? (
           <div className="page-message">
-
-            <h2>
-              Something went wrong
-            </h2>
+            <h2>Something went wrong</h2>
 
             <p>{error}</p>
 
             <button
-              onClick={
-                loadMusicVideos
-              }
+              onClick={loadMusicVideos}
               style={{
                 marginTop: "15px",
                 padding: "10px 18px",
@@ -985,7 +970,6 @@ function Music() {
             >
               Try Again
             </button>
-
           </div>
         ) : (
           <>
@@ -1000,13 +984,10 @@ function Music() {
                 No music videos found.
               </p>
             ) : (
-              <VideoGrid
-                videos={videos}
-              />
+              <VideoGrid videos={videos} />
             )}
           </>
         )}
-
       </main>
     </>
   );

@@ -1519,11 +1519,18 @@ export async function getChannelShorts(
 // ======================================================
 
 
+// ======================================================
+// Get Shorts
+// ======================================================
+
 export async function getShortsVideos() {
   const cacheKey = "shorts-videos";
 
-  const cachedShorts =
-    getCachedData(cacheKey);
+  // ==========================================
+  // CHECK FRONTEND CACHE
+  // ==========================================
+
+  const cachedShorts = getCachedData(cacheKey);
 
   if (cachedShorts) {
     console.log(
@@ -1533,28 +1540,71 @@ export async function getShortsVideos() {
     return cachedShorts;
   }
 
+  // ==========================================
+  // BACKEND URL
+  // ==========================================
+
+  const API_URL =
+    "https://videoverse-content-platform.onrender.com/api/videos/shorts";
+
+  // ==========================================
+  // TIMEOUT
+  // ==========================================
+
+  const controller = new AbortController();
+
+  const timeout = setTimeout(() => {
+    controller.abort();
+  }, 20000);
+
   try {
-    const response = await fetch(
-      "https://videoverse-content-platform.onrender.com/api/videos/shorts"
+    console.log(
+      "SHORTS: Requesting data from backend..."
     );
+
+    const response = await fetch(API_URL, {
+      method: "GET",
+      headers: {
+        Accept: "application/json",
+      },
+      signal: controller.signal,
+    });
 
     const data =
       await response.json().catch(() => null);
 
+    // ==========================================
+    // HANDLE BACKEND ERROR
+    // ==========================================
+
     if (!response.ok) {
       const error = new Error(
         data?.message ||
-        `Shorts API error (${response.status})`
+          `Shorts API error (${response.status})`
       );
 
-      error.status =
-        response.status;
+      error.status = response.status;
 
       throw error;
     }
 
+    // ==========================================
+    // GET SHORTS
+    // ==========================================
+
     const shorts =
-      data?.shorts || [];
+      Array.isArray(data?.shorts)
+        ? data.shorts
+        : [];
+
+    console.log(
+      "SHORTS: Backend returned:",
+      shorts.length
+    );
+
+    // ==========================================
+    // CACHE
+    // ==========================================
 
     setCachedData(
       cacheKey,
@@ -1568,12 +1618,29 @@ export async function getShortsVideos() {
     return shorts;
 
   } catch (error) {
+    if (error?.name === "AbortError") {
+      const timeoutError = new Error(
+        "Shorts server is taking too long to respond. Please try again."
+      );
+
+      timeoutError.status = 408;
+
+      console.error(
+        "SHORTS: Backend request timed out"
+      );
+
+      throw timeoutError;
+    }
+
     console.error(
-      "Error fetching Shorts from backend:",
+      "SHORTS: Backend request failed:",
       error
     );
 
     throw error;
+
+  } finally {
+    clearTimeout(timeout);
   }
 }
 // ======================================================
