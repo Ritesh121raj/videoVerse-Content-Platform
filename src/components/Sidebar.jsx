@@ -1,5 +1,5 @@
 import { useEffect, useRef } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useLocation } from "react-router-dom";
 
 import {
   Home,
@@ -15,28 +15,32 @@ import {
 
 function Sidebar() {
   const sidebarRef = useRef(null);
+  const location = useLocation();
 
   const getClassName = ({ isActive }) =>
     isActive
       ? "sidebar-item active"
       : "sidebar-item";
 
+  // ======================================================
+  // RESTORE + SAVE SIDEBAR SCROLL POSITION
+  // ======================================================
+
   useEffect(() => {
     const sidebar = sidebarRef.current;
 
     if (!sidebar) return;
 
-    // Restore previous sidebar scroll position
     const savedScrollPosition =
       sessionStorage.getItem("sidebarScrollTop");
 
     if (savedScrollPosition !== null) {
       requestAnimationFrame(() => {
-        sidebar.scrollTop = Number(savedScrollPosition);
+        sidebar.scrollTop =
+          Number(savedScrollPosition);
       });
     }
 
-    // Save sidebar scroll position
     const handleScroll = () => {
       sessionStorage.setItem(
         "sidebarScrollTop",
@@ -57,11 +61,141 @@ function Sidebar() {
     };
   }, []);
 
+  // ======================================================
+  // SIDEBAR TOGGLE STATE
+  //
+  // Navbar already adds/removes:
+  // sidebar-collapsed
+  //
+  // Here we listen to that change so Sidebar can
+  // remember whether it is currently visible.
+  // ======================================================
+
+  useEffect(() => {
+    const handleSidebarToggle = (event) => {
+      const collapsed =
+        event.detail?.collapsed;
+
+      if (collapsed) {
+        document.body.classList.add(
+          "sidebar-collapsed"
+        );
+      } else {
+        document.body.classList.remove(
+          "sidebar-collapsed"
+        );
+      }
+    };
+
+    window.addEventListener(
+      "sidebarToggle",
+      handleSidebarToggle
+    );
+
+    return () => {
+      window.removeEventListener(
+        "sidebarToggle",
+        handleSidebarToggle
+      );
+    };
+  }, []);
+
+  // ======================================================
+  // OUTSIDE CLICK
+  //
+  // Sidebar ke bahar kahin bhi click:
+  // → sidebar hide
+  //
+  // Sidebar ke andar click:
+  // → sidebar open rahega
+  //
+  // IMPORTANT:
+  // Navbar ke menu button ko ignore kar rahe hain,
+  // taki ☰ par click karne se toggle properly work kare.
+  // ======================================================
+
+  useEffect(() => {
+    const handleOutsideClick = (event) => {
+      const sidebar =
+        sidebarRef.current;
+
+      if (!sidebar) return;
+
+      // --------------------------------------------------
+      // Sidebar ke andar click hua
+      // --------------------------------------------------
+
+      if (sidebar.contains(event.target)) {
+        return;
+      }
+
+      // --------------------------------------------------
+      // Menu button par click hua
+      // Navbar khud sidebar toggle karega.
+      // --------------------------------------------------
+
+      if (
+        event.target.closest(".menu-icon")
+      ) {
+        return;
+      }
+
+      // --------------------------------------------------
+      // Sidebar ke bahar click
+      // --------------------------------------------------
+
+      const isSidebarCollapsed =
+        document.body.classList.contains(
+          "sidebar-collapsed"
+        );
+
+      // Agar sidebar already hidden hai,
+      // kuch karne ki zarurat nahi.
+      if (isSidebarCollapsed) {
+        return;
+      }
+
+      // Sidebar hide karo
+      document.body.classList.add(
+        "sidebar-collapsed"
+      );
+
+      // Navbar / other components ko notify karo
+      window.dispatchEvent(
+        new CustomEvent("sidebarToggle", {
+          detail: {
+            collapsed: true,
+          },
+        })
+      );
+    };
+
+    document.addEventListener(
+      "click",
+      handleOutsideClick
+    );
+
+    return () => {
+      document.removeEventListener(
+        "click",
+        handleOutsideClick
+      );
+    };
+  }, [location.pathname]);
+
+  // ======================================================
+  // SIDEBAR
+  // ======================================================
+
   return (
     <aside
       className="sidebar"
       ref={sidebarRef}
     >
+
+      {/* ==================================================
+          HOME
+      ================================================== */}
 
       <NavLink
         to="/"
@@ -72,6 +206,10 @@ function Sidebar() {
         <span>Home</span>
       </NavLink>
 
+      {/* ==================================================
+          TRENDING
+      ================================================== */}
+
       <NavLink
         to="/trending"
         className={getClassName}
@@ -79,6 +217,10 @@ function Sidebar() {
         <Flame size={22} />
         <span>Trending</span>
       </NavLink>
+
+      {/* ==================================================
+          SUBSCRIPTIONS
+      ================================================== */}
 
       <NavLink
         to="/subscriptions"
@@ -90,6 +232,10 @@ function Sidebar() {
 
       <hr />
 
+      {/* ==================================================
+          HISTORY
+      ================================================== */}
+
       <NavLink
         to="/history"
         className={getClassName}
@@ -97,6 +243,10 @@ function Sidebar() {
         <History size={22} />
         <span>History</span>
       </NavLink>
+
+      {/* ==================================================
+          WATCH LATER
+      ================================================== */}
 
       <NavLink
         to="/watch-later"
@@ -106,6 +256,10 @@ function Sidebar() {
         <span>Watch later</span>
       </NavLink>
 
+      {/* ==================================================
+          LIKED VIDEOS
+      ================================================== */}
+
       <NavLink
         to="/liked"
         className={getClassName}
@@ -113,6 +267,10 @@ function Sidebar() {
         <ThumbsUp size={22} />
         <span>Liked videos</span>
       </NavLink>
+
+      {/* ==================================================
+          DISLIKED VIDEOS
+      ================================================== */}
 
       <NavLink
         to="/disliked"
@@ -124,9 +282,17 @@ function Sidebar() {
 
       <hr />
 
+      {/* ==================================================
+          EXPLORE
+      ================================================== */}
+
       <h3 className="sidebar-title">
         Explore
       </h3>
+
+      {/* ==================================================
+          SHORTS
+      ================================================== */}
 
       <NavLink
         to="/shorts"
@@ -136,6 +302,10 @@ function Sidebar() {
         <span>Shorts</span>
       </NavLink>
 
+      {/* ==================================================
+          MUSIC
+      ================================================== */}
+
       <NavLink
         to="/music"
         className={getClassName}
@@ -143,6 +313,10 @@ function Sidebar() {
         <Music2 size={22} />
         <span>Music</span>
       </NavLink>
+
+      {/* ==================================================
+          PLAYLISTS
+      ================================================== */}
 
       <NavLink
         to="/playlists"

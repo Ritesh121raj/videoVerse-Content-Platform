@@ -1,26 +1,44 @@
 import { useEffect, useState } from "react";
 import { useSearchParams } from "react-router-dom";
+
 import Navbar from "../components/Navbar";
 import Sidebar from "../components/Sidebar";
 import VideoGrid from "../components/VideoGrid";
+
 import { searchVideos } from "../services/videoApi";
+
+
+// ======================================================
+// SEARCH
+// ======================================================
 
 function Search() {
   const [searchParams] = useSearchParams();
 
+  // ======================================================
+  // SEARCH QUERY
+  // ======================================================
+
   const query = searchParams.get("q") || "";
+
+  // ======================================================
+  // SEARCH STATES
+  // ======================================================
 
   const [videos, setVideos] = useState([]);
   const [loading, setLoading] = useState(true);
-
   const [error, setError] = useState(null);
+
+  // ======================================================
+  // BASIC FILTER
+  // ======================================================
 
   const [activeFilter, setActiveFilter] =
     useState("All");
 
-  // ==========================================
-  // Advanced Search States
-  // ==========================================
+  // ======================================================
+  // ADVANCED SEARCH STATES
+  // ======================================================
 
   const [uploadDate, setUploadDate] =
     useState("any");
@@ -31,12 +49,28 @@ function Search() {
   const [sortBy, setSortBy] =
     useState("relevance");
 
-  // ==========================================
-  // Load Search Results
-  // ==========================================
 
-  const loadSearchResults = async () => {
-    if (!query.trim()) {
+  // ======================================================
+  // LOAD SEARCH RESULTS
+  // ======================================================
+
+  const loadSearchResults = async (
+    searchQuery = query,
+    filters = {
+      uploadDate,
+      duration,
+      sortBy,
+    }
+  ) => {
+
+    const trimmedQuery =
+      searchQuery.trim();
+
+    // ----------------------------------------------------
+    // Empty Search
+    // ----------------------------------------------------
+
+    if (!trimmedQuery) {
       setVideos([]);
       setError(null);
       setLoading(false);
@@ -47,13 +81,29 @@ function Search() {
       setLoading(true);
       setError(null);
 
-      const data = await searchVideos(query, {
-        uploadDate,
-        duration,
-        sortBy,
-      });
+      console.log(
+        "SEARCHING:",
+        trimmedQuery,
+        filters
+      );
 
-      setVideos(data);
+      const data =
+        await searchVideos(
+          trimmedQuery,
+          {
+            uploadDate:
+              filters.uploadDate,
+
+            duration:
+              filters.duration,
+
+            sortBy:
+              filters.sortBy,
+          }
+        );
+
+      setVideos(data || []);
+
     } catch (error) {
       console.error(
         "Search error:",
@@ -66,45 +116,94 @@ function Search() {
         error?.message ||
           "Unable to search videos. Please try again."
       );
+
     } finally {
       setLoading(false);
     }
   };
 
-  // ==========================================
-  // Search Query Changed
-  // ==========================================
+
+  // ======================================================
+  // QUERY CHANGED
+  //
+  // Important:
+  // Whenever q changes in URL, reset filters and
+  // immediately perform a fresh search.
+  // ======================================================
 
   useEffect(() => {
+
+    // Reset basic filter
     setActiveFilter("All");
 
+    // Reset advanced filters
     setUploadDate("any");
     setDuration("any");
     setSortBy("relevance");
+
+    // New query search
+    if (query.trim()) {
+      loadSearchResults(
+        query,
+        {
+          uploadDate: "any",
+          duration: "any",
+          sortBy: "relevance",
+        }
+      );
+    } else {
+      setVideos([]);
+      setError(null);
+      setLoading(false);
+    }
+
   }, [query]);
 
-  // ==========================================
-  // Advanced Filter Changed
-  // ==========================================
+
+  // ======================================================
+  // ADVANCED FILTER CHANGED
+  // ======================================================
 
   useEffect(() => {
+
     if (!query.trim()) {
       return;
     }
 
-    loadSearchResults();
+    // Don't trigger initial/default filter search again.
+    // Query effect already handles that search.
+
+    if (
+      uploadDate === "any" &&
+      duration === "any" &&
+      sortBy === "relevance"
+    ) {
+      return;
+    }
+
+    loadSearchResults(
+      query,
+      {
+        uploadDate,
+        duration,
+        sortBy,
+      }
+    );
+
   }, [
     uploadDate,
     duration,
     sortBy,
   ]);
 
-  // ==========================================
-  // Basic Filters
-  // ==========================================
+
+  // ======================================================
+  // BASIC FILTERS
+  // ======================================================
 
   const filteredVideos =
     videos.filter((video) => {
+
       if (activeFilter === "All") {
         return true;
       }
@@ -120,19 +219,25 @@ function Search() {
       return true;
     });
 
+
   const filters = [
     "All",
     "Videos",
     "Shorts",
   ];
 
-  // ==========================================
-  // Active Advanced Filters
-  // ==========================================
+
+  // ======================================================
+  // ACTIVE ADVANCED FILTERS
+  // ======================================================
 
   const activeAdvancedFilters = [];
 
+
+  // Upload Date
+
   if (uploadDate !== "any") {
+
     const uploadDateLabels = {
       today: "Today",
       week: "This week",
@@ -145,7 +250,11 @@ function Search() {
     );
   }
 
+
+  // Duration
+
   if (duration !== "any") {
+
     const durationLabels = {
       short: "Short",
       medium: "Medium",
@@ -157,7 +266,11 @@ function Search() {
     );
   }
 
+
+  // Sort
+
   if (sortBy !== "relevance") {
+
     const sortLabels = {
       date: "Upload date",
       viewCount: "View count",
@@ -169,15 +282,18 @@ function Search() {
     );
   }
 
-  // ==========================================
-  // Result Text
-  // ==========================================
+
+  // ======================================================
+  // RESULT TEXT
+  // ======================================================
 
   const getResultText = () => {
+
     const count =
       filteredVideos.length;
 
     if (activeFilter === "Shorts") {
+
       return `${count} ${
         count === 1
           ? "short"
@@ -186,6 +302,7 @@ function Search() {
     }
 
     if (activeFilter === "Videos") {
+
       return `${count} ${
         count === 1
           ? "video"
@@ -200,16 +317,42 @@ function Search() {
     } found`;
   };
 
-  // ==========================================
-  // Reset Advanced Filters
-  // ==========================================
+
+  // ======================================================
+  // RESET ADVANCED FILTERS
+  // ======================================================
 
   const resetAdvancedFilters = () => {
+
     setUploadDate("any");
     setDuration("any");
     setSortBy("relevance");
     setActiveFilter("All");
+
   };
+
+
+  // ======================================================
+  // RETRY SEARCH
+  // ======================================================
+
+  const handleRetry = () => {
+
+    loadSearchResults(
+      query,
+      {
+        uploadDate,
+        duration,
+        sortBy,
+      }
+    );
+
+  };
+
+
+  // ======================================================
+  // UI
+  // ======================================================
 
   return (
     <>
@@ -219,9 +362,9 @@ function Search() {
 
       <main className="main-content search-page">
 
-        {/* ======================================
-            Search Heading
-        ====================================== */}
+        {/* ==========================================
+            SEARCH HEADING
+        ========================================== */}
 
         <div className="search-heading">
 
@@ -239,39 +382,48 @@ function Search() {
 
         </div>
 
-        {/* ======================================
-            Basic Search Filters
-        ====================================== */}
+
+        {/* ==========================================
+            BASIC SEARCH FILTERS
+        ========================================== */}
 
         {!loading &&
           !error &&
           videos.length > 0 && (
+
             <div className="search-filters">
 
               {filters.map((filter) => (
+
                 <button
                   key={filter}
+
                   className={
                     activeFilter === filter
                       ? "search-filter active"
                       : "search-filter"
                   }
+
                   onClick={() =>
                     setActiveFilter(filter)
                   }
                 >
                   {filter}
                 </button>
+
               ))}
 
             </div>
+
           )}
 
-        {/* ======================================
-            Advanced Search Controls
-        ====================================== */}
+
+        {/* ==========================================
+            ADVANCED SEARCH CONTROLS
+        ========================================== */}
 
         {!error && (
+
           <div className="advanced-search">
 
             <div className="advanced-search-header">
@@ -282,6 +434,7 @@ function Search() {
 
               <button
                 className="advanced-reset-btn"
+
                 onClick={
                   resetAdvancedFilters
                 }
@@ -291,9 +444,12 @@ function Search() {
 
             </div>
 
+
             <div className="advanced-search-controls">
 
-              {/* Upload Date */}
+              {/* ==================================
+                  Upload Date
+              ================================== */}
 
               <div className="advanced-search-control">
 
@@ -303,12 +459,14 @@ function Search() {
 
                 <select
                   value={uploadDate}
+
                   onChange={(event) =>
                     setUploadDate(
                       event.target.value
                     )
                   }
                 >
+
                   <option value="any">
                     Any time
                   </option>
@@ -328,11 +486,15 @@ function Search() {
                   <option value="year">
                     This year
                   </option>
+
                 </select>
 
               </div>
 
-              {/* Duration */}
+
+              {/* ==================================
+                  Duration
+              ================================== */}
 
               <div className="advanced-search-control">
 
@@ -342,12 +504,14 @@ function Search() {
 
                 <select
                   value={duration}
+
                   onChange={(event) =>
                     setDuration(
                       event.target.value
                     )
                   }
                 >
+
                   <option value="any">
                     Any duration
                   </option>
@@ -368,7 +532,10 @@ function Search() {
 
               </div>
 
-              {/* Sort By */}
+
+              {/* ==================================
+                  Sort By
+              ================================== */}
 
               <div className="advanced-search-control">
 
@@ -378,12 +545,14 @@ function Search() {
 
                 <select
                   value={sortBy}
+
                   onChange={(event) =>
                     setSortBy(
                       event.target.value
                     )
                   }
                 >
+
                   <option value="relevance">
                     Relevance
                   </option>
@@ -406,12 +575,14 @@ function Search() {
 
             </div>
 
+
             {/* ==================================
-                Active Filter Summary
-                ================================== */}
+                ACTIVE FILTER SUMMARY
+            ================================== */}
 
             {activeAdvancedFilters.length >
               0 && (
+
               <div className="active-search-filters">
 
                 <span className="active-search-label">
@@ -420,61 +591,77 @@ function Search() {
 
                 {activeAdvancedFilters.map(
                   (filter) => (
+
                     <span
                       key={filter}
                       className="active-search-chip"
                     >
                       {filter}
                     </span>
+
                   )
                 )}
 
               </div>
+
             )}
 
           </div>
+
         )}
 
-        {/* ======================================
-            Search Status
-        ====================================== */}
+
+        {/* ==========================================
+            SEARCH STATUS
+        ========================================== */}
 
         {!loading &&
           !error &&
           videos.length > 0 && (
+
             <div className="search-status">
 
               <span>
-                Showing {filteredVideos.length}{" "}
-                {filteredVideos.length === 1
-                  ? "result"
-                  : "results"}
+                Showing{" "}
+                {filteredVideos.length}{" "}
+                {
+                  filteredVideos.length === 1
+                    ? "result"
+                    : "results"
+                }
               </span>
 
               {activeAdvancedFilters.length >
                 0 && (
+
                 <span>
                   •{" "}
                   {
                     activeAdvancedFilters.length
                   }{" "}
                   advanced filter
-                  {activeAdvancedFilters.length ===
-                  1
-                    ? ""
-                    : "s"}{" "}
+                  {
+                    activeAdvancedFilters.length ===
+                    1
+                      ? ""
+                      : "s"
+                  }{" "}
                   applied
                 </span>
+
               )}
 
             </div>
+
           )}
 
-        {/* ======================================
-            Search Results
-        ====================================== */}
+
+        {/* ==========================================
+            SEARCH RESULTS
+        ========================================== */}
 
         {loading ? (
+
           <div className="search-loading">
 
             <div className="search-loading-spinner"></div>
@@ -484,7 +671,9 @@ function Search() {
             </p>
 
           </div>
+
         ) : error ? (
+
           <div className="page-message">
 
             <h2>
@@ -496,9 +685,8 @@ function Search() {
             </p>
 
             <button
-              onClick={
-                loadSearchResults
-              }
+              onClick={handleRetry}
+
               style={{
                 marginTop: "15px",
                 padding: "10px 18px",
@@ -512,8 +700,9 @@ function Search() {
             </button>
 
           </div>
-        ) : filteredVideos.length ===
-          0 ? (
+
+        ) : filteredVideos.length === 0 ? (
+
           <div className="search-empty">
 
             <h2>
@@ -527,26 +716,33 @@ function Search() {
 
             {activeAdvancedFilters.length >
               0 && (
+
               <button
                 className="search-clear-filters"
+
                 onClick={
                   resetAdvancedFilters
                 }
               >
                 Clear filters
               </button>
+
             )}
 
           </div>
+
         ) : (
+
           <VideoGrid
             videos={filteredVideos}
           />
+
         )}
 
       </main>
     </>
   );
 }
+
 
 export default Search;

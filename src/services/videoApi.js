@@ -119,7 +119,6 @@ function getDurationInSeconds(duration) {
 export async function getVideos() {
   const cacheKey = "home-videos";
 
-  // Check cache first
   const cachedVideos = getCachedData(cacheKey);
 
   if (cachedVideos) {
@@ -128,110 +127,85 @@ export async function getVideos() {
   }
 
   try {
-    // Step 1: Search videos
-    const searchUrl =
-      `${BASE_URL}/search?part=snippet` +
-      `&q=programming` +
-      `&type=video` +
-      `&maxResults=20` +
-      `&key=${API_KEY}`;
-
-    const searchResponse = await fetch(searchUrl);
-
-    if (!searchResponse.ok) {
-      throw new Error(
-        `HTTP error: ${searchResponse.status}`
-      );
-    }
-
-    const searchData = await searchResponse.json();
-
-    const videoIds = (searchData.items || [])
-      .map((item) => item.id?.videoId)
-      .filter(Boolean);
-
-    if (videoIds.length === 0) {
-      return [];
-    }
-
-    // Step 2: Get video details
-    const detailsUrl =
-      `${BASE_URL}/videos?part=snippet,contentDetails,statistics` +
-      `&id=${videoIds.join(",")}` +
-      `&key=${API_KEY}`;
-
-    const detailsResponse = await fetch(detailsUrl);
-
-    if (!detailsResponse.ok) {
-      throw new Error(
-        `HTTP error: ${detailsResponse.status}`
-      );
-    }
-
-    const detailsData = await detailsResponse.json();
-
-    // Step 3: Create details lookup
-    const detailsMap = {};
-
-    (detailsData.items || []).forEach((video) => {
-      detailsMap[video.id] = video;
+    const params = new URLSearchParams({
+      part: "snippet,contentDetails,statistics",
+      chart: "mostPopular",
+      regionCode: "IN",
+      maxResults: "50",
+      key: API_KEY,
     });
 
-    // Step 4: Combine search + details
-    const videos = (searchData.items || []).map((item) => {
-      const videoId = item.id.videoId;
-      const details = detailsMap[videoId];
+    const url = `${BASE_URL}/videos?${params.toString()}`;
 
-      return {
-        id: videoId,
+    console.log(
+      "HOME VIDEOS: Fetching mixed popular videos..."
+    );
 
-        title:
-          item.snippet?.title ||
-          "Untitled Video",
+    const response = await fetch(url);
 
-        channel:
-          item.snippet?.channelTitle ||
-          "Unknown Channel",
+    const data = await response.json().catch(() => null);
 
-        channelId:
-          item.snippet?.channelId ||
-          "",
+    if (!response.ok) {
+      const error = new Error(
+        data?.error?.message ||
+          getApiErrorMessage(response.status)
+      );
 
-        channelImage:
-          item.snippet?.thumbnails?.default?.url ||
-          "",
+      error.status = response.status;
 
-        thumbnail:
-          item.snippet?.thumbnails?.high?.url ||
-          item.snippet?.thumbnails?.medium?.url ||
-          item.snippet?.thumbnails?.default?.url ||
-          "",
+      throw error;
+    }
 
-        duration:
-          formatDuration(
-            details?.contentDetails?.duration
-          ),
+    const videos = (data?.items || []).map((video) => ({
+      id: video.id,
 
-        views:
-          details?.statistics?.viewCount ||
-          "0",
+      title:
+        video.snippet?.title ||
+        "Untitled Video",
 
-        publishedAt:
-          item.snippet?.publishedAt ||
-          "",
-      };
-    });
+      channel:
+        video.snippet?.channelTitle ||
+        "Unknown Channel",
 
-    // Save result in cache
+      channelId:
+        video.snippet?.channelId ||
+        "",
+
+      channelImage:
+        video.snippet?.thumbnails?.default?.url ||
+        "",
+
+      thumbnail:
+        video.snippet?.thumbnails?.high?.url ||
+        video.snippet?.thumbnails?.medium?.url ||
+        video.snippet?.thumbnails?.default?.url ||
+        "",
+
+      duration:
+        formatDuration(
+          video.contentDetails?.duration
+        ),
+
+      views:
+        video.statistics?.viewCount ||
+        "0",
+
+      publishedAt:
+        video.snippet?.publishedAt ||
+        "",
+    }));
+
     setCachedData(cacheKey, videos);
 
-    console.log("HOME VIDEOS: Fresh API data saved to cache");
+    console.log(
+      "HOME VIDEOS: Mixed API data saved to cache"
+    );
 
     return videos;
 
   } catch (error) {
     console.error(
-      "Error fetching videos:",
+      "Error fetching home videos:",
       error
     );
 
