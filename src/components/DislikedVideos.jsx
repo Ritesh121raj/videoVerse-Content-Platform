@@ -3,6 +3,9 @@ import { Trash2 } from "lucide-react";
 import VideoCard from "./VideoCard";
 import { getVideoById } from "../services/videoApi";
 
+const API_BASE_URL =
+  "https://videoverse-content-platform.onrender.com/api";
+
 function DislikedVideos() {
   const [dislikedVideos, setDislikedVideos] = useState([]);
   const [loading, setLoading] = useState(true);
