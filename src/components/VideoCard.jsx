@@ -49,6 +49,41 @@ function VideoCard({
     };
   }, [showMenu]);
 
+  const getCurrentUserId = () => {
+    try {
+      const currentUser = JSON.parse(
+        localStorage.getItem(
+          "videoVerseCurrentUser"
+        )
+      );
+
+      return (
+        currentUser?._id ||
+        currentUser?.id ||
+        currentUser?.userId ||
+        currentUser?.email ||
+        null
+      );
+    } catch (error) {
+      console.error(
+        "Error reading current user:",
+        error
+      );
+
+      return null;
+    }
+  };
+
+const getDislikedStorageKey = () => {
+  const userId = getCurrentUserId();
+
+  if (!userId) {
+    return null;
+  }
+
+  return `dislikedVideos_${userId}`;
+};
+
   /* ==============================
      ADD NOTIFICATION
      ============================== */
@@ -285,11 +320,11 @@ function VideoCard({
      DISLIKE
      ============================== */
 
+
   const handleDislike = () => {
     const savedActivityEnabled =
       localStorage.getItem("savedActivityEnabled") !== "false";
 
-    // If saved activity is disabled, don't save Dislike
     if (!savedActivityEnabled) {
       setShowMenu(false);
 
@@ -300,9 +335,20 @@ function VideoCard({
       return;
     }
 
+    const storageKey = getDislikedStorageKey();
+
+    // Login/user ID required for private disliked videos
+    if (!storageKey) {
+      setShowMenu(false);
+
+      alert("Please login to save disliked videos.");
+
+      return;
+    }
+
     const dislikedVideos =
       JSON.parse(
-        localStorage.getItem("dislikedVideos")
+        localStorage.getItem(storageKey)
       ) || [];
 
     const alreadyDisliked =
@@ -325,7 +371,7 @@ function VideoCard({
       ];
 
       localStorage.setItem(
-        "dislikedVideos",
+        storageKey,
         JSON.stringify(updatedDislikedVideos)
       );
 
@@ -336,7 +382,7 @@ function VideoCard({
       );
     }
 
-    /* Remove from liked */
+    // Remove from liked videos
     const likedVideos =
       JSON.parse(
         localStorage.getItem("likedVideos")
@@ -355,7 +401,6 @@ function VideoCard({
       JSON.stringify(updatedLikedVideos)
     );
 
-    // Notify all activity pages
     window.dispatchEvent(
       new Event("activityUpdated")
     );
@@ -364,82 +409,6 @@ function VideoCard({
 
     alert("Added to Disliked Videos");
   };
-
-  /* ==============================
-     WATCH LATER
-     ============================== */
-
-  const handleWatchLater = () => {
-    const savedActivityEnabled =
-      localStorage.getItem("savedActivityEnabled") !== "false";
-
-    // If saved activity is disabled, don't save Watch Later
-    if (!savedActivityEnabled) {
-      setShowMenu(false);
-
-      alert(
-        "Saved activity is disabled. Enable it from Settings → Privacy."
-      );
-
-      return;
-    }
-
-    const watchLaterVideos =
-      JSON.parse(
-        localStorage.getItem("watchLater")
-      ) || [];
-
-    const getVideoId = (item) => {
-      if (typeof item === "string") {
-        return item;
-      }
-
-      return item?.id;
-    };
-
-    const alreadySaved =
-      watchLaterVideos.some(
-        (item) =>
-          getVideoId(item) === id
-      );
-
-    if (!alreadySaved) {
-      const updatedVideos = [
-        id,
-        ...watchLaterVideos.filter(
-          (item) =>
-            getVideoId(item) !== id
-        ),
-      ];
-
-      localStorage.setItem(
-        "watchLater",
-        JSON.stringify(updatedVideos)
-      );
-
-      addNotification(
-        "Watch Later",
-        `"${title}" was added to Watch Later.`,
-        "watchLater"
-      );
-
-      // Notify Watch Later page
-      window.dispatchEvent(
-        new Event("activityUpdated")
-      );
-
-      alert(
-        "Added to Watch Later"
-      );
-    } else {
-      alert(
-        "Already saved to Watch Later"
-      );
-    }
-
-    setShowMenu(false);
-  };
-
   /* ==============================
      SHARE
      ============================== */

@@ -157,6 +157,7 @@ function Watch() {
 
   const saveHistory = useCallback(async () => {
     if (!video?.id) {
+      console.log("History not saved: video ID missing");
       return;
     }
 
@@ -174,9 +175,11 @@ function Watch() {
     const token =
       localStorage.getItem("videoVerseToken");
 
-    // ==================================================
-    // BACKEND HISTORY
-    // ==================================================
+    console.log("Saving history:", {
+      videoId: video.id,
+      tokenExists: !!token,
+      video: historyItem,
+    });
 
     if (token) {
       try {
@@ -199,6 +202,12 @@ function Watch() {
 
         const data = await response.json();
 
+        console.log("History API response:", {
+          status: response.status,
+          ok: response.ok,
+          data,
+        });
+
         if (!response.ok) {
           throw new Error(
             data.message ||
@@ -217,18 +226,24 @@ function Watch() {
           new Event("activityUpdated")
         );
 
+        console.log(
+          "✅ History saved successfully"
+        );
+
         return;
       } catch (error) {
         console.error(
-          "Backend history save error:",
+          "❌ Backend history save error:",
           error
         );
       }
+    } else {
+      console.warn(
+        "⚠️ No videoVerseToken found. Using local history."
+      );
     }
 
-    // ==================================================
     // LOCAL STORAGE FALLBACK
-    // ==================================================
 
     try {
       const savedHistory =
@@ -253,9 +268,13 @@ function Watch() {
       window.dispatchEvent(
         new Event("activityUpdated")
       );
+
+      console.log(
+        "✅ History saved to localStorage"
+      );
     } catch (error) {
       console.error(
-        "History local save error:",
+        "❌ History local save error:",
         error
       );
     }
@@ -343,7 +362,6 @@ function Watch() {
         currentTime,
 
         duration,
-
         progress:
           (currentTime / duration) * 100,
 
@@ -588,7 +606,15 @@ function Watch() {
       // SUBSCRIPTION
       // ==================================================
 
+      // ==================================================
+      // SUBSCRIPTION
+      // ==================================================
+
       try {
+        // Always reset first so previous video's
+        // subscription state is never shown
+        setSubscribed(false);
+
         const subscriptions =
           JSON.parse(
             localStorage.getItem(
@@ -597,15 +623,20 @@ function Watch() {
           ) || [];
 
         const isSubscribed =
-          subscriptions.some(
-            (channel) =>
-              getVideoId(channel) ===
-              data.channelId
-          );
+          Array.isArray(subscriptions) &&
+          subscriptions.some((channel) => {
+            const channelId =
+              typeof channel === "string"
+                ? channel
+                : channel?.id;
 
-        setSubscribed(
-          isSubscribed
-        );
+            return (
+              String(channelId) ===
+              String(data.channelId)
+            );
+          });
+
+        setSubscribed(isSubscribed);
       } catch (error) {
         console.error(
           "Subscription loading error:",
@@ -701,30 +732,53 @@ function Watch() {
         }
       }
 
+
       // ==================================================
       // DISLIKE
       // ==================================================
 
       try {
-        const dislikedVideos =
-          JSON.parse(
-            localStorage.getItem(
-              "dislikedVideos"
-            )
-          ) || [];
-
-        setDisliked(
-          dislikedVideos.some(
-            (item) =>
-              getVideoId(item) ===
-              data.id
+        const currentUser = JSON.parse(
+          localStorage.getItem(
+            "videoVerseCurrentUser"
           )
         );
+
+        const userId =
+          currentUser?._id ||
+          currentUser?.id ||
+          currentUser?.userId ||
+          currentUser?.email ||
+          null;
+
+        if (!userId) {
+          setDisliked(false);
+        } else {
+          const dislikedStorageKey =
+            `dislikedVideos_${userId}`;
+
+          const dislikedVideos =
+            JSON.parse(
+              localStorage.getItem(
+                dislikedStorageKey
+              )
+            ) || [];
+
+          setDisliked(
+            dislikedVideos.some(
+              (item) =>
+                getVideoId(item) ===
+                data.id
+            )
+          );
+        }
       } catch (error) {
         console.error(
           "Dislike loading error:",
           error
         );
+
+        setDisliked(false);
       }
 
       // ==================================================
@@ -853,6 +907,18 @@ function Watch() {
 
     setShowPlaylistModal(false);
   }, [loadVideo]);
+
+  // ==================================================
+// SAVE VIDEO TO WATCH HISTORY
+// ==================================================
+
+useEffect(() => {
+  if (!video?.id) {
+    return;
+  }
+
+  saveHistory();
+}, [video?.id, saveHistory]);
 
   // ==================================================
   // LOAD PLAYLISTS
@@ -1618,166 +1684,152 @@ function Watch() {
       return;
     }
 
-    const dislikedVideos =
-      JSON.parse(
-        localStorage.getItem(
-          "dislikedVideos"
-        )
-      ) || [];
-
-    // ==================================================
-    // REMOVE DISLIKE
-    // ==================================================
-
-    if (disliked) {
-      const updated =
-        dislikedVideos.filter(
-          (item) =>
-            getVideoId(item) !==
-            video.id
-        );
-
-      localStorage.setItem(
-        "dislikedVideos",
-        JSON.stringify(updated)
-      );
-
-      setDisliked(false);
-
-      setDislikeCount(
-        (prev) =>
-          Math.max(
-            0,
-            prev - 1
-          )
-      );
-
-      return;
-    }
-
-    // ==================================================
-    // ADD DISLIKE
-    // ==================================================
-
-    const alreadyDisliked =
-      dislikedVideos.some(
-        (item) =>
-          getVideoId(item) ===
-          video.id
-      );
-
-    if (!alreadyDisliked) {
-      const updated = [
-        ...dislikedVideos,
-
-        {
-          ...video,
-
-          image:
-            video.thumbnail ||
-            video.image ||
-            "",
-        },
-      ];
-
-      localStorage.setItem(
-        "dislikedVideos",
-        JSON.stringify(
-          updated
-        )
-      );
-
-      setDislikeCount(
-        (prev) => prev + 1
-      );
-    }
-
-    setDisliked(true);
-
-    // ==================================================
-    // REMOVE LIKE
-    // ==================================================
-
     const token =
       localStorage.getItem(
         "videoVerseToken"
       );
 
-    if (liked && token) {
-      try {
-        const response =
-          await fetch(
-            `${API_BASE_URL}/user/liked/${video.id}`,
-            {
-              method: "DELETE",
+    if (!token) {
+      alert(
+        "Please login to dislike videos."
+      );
+      return;
+    }
 
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
+    try {
+      // ==================================================
+      // REMOVE DISLIKE
+      // ==================================================
+
+      if (disliked) {
+        const response = await fetch(
+          `${API_BASE_URL}/user/disliked/${video.id}`,
+          {
+            method: "DELETE",
+
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
+
+        const text =
+          await response.text();
+
+        let data = {};
+
+        try {
+          data = text
+            ? JSON.parse(text)
+            : {};
+        } catch {
+          throw new Error(
+            "Backend returned invalid response"
           );
-
-        const data =
-          await response.json();
+        }
 
         if (!response.ok) {
           throw new Error(
             data.message ||
-              "Unable to remove like"
+              "Unable to remove dislike"
           );
         }
 
-        const likedIds =
-          Array.isArray(
-            data.likedVideos
-          )
-            ? data.likedVideos
-            : [];
+        setDisliked(false);
 
-        localStorage.setItem(
-          "likedVideos",
-          JSON.stringify(
-            likedIds
-          )
+        setDislikeCount(
+          (prev) =>
+            Math.max(0, prev - 1)
         );
 
         window.dispatchEvent(
-          new Event(
-            "activityUpdated"
-          )
+          new Event("activityUpdated")
         );
 
-        setLiked(false);
+        return;
+      }
 
-        setLikeCount(
-          (prev) =>
-            Math.max(
-              0,
-              prev - 1
-            )
-        );
-      } catch (error) {
-        console.error(
-          "Remove like error:",
-          error
+
+      // ==================================================
+      // ADD DISLIKE
+      // ==================================================
+
+      const response = await fetch(
+        `${API_BASE_URL}/user/disliked`,
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            video: {
+              ...video,
+
+              image:
+                video.image ||
+                video.thumbnail ||
+                "",
+
+              thumbnail:
+                video.thumbnail ||
+                video.image ||
+                "",
+            },
+          }),
+        }
+      );
+
+      const text =
+        await response.text();
+
+      let data = {};
+
+      try {
+        data = text
+          ? JSON.parse(text)
+          : {};
+      } catch {
+        throw new Error(
+          "Backend returned invalid response"
         );
       }
-    } else {
-      setLiked(false);
 
-      if (liked) {
-        setLikeCount(
-          (prev) =>
-            Math.max(
-              0,
-              prev - 1
-            )
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to dislike video"
         );
       }
+
+      setDisliked(true);
+
+      setDislikeCount(
+        (prev) => prev + 1
+      );
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
+
+    } catch (error) {
+      console.error(
+        "Dislike API error:",
+        error
+      );
+
+      alert(
+        error.message ||
+          "Unable to update dislike"
+      );
     }
   };
-
   // ==================================================
   // SUBSCRIBE
   // ==================================================

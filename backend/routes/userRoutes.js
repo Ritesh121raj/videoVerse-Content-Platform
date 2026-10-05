@@ -106,7 +106,227 @@ router.delete("/liked/:videoId", protect, async (req, res) => {
     });
   }
 });
+// ======================================================
+// GET DISLIKED VIDEOS
+// LOGGED-IN USER ONLY
+// ======================================================
 
+router.get("/disliked", protect, async (req, res) => {
+  try {
+    const user = await User.findById(
+      req.user.userId
+    ).select("dislikedVideos");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      dislikedVideos:
+        user.dislikedVideos || [],
+    });
+  } catch (error) {
+    console.error(
+      "Get disliked videos error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+// ======================================================
+// ADD DISLIKED VIDEO
+// LOGGED-IN USER ONLY
+// ======================================================
+
+router.post("/disliked", protect, async (req, res) => {
+  try {
+    const { video } = req.body;
+
+    if (!video || !video.id) {
+      return res.status(400).json({
+        message: "Valid video data is required",
+      });
+    }
+
+    const user = await User.findById(
+      req.user.userId
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // Remove old copy if it already exists
+    user.dislikedVideos =
+      (user.dislikedVideos || []).filter(
+        (item) => {
+          const itemId =
+            typeof item === "string"
+              ? item
+              : item?.id;
+
+          return itemId !== video.id;
+        }
+      );
+
+    // Store complete video object
+    const dislikedVideo = {
+      ...video,
+
+      image:
+        video.image ||
+        video.thumbnail ||
+        "",
+
+      thumbnail:
+        video.thumbnail ||
+        video.image ||
+        "",
+    };
+
+    user.dislikedVideos.unshift(
+      dislikedVideo
+    );
+
+    // Keep latest 50
+    user.dislikedVideos =
+      user.dislikedVideos.slice(0, 50);
+
+    await user.save();
+
+    res.status(200).json({
+      message:
+        "Video added to disliked videos",
+
+      dislikedVideos:
+        user.dislikedVideos,
+    });
+  } catch (error) {
+    console.error(
+      "Add disliked video error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+});
+
+
+// ======================================================
+// REMOVE ONE DISLIKED VIDEO
+// ======================================================
+
+router.delete(
+  "/disliked/:videoId",
+  protect,
+  async (req, res) => {
+    try {
+      const { videoId } =
+        req.params;
+
+      if (!videoId) {
+        return res.status(400).json({
+          message: "Video ID is required",
+        });
+      }
+
+      const user = await User.findById(
+        req.user.userId
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      user.dislikedVideos =
+        (user.dislikedVideos || []).filter(
+          (item) => {
+            const itemId =
+              typeof item === "string"
+                ? item
+                : item?.id;
+
+            return itemId !== videoId;
+          }
+        );
+
+      await user.save();
+
+      res.status(200).json({
+        message:
+          "Video removed from disliked videos",
+
+        dislikedVideos:
+          user.dislikedVideos,
+      });
+    } catch (error) {
+      console.error(
+        "Remove disliked video error:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Server error",
+      });
+    }
+  }
+);
+
+
+// ======================================================
+// CLEAR ALL DISLIKED VIDEOS
+// ======================================================
+
+router.delete(
+  "/disliked",
+  protect,
+  async (req, res) => {
+    try {
+      const user = await User.findById(
+        req.user.userId
+      );
+
+      if (!user) {
+        return res.status(404).json({
+          message: "User not found",
+        });
+      }
+
+      user.dislikedVideos = [];
+
+      await user.save();
+
+      res.status(200).json({
+        message:
+          "All disliked videos cleared",
+
+        dislikedVideos: [],
+      });
+    } catch (error) {
+      console.error(
+        "Clear disliked videos error:",
+        error
+      );
+
+      res.status(500).json({
+        message: "Server error",
+      });
+    }
+  }
+);
 // ======================================================
 // GET WATCH LATER
 // ======================================================

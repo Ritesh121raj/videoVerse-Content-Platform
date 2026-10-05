@@ -1,6 +1,12 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { Play } from "lucide-react";
+import {
+  Play,
+  Heart,
+  MessageCircle,
+  Share2,
+  Repeat2,
+} from "lucide-react";
 import { getShortsVideos } from "../services/videoApi";
 
 function Shorts() {
@@ -14,7 +20,7 @@ function Shorts() {
 
         const data = await getShortsVideos();
 
-        setShorts(data);
+        setShorts(data || []);
       } catch (error) {
         console.error(
           "Shorts loading error:",
@@ -30,18 +36,24 @@ function Shorts() {
     loadShorts();
   }, []);
 
+  const handleShare = async (short) => {
+    try {
+      const url =
+        `${window.location.origin}/watch/${short.id}`;
+
+      await navigator.clipboard.writeText(url);
+
+      alert("Short link copied!");
+    } catch (error) {
+      console.error(
+        "Share error:",
+        error
+      );
+    }
+  };
+
   return (
-    <section className="shorts-section">
-
-      {/* Heading */}
-      <div className="shorts-heading">
-        <Play
-          size={24}
-          fill="currentColor"
-        />
-
-        <h2>Shorts</h2>
-      </div>
+    <section className="shorts-page">
 
       {/* Loading */}
       {loading ? (
@@ -53,57 +65,163 @@ function Shorts() {
           No Shorts found.
         </p>
       ) : (
-        <div className="shorts-container">
+        <div className="shorts-feed">
 
           {shorts.map((short) => (
-            <Link
-              to={`/watch/${short.id}`}
-              className="short-card-link"
+            <div
+              className="short-feed-item"
               key={short.id}
             >
 
-              <div className="short-card">
+              {/* SHORT VIDEO AREA */}
+              <div className="short-video-box">
 
-                {/* Thumbnail */}
-                <div className="short-thumbnail">
+                <Link
+                  to={`/watch/${short.id}`}
+                  className="short-video-link"
+                >
 
                   <img
                     src={short.thumbnail}
                     alt={short.title}
+                    className="short-video-image"
                   />
 
-                  <div className="short-play">
+                  {/* Play */}
+                  <div className="short-center-play">
                     <Play
-                      size={28}
+                      size={34}
                       fill="white"
                     />
                   </div>
 
+                </Link>
+
+                {/* Top YouTube-like controls */}
+                <div className="short-top-controls">
+
+                  <span className="short-control-icon">
+                    ▶
+                  </span>
+
+                  <span className="short-control-icon">
+                    🔊
+                  </span>
+
+                  <span className="short-control-icon">
+                    ⋮
+                  </span>
+
                 </div>
 
-                {/* Information */}
-                <div className="short-info">
+                {/* Bottom information */}
+                <div className="short-bottom-info">
+
+                  <div className="short-channel-row">
+
+                    <div className="short-channel-avatar">
+                      {short.channel
+                        ?.charAt(0)
+                        .toUpperCase() || "C"}
+                    </div>
+
+                    <strong>
+                      @{short.channel || "Channel"}
+                    </strong>
+
+                    <button
+                      className="short-subscribe-btn"
+                      onClick={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        alert(
+                          "Please use the Subscribe button on the Watch page."
+                        );
+                      }}
+                    >
+                      Subscribe
+                    </button>
+
+                  </div>
 
                   <h3>
                     {short.title}
                   </h3>
 
                   <p>
-                    {short.channel}
-                  </p>
-
-                  <p>
                     {Number(
-                      short.views
+                      short.views || 0
                     ).toLocaleString()}{" "}
                     views
                   </p>
 
                 </div>
 
+                {/* Progress bar */}
+                <div className="short-progress">
+                  <span />
+                </div>
+
               </div>
 
-            </Link>
+              {/* RIGHT ACTIONS */}
+              <div className="short-actions">
+
+                <button
+                  className="short-action-btn"
+                  onClick={() =>
+                    alert(
+                      "Like this Short from the Watch page."
+                    )
+                  }
+                >
+                  <Heart size={30} />
+
+                  <span>Like</span>
+                </button>
+
+                <button
+                  className="short-action-btn"
+                  onClick={() =>
+                    alert(
+                      "Comments are available on the Watch page."
+                    )
+                  }
+                >
+                  <MessageCircle size={30} />
+
+                  <span>
+                    {short.comments || 0}
+                  </span>
+                </button>
+
+                <button
+                  className="short-action-btn"
+                  onClick={() =>
+                    handleShare(short)
+                  }
+                >
+                  <Share2 size={30} />
+
+                  <span>Share</span>
+                </button>
+
+                <button
+                  className="short-action-btn"
+                  onClick={() =>
+                    alert(
+                      "Remix is not available yet."
+                    )
+                  }
+                >
+                  <Repeat2 size={30} />
+
+                  <span>Remix</span>
+                </button>
+
+              </div>
+
+            </div>
           ))}
 
         </div>

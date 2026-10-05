@@ -1,5 +1,7 @@
 import { useEffect, useState } from "react";
 import VideoGrid from "../components/VideoGrid";
+const API_BASE_URL =
+  "https://videoverse-content-platform.onrender.com/api";
 
 function History() {
   const [history, setHistory] = useState([]);
@@ -8,35 +10,77 @@ function History() {
   // LOAD HISTORY
   // ==========================================
 
-  const loadHistory = () => {
-    try {
-      const savedHistory =
-        JSON.parse(
-          localStorage.getItem("history")
-        ) || [];
+  const loadHistory = async () => {
+    const token =
+      localStorage.getItem("videoVerseToken");
 
-      const validHistory = Array.isArray(savedHistory)
-        ? savedHistory.filter(
+    // ==============================
+    // LOGGED-IN USER
+    // ==============================
+
+    if (token) {
+      try {
+        const response = await fetch(
+          `${API_BASE_URL}/user/history`,
+          {
+            method: "GET",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to load history"
+          );
+        }
+
+        const backendHistory =
+          Array.isArray(data.history)
+            ? data.history
+            : [];
+
+        const validHistory =
+          backendHistory.filter(
             (video) =>
               video &&
               video.id
-          )
-        : [];
+          );
 
-      setHistory(validHistory);
+        setHistory(validHistory);
 
-      console.log(
-        "History page loaded:",
-        validHistory
-      );
-    } catch (error) {
-      console.error(
-        "History loading error:",
-        error
-      );
+        // Keep local cache synced for current user
+        localStorage.setItem(
+          "history",
+          JSON.stringify(validHistory)
+        );
 
-      setHistory([]);
+        console.log(
+          "User history loaded:",
+          validHistory
+        );
+
+        return;
+      } catch (error) {
+        console.error(
+          "Backend history loading error:",
+          error
+        );
+
+        setHistory([]);
+        return;
+      }
     }
+
+    // ==============================
+    // LOGGED OUT
+    // ==============================
+
+    setHistory([]);
   };
 
   // ==========================================

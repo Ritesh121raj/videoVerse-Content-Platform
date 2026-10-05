@@ -30,6 +30,14 @@ const userSchema = new mongoose.Schema(
       type: [String],
       default: [],
     },
+    // ==================================================
+    // DISLIKED VIDEOS
+    // ==================================================
+
+    dislikedVideos: {
+      type: [mongoose.Schema.Types.Mixed],
+      default: [],
+    },
 
     // ==================================================
     // WATCH LATER

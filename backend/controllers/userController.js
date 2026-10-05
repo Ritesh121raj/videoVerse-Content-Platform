@@ -150,6 +150,199 @@ const clearLikedVideos = async (req, res) => {
     });
   }
 };
+
+// ======================================================
+// GET DISLIKED VIDEOS
+// ======================================================
+
+const getDislikedVideos = async (req, res) => {
+  try {
+    const user = await User.findById(
+      req.user.userId
+    ).select("dislikedVideos");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    res.status(200).json({
+      dislikedVideos:
+        user.dislikedVideos || [],
+    });
+  } catch (error) {
+    console.error(
+      "Get disliked videos error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+
+// ======================================================
+// ADD DISLIKED VIDEO
+// ======================================================
+
+const addDislikedVideo = async (req, res) => {
+  try {
+    const { video } = req.body;
+
+    if (!video || !video.id) {
+      return res.status(400).json({
+        message:
+          "Complete video object is required",
+      });
+    }
+
+    const user = await User.findById(
+      req.user.userId
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    // Remove existing occurrence
+    // to prevent duplicate disliked videos
+    user.dislikedVideos =
+      user.dislikedVideos.filter(
+        (item) =>
+          item &&
+          item.id !== video.id
+      );
+
+    // Add latest disliked video
+    user.dislikedVideos.unshift(video);
+
+    // Keep latest 50
+    user.dislikedVideos =
+      user.dislikedVideos.slice(0, 50);
+
+    await user.save();
+
+    res.status(200).json({
+      message:
+        "Video added to disliked videos",
+
+      dislikedVideos:
+        user.dislikedVideos,
+    });
+  } catch (error) {
+    console.error(
+      "Add disliked video error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+
+// ======================================================
+// REMOVE DISLIKED VIDEO
+// ======================================================
+
+const removeDislikedVideo = async (
+  req,
+  res
+) => {
+  try {
+    const { videoId } = req.params;
+
+    if (!videoId) {
+      return res.status(400).json({
+        message: "Video ID is required",
+      });
+    }
+
+    const user = await User.findById(
+      req.user.userId
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    user.dislikedVideos =
+      user.dislikedVideos.filter(
+        (item) =>
+          item &&
+          item.id !== videoId
+      );
+
+    await user.save();
+
+    res.status(200).json({
+      message:
+        "Video removed from disliked videos",
+
+      dislikedVideos:
+        user.dislikedVideos,
+    });
+  } catch (error) {
+    console.error(
+      "Remove disliked video error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
+
+
+// ======================================================
+// CLEAR ALL DISLIKED VIDEOS
+// ======================================================
+
+const clearDislikedVideos = async (
+  req,
+  res
+) => {
+  try {
+    const user = await User.findById(
+      req.user.userId
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    user.dislikedVideos = [];
+
+    await user.save();
+
+    res.status(200).json({
+      message:
+        "All disliked videos cleared",
+
+      dislikedVideos: [],
+    });
+  } catch (error) {
+    console.error(
+      "Clear disliked videos error:",
+      error
+    );
+
+    res.status(500).json({
+      message: "Server error",
+    });
+  }
+};
 // ======================================================
 // GET WATCH HISTORY
 // ======================================================
@@ -309,8 +502,21 @@ const clearHistory = async (req, res) => {
 
 
 module.exports = {
+  // LIKED VIDEOS
   getLikedVideos,
   addLikedVideo,
   removeLikedVideo,
   clearLikedVideos,
+
+  // DISLIKED VIDEOS
+  getDislikedVideos,
+  addDislikedVideo,
+  removeDislikedVideo,
+  clearDislikedVideos,
+
+  // HISTORY
+  getHistory,
+  addToHistory,
+  removeFromHistory,
+  clearHistory,
 };

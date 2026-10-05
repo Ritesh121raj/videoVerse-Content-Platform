@@ -32,6 +32,7 @@ import {
   getChannelVideos,
   getShortsVideos,
   getChannelImages,
+  getChannelDetails,
 } from "./services/videoApi";
 import Watch from "./pages/Watch";
 
@@ -446,224 +447,341 @@ function Subscriptions() {
   const CACHE_TIME =
     10 * 60 * 1000;
 
-  const loadSubscriptions =
-    async () => {
+  const API_URL =
+    "https://videoverse-content-platform.onrender.com/api";
+
+
+  // ======================================================
+  // LOAD SUBSCRIPTIONS
+  // ======================================================
+
+  const loadSubscriptions = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      const token =
+        localStorage.getItem("videoVerseToken");
+
+      // ======================================================
+      // LOGIN CHECK
+      // ======================================================
+
+      if (!token) {
+        setSubscribedChannels([]);
+        setChannelVideos({});
+        setLoading(false);
+        return;
+      }
+
+      // ======================================================
+      // GET SUBSCRIBED CHANNEL IDS FROM BACKEND
+      // ======================================================
+
+      const response = await fetch(
+        `${API_URL}/user/subscriptions`,
+        {
+          method: "GET",
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to load subscriptions."
+        );
+      }
+
+      const channelIds =
+        Array.isArray(data.subscribedChannels)
+          ? data.subscribedChannels
+          : [];
+
+      // ======================================================
+      // NO SUBSCRIPTIONS
+      // ======================================================
+
+      if (channelIds.length === 0) {
+        setSubscribedChannels([]);
+        setChannelVideos({});
+        setLoading(false);
+        return;
+      }
+
+      console.log(
+        "SUBSCRIBED CHANNEL IDS:",
+        channelIds
+      );
+
+      // ======================================================
+      // GET CHANNEL IMAGES
+      // ======================================================
+
+      let channelImages = {};
+
       try {
-        setLoading(true);
-        setError(null);
+        channelImages =
+          await getChannelImages(channelIds);
+      } catch (imageError) {
+        console.error(
+          "Channel image error:",
+          imageError
+        );
 
-        const storedSubscriptions =
-          JSON.parse(
-            localStorage.getItem(
-              "subscribedChannels"
-            )
-          ) || [];
+        channelImages = {};
+      }
 
-        if (
-          storedSubscriptions.length === 0
-        ) {
-          setSubscribedChannels([]);
-          setChannelVideos({});
-          setLoading(false);
-          return;
-        }
+      // ======================================================
+      // GET CHANNEL DETAILS
+      // ======================================================
 
-        const channelIds =
-          storedSubscriptions
-            .map(
-              (channel) => channel.id
-            )
-            .filter(Boolean);
+      const channelResults =
+        await Promise.all(
+          channelIds.map(
+            async (channelId) => {
+              try {
+                const details =
+                  await getChannelDetails(
+                    channelId
+                  );
 
-        if (channelIds.length === 0) {
-          setSubscribedChannels(
-            storedSubscriptions
-          );
+                const image =
+                  channelImages[channelId] ||
+                  details?.profileImage ||
+                  "";
 
-          setChannelVideos({});
-          setLoading(false);
-          return;
-        }
+                return {
+                  id: channelId,
 
-        let channelImages = {};
+                  name:
+                    details?.name ||
+                    "Channel",
 
-        try {
-          channelImages =
-            await getChannelImages(
-              channelIds
-            );
-        } catch (imageError) {
-          console.error(
-            "Channel image error:",
-            imageError
-          );
+                  image: image,
 
-          channelImages = {};
-        }
+                  profileImage: image,
+                };
+              } catch (channelError) {
+                console.error(
+                  `Error loading channel ${channelId}:`,
+                  channelError
+                );
 
-        const updatedSubscriptions =
-          storedSubscriptions.map(
-            (channel) => {
-              const freshImage =
-                channelImages[
-                  channel.id
-                ] || "";
+                return {
+                  id: channelId,
 
-              return {
-                ...channel,
+                  name: "Channel",
 
-                image:
-                  freshImage ||
-                  channel.image ||
-                  "",
+                  image:
+                    channelImages[channelId] ||
+                    "",
 
-                profileImage:
-                  freshImage ||
-                  channel.profileImage ||
-                  "",
-              };
+                  profileImage:
+                    channelImages[channelId] ||
+                    "",
+                };
+              }
             }
-          );
-
-        localStorage.setItem(
-          "subscribedChannels",
-          JSON.stringify(
-            updatedSubscriptions
           )
         );
 
-        setSubscribedChannels(
-          updatedSubscriptions
-        );
+      // ======================================================
+      // SHOW CHANNELS IMMEDIATELY
+      // ======================================================
 
-        const channelResults =
-          await Promise.all(
-            updatedSubscriptions.map(
-              async (channel) => {
-                try {
-                  const cacheKey =
-                    `subscriptionVideos_${channel.id}`;
+      setSubscribedChannels(
+        channelResults
+      );
 
-                  const cachedData =
-                    JSON.parse(
-                      localStorage.getItem(
-                        cacheKey
-                      )
-                    );
+      // ======================================================
+      // LOAD VIDEOS
+      //
+      // IMPORTANT:
+      // Remove old empty caches before fetching.
+      // ======================================================
 
-                  const now =
-                    Date.now();
+      const videosByChannel = {};
 
-                  if (
-                    cachedData &&
-                    cachedData.timestamp &&
-                    now -
-                      cachedData.timestamp <
-                      CACHE_TIME
-                  ) {
-                    return {
-                      channelId:
-                        channel.id,
-                      videos:
-                        cachedData.videos ||
-                        [],
-                    };
-                  }
+      await Promise.all(
+        channelResults.map(
+          async (channel) => {
+            try {
+              // ----------------------------------------------
+              // CLEAR OLD EMPTY SUBSCRIPTION CACHE
+              // ----------------------------------------------
 
-                  const image =
-                    channelImages[
-                      channel.id
-                    ] || "";
+              localStorage.removeItem(
+                `subscriptionVideos_${channel.id}`
+              );
 
-                  const videos =
-                    await getChannelVideos(
-                      channel.id,
-                      image
-                    );
+              // ----------------------------------------------
+              // CLEAR getChannelVideos EMPTY CACHE
+              // ----------------------------------------------
 
-                  const uniqueVideos =
-                    (videos || []).filter(
-                      (
-                        video,
-                        index,
-                        array
-                      ) =>
-                        index ===
-                        array.findIndex(
-                          (item) =>
-                            item.id ===
-                            video.id
-                        )
-                    );
+              localStorage.removeItem(
+                `channel-videos-${channel.id}`
+              );
 
-                  localStorage.setItem(
-                    cacheKey,
-                    JSON.stringify({
-                      timestamp:
-                        Date.now(),
-                      videos:
-                        uniqueVideos,
-                    })
-                  );
+              console.log(
+                "Fetching videos for:",
+                channel.name,
+                channel.id
+              );
 
-                  return {
-                    channelId:
-                      channel.id,
+              // ----------------------------------------------
+              // FETCH FRESH VIDEOS
+              // ----------------------------------------------
+
+              const videos =
+                await getChannelVideos(
+                  channel.id,
+                  channel.image
+                );
+
+              console.log(
+                `VIDEOS FOR ${channel.name}:`,
+                videos
+              );
+
+              // ----------------------------------------------
+              // REMOVE DUPLICATES
+              // ----------------------------------------------
+
+              const uniqueVideos =
+                (Array.isArray(videos)
+                  ? videos
+                  : []
+                ).filter(
+                  (
+                    video,
+                    index,
+                    array
+                  ) =>
+                    index ===
+                    array.findIndex(
+                      (item) =>
+                        item.id ===
+                        video.id
+                    )
+                );
+
+              videosByChannel[
+                channel.id
+              ] = uniqueVideos;
+
+              // ----------------------------------------------
+              // SAVE ONLY NON-EMPTY VIDEO CACHE
+              // ----------------------------------------------
+
+              if (
+                uniqueVideos.length > 0
+              ) {
+                localStorage.setItem(
+                  `subscriptionVideos_${channel.id}`,
+                  JSON.stringify({
+                    timestamp:
+                      Date.now(),
+
                     videos:
                       uniqueVideos,
-                  };
-                } catch (
-                  channelError
-                ) {
-                  console.error(
-                    `Error loading videos for ${channel.name}:`,
-                    channelError
-                  );
-
-                  return {
-                    channelId:
-                      channel.id,
-                    videos: [],
-                  };
-                }
+                  })
+                );
               }
-            )
-          );
 
-        const videosByChannel = {};
+            } catch (channelError) {
+              console.error(
+                `Error loading videos for ${channel.name}:`,
+                channelError
+              );
 
-        channelResults.forEach(
-          (result) => {
-            videosByChannel[
-              result.channelId
-            ] = result.videos;
+              videosByChannel[
+                channel.id
+              ] = [];
+            }
           }
-        );
+        )
+      );
 
-        setChannelVideos(
-          videosByChannel
-        );
-      } catch (error) {
-        console.error(
-          "Subscriptions error:",
-          error
-        );
+      // ======================================================
+      // SET ALL CHANNEL VIDEOS
+      // ======================================================
 
-        setSubscribedChannels([]);
-        setChannelVideos({});
+      console.log(
+        "FINAL SUBSCRIPTION VIDEOS:",
+        videosByChannel
+      );
 
-        setError(
-          error?.message ||
-            "Unable to load subscriptions. Please try again."
-        );
-      } finally {
-        setLoading(false);
-      }
-    };
+      setChannelVideos(
+        videosByChannel
+      );
+
+    } catch (error) {
+      console.error(
+        "Subscriptions error:",
+        error
+      );
+
+      setSubscribedChannels([]);
+      setChannelVideos({});
+
+      setError(
+        error?.message ||
+          "Unable to load subscriptions. Please try again."
+      );
+
+    } finally {
+      setLoading(false);
+    }
+  };
+
+
+  // ======================================================
+  // LOAD + LISTEN FOR SUBSCRIPTION CHANGES
+  // ======================================================
 
   useEffect(() => {
     loadSubscriptions();
+
+    const handleSubscriptionUpdate =
+      () => {
+        loadSubscriptions();
+      };
+
+
+    window.addEventListener(
+      "subscriptionsUpdated",
+      handleSubscriptionUpdate
+    );
+
+
+    window.addEventListener(
+      "authUpdated",
+      handleSubscriptionUpdate
+    );
+
+
+    return () => {
+      window.removeEventListener(
+        "subscriptionsUpdated",
+        handleSubscriptionUpdate
+      );
+
+      window.removeEventListener(
+        "authUpdated",
+        handleSubscriptionUpdate
+      );
+    };
   }, []);
+
+
+  // ======================================================
+  // IMAGE ERROR
+  // ======================================================
 
   const handleImageError = (
     event
@@ -686,12 +804,21 @@ function Subscriptions() {
     }
   };
 
+
+  // ======================================================
+  // UI
+  // ======================================================
+
   return (
     <>
       <Navbar />
       <Sidebar />
 
       <main className="main-content">
+
+        {/* ==================================================
+            HEADER
+        ================================================== */}
 
         <div className="subscription-header">
 
@@ -706,18 +833,94 @@ function Subscriptions() {
 
         </div>
 
+
+        {/* ==================================================
+            LOADING
+        ================================================== */}
+
+        {loading && (
+          <p className="page-message">
+            Loading subscriptions...
+          </p>
+        )}
+
+
+        {/* ==================================================
+            ERROR
+        ================================================== */}
+
+        {!loading &&
+          error && (
+            <div className="page-message">
+
+              <h2>
+                Something went wrong
+              </h2>
+
+              <p>
+                {error}
+              </p>
+
+              <button
+                onClick={
+                  loadSubscriptions
+                }
+                style={{
+                  marginTop: "15px",
+                  padding: "10px 18px",
+                  border: "none",
+                  borderRadius: "8px",
+                  cursor: "pointer",
+                  fontWeight: "600",
+                }}
+              >
+                Try Again
+              </button>
+
+            </div>
+          )}
+
+
+        {/* ==================================================
+            CHANNEL LIST
+        ================================================== */}
+
         {!loading &&
           !error &&
           subscribedChannels.length >
             0 && (
+
             <div className="subscribed-channels">
 
               {subscribedChannels.map(
                 (channel) => {
+
                   const image =
                     channel.image ||
                     channel.profileImage ||
                     "";
+
+                  const videosForChannel =
+                    channelVideos[
+                      channel.id
+                    ] || [];
+
+
+                  // ------------------------------------------------
+                  // USE REAL CHANNEL NAME
+                  // ------------------------------------------------
+
+                  const displayName =
+                    channel.name &&
+                    channel.name !==
+                      "Channel"
+                      ? channel.name
+                      : videosForChannel[0]
+                          ?.channel ||
+                        videosForChannel[0]
+                          ?.channelTitle ||
+                        "Channel";
+
 
                   return (
                     <Link
@@ -725,14 +928,14 @@ function Subscriptions() {
                       to={`/channel/${channel.id}`}
                       className="subscribed-channel"
                     >
+
                       <div className="profile-image-wrapper">
 
                         {image ? (
                           <img
                             src={image}
                             alt={
-                              channel.name ||
-                              "Channel"
+                              displayName
                             }
                             onError={
                               handleImageError
@@ -740,7 +943,7 @@ function Subscriptions() {
                           />
                         ) : (
                           <div className="profile-fallback">
-                            {channel.name
+                            {displayName
                               ?.charAt(
                                 0
                               )
@@ -751,10 +954,11 @@ function Subscriptions() {
 
                       </div>
 
+
                       <span>
-                        {channel.name ||
-                          "Channel"}
+                        {displayName}
                       </span>
+
                     </Link>
                   );
                 }
@@ -763,62 +967,46 @@ function Subscriptions() {
             </div>
           )}
 
-        {loading && (
-          <p className="page-message">
-            Loading subscriptions...
-          </p>
-        )}
 
-        {!loading && error && (
-          <div className="page-message">
-
-            <h2>
-              Something went wrong
-            </h2>
-
-            <p>{error}</p>
-
-            <button
-              onClick={
-                loadSubscriptions
-              }
-              style={{
-                marginTop: "15px",
-                padding: "10px 18px",
-                border: "none",
-                borderRadius: "8px",
-                cursor: "pointer",
-                fontWeight: "600",
-              }}
-            >
-              Try Again
-            </button>
-
-          </div>
-        )}
+        {/* ==================================================
+            EMPTY
+        ================================================== */}
 
         {!loading &&
           !error &&
           subscribedChannels.length ===
             0 && (
+
             <p className="page-message">
               You haven't subscribed to
               any channels yet.
             </p>
           )}
 
+
+        {/* ==================================================
+            CHANNEL VIDEOS
+        ================================================== */}
+
         {!loading &&
           !error &&
           subscribedChannels.length >
             0 && (
+
             <div className="subscription-sections">
 
               {subscribedChannels.map(
                 (channel) => {
+
                   const videos =
                     channelVideos[
                       channel.id
                     ] || [];
+
+
+                  // ------------------------------------------------
+                  // IF NO VIDEOS
+                  // ------------------------------------------------
 
                   if (
                     videos.length === 0
@@ -826,10 +1014,28 @@ function Subscriptions() {
                     return null;
                   }
 
+
                   const image =
                     channel.image ||
                     channel.profileImage ||
                     "";
+
+
+                  // ------------------------------------------------
+                  // REAL CHANNEL NAME
+                  // ------------------------------------------------
+
+                  const displayName =
+                    channel.name &&
+                    channel.name !==
+                      "Channel"
+                      ? channel.name
+                      : videos[0]
+                          ?.channel ||
+                        videos[0]
+                          ?.channelTitle ||
+                        "Channel";
+
 
                   return (
                     <section
@@ -850,8 +1056,7 @@ function Subscriptions() {
                               <img
                                 src={image}
                                 alt={
-                                  channel.name ||
-                                  "Channel"
+                                  displayName
                                 }
                                 onError={
                                   handleImageError
@@ -859,7 +1064,7 @@ function Subscriptions() {
                               />
                             ) : (
                               <div className="profile-fallback">
-                                {channel.name
+                                {displayName
                                   ?.charAt(
                                     0
                                   )
@@ -870,20 +1075,23 @@ function Subscriptions() {
 
                           </div>
 
+
                           <div>
+
                             <h2>
-                              {channel.name ||
-                                "Channel"}
+                              {displayName}
                             </h2>
 
                             <span>
                               View channel
                             </span>
+
                           </div>
 
                         </Link>
 
                       </div>
+
 
                       <VideoGrid
                         videos={videos}

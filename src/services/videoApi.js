@@ -2,6 +2,9 @@ const API_KEY = import.meta.env.VITE_YOUTUBE_API_KEY;
 
 const BASE_URL = "https://www.googleapis.com/youtube/v3";
 
+const BACKEND_URL =
+  "https://videoverse-content-platform.onrender.com";
+
 // ======================================================
 // API CACHE
 // ======================================================
@@ -1805,4 +1808,157 @@ export async function getChannelImages(channelIds) {
 
     throw error;
   }
+  
+}
+// ======================================================
+// USER WATCH HISTORY
+// ======================================================
+
+export async function getUserHistory() {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    return [];
+  }
+
+  const response = await fetch(
+    `${BACKEND_URL}/api/user/history`,
+    {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        Accept: "application/json",
+      },
+    }
+  );
+
+  const data =
+    await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        `History API error (${response.status})`
+    );
+  }
+
+  return Array.isArray(data?.history)
+    ? data.history
+    : [];
+}
+
+
+// ======================================================
+// ADD VIDEO TO USER HISTORY
+// ======================================================
+
+export async function addToUserHistory(video) {
+  const token = localStorage.getItem("token");
+
+  if (!token || !video?.id) {
+    return null;
+  }
+
+  const response = await fetch(
+    `${BACKEND_URL}/api/user/history`,
+    {
+      method: "POST",
+
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${token}`,
+      },
+
+      body: JSON.stringify({
+        video: {
+          ...video,
+          watchedAt: Date.now(),
+        },
+      }),
+    }
+  );
+
+  const data =
+    await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        `History API error (${response.status})`
+    );
+  }
+
+  return data?.history || [];
+}
+
+
+// ======================================================
+// CLEAR USER HISTORY
+// ======================================================
+
+export async function clearUserHistory() {
+  const token = localStorage.getItem("token");
+
+  if (!token) {
+    return [];
+  }
+
+  const response = await fetch(
+    `${BACKEND_URL}/api/user/history`,
+    {
+      method: "DELETE",
+
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  const data =
+    await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        `History API error (${response.status})`
+    );
+  }
+
+  return data?.history || [];
+}
+
+
+// ======================================================
+// REMOVE ONE VIDEO FROM USER HISTORY
+// ======================================================
+
+export async function removeFromUserHistory(videoId) {
+  const token = localStorage.getItem("token");
+
+  if (!token || !videoId) {
+    return [];
+  }
+
+  const response = await fetch(
+    `${BACKEND_URL}/api/user/history/${videoId}`,
+    {
+      method: "DELETE",
+
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    }
+  );
+
+  const data =
+    await response.json().catch(() => null);
+
+  if (!response.ok) {
+    throw new Error(
+      data?.message ||
+        `History API error (${response.status})`
+    );
+  }
+
+  return data?.history || [];
 }

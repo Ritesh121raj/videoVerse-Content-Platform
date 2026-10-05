@@ -13,7 +13,7 @@ import {
 
 
 // ======================================================
-// Format Numbers Like YouTube
+// FORMAT NUMBERS LIKE YOUTUBE
 // ======================================================
 
 function formatNumber(number) {
@@ -48,7 +48,24 @@ function formatNumber(number) {
 
 
 // ======================================================
-// Channel Page
+// GET CURRENT USER
+// ======================================================
+
+function getCurrentUser() {
+  try {
+    const savedUser = JSON.parse(
+      localStorage.getItem("videoVerseCurrentUser")
+    );
+
+    return savedUser?.user || null;
+  } catch {
+    return null;
+  }
+}
+
+
+// ======================================================
+// CHANNEL PAGE
 // ======================================================
 
 function Channel() {
@@ -98,7 +115,7 @@ function Channel() {
 
 
   // ======================================================
-  // Load Channel Data
+  // LOAD CHANNEL DATA
   // ======================================================
 
   const loadChannel = async () => {
@@ -107,7 +124,7 @@ function Channel() {
       setError(null);
 
       // ------------------------------------------
-      // Get Channel Details First
+      // GET CHANNEL DETAILS FIRST
       // ------------------------------------------
 
       const channelData =
@@ -129,7 +146,7 @@ function Channel() {
       );
 
       // ------------------------------------------
-      // Set Channel Information
+      // SET CHANNEL INFORMATION
       // ------------------------------------------
 
       setChannelName(
@@ -160,29 +177,58 @@ function Channel() {
         channelData.videoCount || "0"
       );
 
-      // ------------------------------------------
-      // Check Subscription
-      // ------------------------------------------
 
-      const savedSubscriptions =
-        JSON.parse(
-          localStorage.getItem(
-            "subscribedChannels"
-          )
-        ) || [];
-
-      const alreadySubscribed =
-        savedSubscriptions.some(
-          (channel) =>
-            channel.id === id
-        );
-
-      setSubscribed(
-        alreadySubscribed
-      );
 
       // ------------------------------------------
-      // Get Channel Videos
+      // Check Subscription From Backend
+      // ------------------------------------------
+
+      const token =
+        localStorage.getItem("videoVerseToken");
+
+      if (token) {
+        try {
+          const response = await fetch(
+            "https://videoverse-content-platform.onrender.com/api/user/subscriptions",
+            {
+              method: "GET",
+              headers: {
+                Authorization: `Bearer ${token}`,
+              },
+            }
+          );
+
+          const data = await response.json();
+
+          if (response.ok) {
+            const subscribedChannels =
+              Array.isArray(data.subscribedChannels)
+                ? data.subscribedChannels
+                : [];
+
+            setSubscribed(
+              subscribedChannels.some(
+                (channelId) =>
+                  String(channelId) === String(id)
+              )
+            );
+          } else {
+            setSubscribed(false);
+          }
+        } catch (subscriptionError) {
+          console.error(
+            "Subscription loading error:",
+            subscriptionError
+          );
+
+          setSubscribed(false);
+        }
+      } else {
+        setSubscribed(false);
+      }
+
+      // ------------------------------------------
+      // GET CHANNEL VIDEOS
       // ------------------------------------------
 
       const channelVideos =
@@ -214,6 +260,10 @@ function Channel() {
   };
 
 
+  // ======================================================
+  // LOAD CHANNEL WHEN ID CHANGES
+  // ======================================================
+
   useEffect(() => {
     if (id) {
       loadChannel();
@@ -222,7 +272,7 @@ function Channel() {
 
 
   // ======================================================
-  // Load Shorts Only When Shorts Tab Opens
+  // LOAD SHORTS ONLY WHEN SHORTS TAB OPENS
   // ======================================================
 
   useEffect(() => {
@@ -274,26 +324,119 @@ function Channel() {
   ]);
 
 
+
+
   // ======================================================
   // Subscribe / Unsubscribe
   // ======================================================
 
-  const handleSubscribe = () => {
-    const oldSubscriptions =
-      JSON.parse(
-        localStorage.getItem(
-          "subscribedChannels"
-        )
-      ) || [];
+  const handleSubscribe = async () => {
+    if (!id) {
+      return;
+    }
 
-    if (subscribed) {
-      // Unsubscribe
+    const token =
+      localStorage.getItem("videoVerseToken");
 
-      const updatedSubscriptions =
-        oldSubscriptions.filter(
-          (channel) =>
-            channel.id !== id
+    if (!token) {
+      alert("Please login to subscribe.");
+      return;
+    }
+
+    try {
+      // ==================================================
+      // UNSUBSCRIBE
+      // ==================================================
+
+      if (subscribed) {
+        const response = await fetch(
+          `https://videoverse-content-platform.onrender.com/api/user/subscriptions/${id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to unsubscribe"
+          );
+        }
+
+        setSubscribed(false);
+
+        // Keep local cache in sync
+        const updatedSubscriptions =
+          Array.isArray(data.subscribedChannels)
+            ? data.subscribedChannels.map(
+                (channelId) => ({
+                  id: channelId,
+                })
+              )
+            : [];
+
+        localStorage.setItem(
+          "subscribedChannels",
+          JSON.stringify(
+            updatedSubscriptions
+          )
+        );
+
+        window.dispatchEvent(
+          new Event("subscriptionsUpdated")
+        );
+
+        return;
+      }
+
+      // ==================================================
+      // SUBSCRIBE
+      // ==================================================
+
+      const response = await fetch(
+        "https://videoverse-content-platform.onrender.com/api/user/subscriptions",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type":
+              "application/json",
+
+            Authorization:
+              `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            channelId: id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to subscribe"
+        );
+      }
+
+      setSubscribed(true);
+
+      // Keep local cache in sync
+      const updatedSubscriptions =
+        Array.isArray(data.subscribedChannels)
+          ? data.subscribedChannels.map(
+              (channelId) => ({
+                id: channelId,
+              })
+            )
+          : [];
 
       localStorage.setItem(
         "subscribedChannels",
@@ -302,41 +445,25 @@ function Channel() {
         )
       );
 
-      setSubscribed(false);
+      window.dispatchEvent(
+        new Event("subscriptionsUpdated")
+      );
 
-      return;
+    } catch (error) {
+      console.error(
+        "Subscription error:",
+        error
+      );
+
+      alert(
+        error?.message ||
+          "Unable to update subscription."
+      );
     }
-
-    // Subscribe
-
-    const channelData = {
-      id: id,
-      name: channelName,
-      image: channelImage,
-      profileImage: channelImage,
-    };
-
-    const updatedSubscriptions = [
-      ...oldSubscriptions.filter(
-        (channel) =>
-          channel.id !== id
-      ),
-      channelData,
-    ];
-
-    localStorage.setItem(
-      "subscribedChannels",
-      JSON.stringify(
-        updatedSubscriptions
-      )
-    );
-
-    setSubscribed(true);
   };
 
-
   // ======================================================
-  // Loading
+  // LOADING
   // ======================================================
 
   if (loading) {
@@ -346,9 +473,11 @@ function Channel() {
         <Sidebar />
 
         <main className="main-content channel-page">
+
           <p className="page-message">
             Loading channel...
           </p>
+
         </main>
       </>
     );
@@ -356,7 +485,7 @@ function Channel() {
 
 
   // ======================================================
-  // Error
+  // ERROR
   // ======================================================
 
   if (error) {
@@ -400,7 +529,7 @@ function Channel() {
 
 
   // ======================================================
-  // Main UI
+  // MAIN UI
   // ======================================================
 
   return (
@@ -417,6 +546,7 @@ function Channel() {
         <div className="channel-banner">
 
           {!bannerError && banner ? (
+
             <img
               src={banner}
               alt={`${channelName} banner`}
@@ -424,12 +554,17 @@ function Channel() {
                 setBannerError(true)
               }
             />
+
           ) : (
+
             <div className="default-banner">
+
               <span>
                 {channelName}
               </span>
+
             </div>
+
           )}
 
         </div>
@@ -441,7 +576,7 @@ function Channel() {
 
         <div className="channel-header">
 
-          {/* Profile Image */}
+          {/* PROFILE IMAGE */}
 
           <div className="channel-avatar">
 
@@ -459,11 +594,13 @@ function Channel() {
             ) : (
 
               <div className="channel-avatar-fallback">
+
                 {channelName
                   ? channelName
                       .charAt(0)
                       .toUpperCase()
                   : "C"}
+
               </div>
 
             )}
@@ -471,7 +608,7 @@ function Channel() {
           </div>
 
 
-          {/* Channel Information */}
+          {/* CHANNEL INFORMATION */}
 
           <div className="channel-info">
 
@@ -504,7 +641,7 @@ function Channel() {
             </p>
 
 
-            {/* Subscribe Button */}
+            {/* SUBSCRIBE BUTTON */}
 
             <button
               className={
@@ -516,9 +653,11 @@ function Channel() {
                 handleSubscribe
               }
             >
+
               {subscribed
                 ? "Subscribed"
                 : "Subscribe"}
+
             </button>
 
           </div>
@@ -685,6 +824,7 @@ function Channel() {
                 <button
                   onClick={() => {
                     setActiveTab("Videos");
+
                     setTimeout(() => {
                       setActiveTab("Shorts");
                     }, 0);
@@ -784,6 +924,7 @@ function Channel() {
             <div className="about-stats">
 
               <div>
+
                 <strong>
                   Subscribers
                 </strong>
@@ -793,10 +934,12 @@ function Channel() {
                     subscribers
                   )}
                 </span>
+
               </div>
 
 
               <div>
+
                 <strong>
                   Total Views
                 </strong>
@@ -806,10 +949,12 @@ function Channel() {
                     totalViews
                   )}
                 </span>
+
               </div>
 
 
               <div>
+
                 <strong>
                   Videos
                 </strong>
@@ -819,6 +964,7 @@ function Channel() {
                     videoCount
                   )}
                 </span>
+
               </div>
 
             </div>
