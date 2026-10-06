@@ -409,6 +409,65 @@ const getDislikedStorageKey = () => {
 
     alert("Added to Disliked Videos");
   };
+  const handleWatchLater = async () => {
+    const token = localStorage.getItem("videoVerseToken");
+
+    if (!token) {
+      setShowMenu(false);
+      alert("Please login to use Watch Later.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        "https://videoverse-content-platform.onrender.com/api/user/watch-later",
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({
+            videoId: id,
+          }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Unable to add video to Watch Later"
+        );
+      }
+
+      const watchLaterIds = Array.isArray(data.watchLater)
+        ? data.watchLater
+        : [];
+
+      localStorage.setItem(
+        "watchLater",
+        JSON.stringify(watchLaterIds)
+      );
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
+
+      setShowMenu(false);
+
+      alert("Added to Watch Later");
+    } catch (error) {
+      console.error("Watch Later error:", error);
+
+      setShowMenu(false);
+
+      alert(
+        error?.message ||
+          "Unable to update Watch Later."
+      );
+    }
+  };
   /* ==============================
      SHARE
      ============================== */
