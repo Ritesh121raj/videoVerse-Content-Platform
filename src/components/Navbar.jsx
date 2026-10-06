@@ -13,6 +13,7 @@ import {
 
 import {
   useEffect,
+  useRef,
   useState,
 } from "react";
 
@@ -23,8 +24,10 @@ function Navbar({ search, setSearch }) {
 
   const [localSearch, setLocalSearch] = useState("");
   const [showRecent, setShowRecent] = useState(false);
+  const searchContainerRef = useRef(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [showProfile, setShowProfile] = useState(false);
+  const profileContainerRef = useRef(null);
 
   /* ==============================
      CURRENT USER
@@ -177,6 +180,41 @@ function Navbar({ search, setSearch }) {
       );
     };
   }, []);
+  /* ==============================
+   CLOSE RECENT SEARCHES ON OUTSIDE CLICK
+   ============================== */
+
+useEffect(() => {
+  const handleOutsideClick = (event) => {
+    // Close recent searches if clicked outside search box
+    if (
+      searchContainerRef.current &&
+      !searchContainerRef.current.contains(event.target)
+    ) {
+      setShowRecent(false);
+    }
+
+    // Close profile menu if clicked outside profile icon/menu
+    if (
+      profileContainerRef.current &&
+      !profileContainerRef.current.contains(event.target)
+    ) {
+      setShowProfile(false);
+    }
+  };
+
+  document.addEventListener(
+    "mousedown",
+    handleOutsideClick
+  );
+
+  return () => {
+    document.removeEventListener(
+      "mousedown",
+      handleOutsideClick
+    );
+  };
+}, []);
 
   /* ==============================
      SEARCH
@@ -427,7 +465,10 @@ function Navbar({ search, setSearch }) {
           SEARCH
           ========================== */}
 
-      <div className="search-container">
+      <div
+          className="search-container"
+          ref={searchContainerRef}
+        >
 
         <input
           type="text"
@@ -662,7 +703,10 @@ function Navbar({ search, setSearch }) {
             PROFILE
             ========================== */}
 
-        <div className="profile-container">
+          <div
+            className="profile-container"
+            ref={profileContainerRef}
+          >
 
           <button
             className="profile-button"

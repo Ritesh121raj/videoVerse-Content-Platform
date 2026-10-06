@@ -737,47 +737,58 @@ function Watch() {
       // DISLIKE
       // ==================================================
 
-      try {
-        const currentUser = JSON.parse(
-          localStorage.getItem(
-            "videoVerseCurrentUser"
-          )
-        );
+      if (token) {
+        try {
+          const response =
+            await fetch(
+              `${API_BASE_URL}/user/disliked`,
+              {
+                method: "GET",
 
-        const userId =
-          currentUser?._id ||
-          currentUser?.id ||
-          currentUser?.userId ||
-          currentUser?.email ||
-          null;
+                headers: {
+                  Authorization:
+                    `Bearer ${token}`,
+                },
+              }
+            );
 
-        if (!userId) {
-          setDisliked(false);
-        } else {
-          const dislikedStorageKey =
-            `dislikedVideos_${userId}`;
+          const dislikedData =
+            await response.json();
 
-          const dislikedVideos =
-            JSON.parse(
-              localStorage.getItem(
-                dislikedStorageKey
+          if (response.ok) {
+            const dislikedVideos =
+              Array.isArray(
+                dislikedData.dislikedVideos
               )
-            ) || [];
+                ? dislikedData.dislikedVideos
+                : [];
 
-          setDisliked(
-            dislikedVideos.some(
-              (item) =>
-                getVideoId(item) ===
-                data.id
-            )
+            setDisliked(
+              dislikedVideos.some(
+                (item) =>
+                  getVideoId(item) ===
+                  data.id
+              )
+            );
+
+            localStorage.setItem(
+              "dislikedVideos",
+              JSON.stringify(
+                dislikedVideos
+              )
+            );
+          } else {
+            setDisliked(false);
+          }
+        } catch (error) {
+          console.error(
+            "Load disliked videos error:",
+            error
           );
-        }
-      } catch (error) {
-        console.error(
-          "Dislike loading error:",
-          error
-        );
 
+          setDisliked(false);
+        }
+      } else {
         setDisliked(false);
       }
 
@@ -1624,43 +1635,58 @@ useEffect(() => {
       // ==================================================
 
       if (disliked) {
-        try {
-          const dislikedVideos =
-            JSON.parse(
-              localStorage.getItem(
-                "dislikedVideos"
-              )
-            ) || [];
+        const dislikeResponse =
+          await fetch(
+            `${API_BASE_URL}/user/disliked/${video.id}`,
+            {
+              method: "DELETE",
 
-          const updatedDislikedVideos =
-            dislikedVideos.filter(
-              (item) =>
-                getVideoId(item) !==
-                video.id
-            );
-
-          localStorage.setItem(
-            "dislikedVideos",
-            JSON.stringify(
-              updatedDislikedVideos
-            )
+              headers: {
+                Authorization:
+                  `Bearer ${token}`,
+              },
+            }
           );
 
-          setDisliked(false);
+        const dislikeData =
+          await dislikeResponse.json();
 
-          setDislikeCount(
-            (prev) =>
-              Math.max(
-                0,
-                prev - 1
-              )
-          );
-        } catch (error) {
-          console.error(
-            "Dislike update error:",
-            error
+        if (!dislikeResponse.ok) {
+          throw new Error(
+            dislikeData.message ||
+              "Unable to remove dislike"
           );
         }
+
+        const dislikedIds =
+          Array.isArray(
+            dislikeData.dislikedVideos
+          )
+            ? dislikeData.dislikedVideos
+            : [];
+
+        localStorage.setItem(
+          "dislikedVideos",
+          JSON.stringify(
+            dislikedIds
+          )
+        );
+
+        setDisliked(false);
+
+        setDislikeCount(
+          (prev) =>
+            Math.max(
+              0,
+              prev - 1
+            )
+        );
+
+        window.dispatchEvent(
+          new Event(
+            "activityUpdated"
+          )
+        );
       }
     } catch (error) {
       console.error(
