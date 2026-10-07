@@ -93,57 +93,83 @@ const getDislikedStorageKey = () => {
     notificationMessage,
     notificationType
   ) => {
-    const notificationsEnabled =
-      localStorage.getItem("notificationsEnabled") !== "false";
+    try {
+      // Notification preferences are checked at the moment
+      // the action happens, so stale React state cannot block it.
+      if (
+        localStorage.getItem("notificationsEnabled") ===
+        "false"
+      ) {
+        return;
+      }
 
-    if (!notificationsEnabled) {
-      return;
+      const settingKey = {
+        like: "likeNotifications",
+        dislike: "dislikeNotifications",
+        watchLater: "watchLaterNotifications",
+      }[notificationType];
+
+      if (
+        settingKey &&
+        localStorage.getItem(settingKey) === "false"
+      ) {
+        return;
+      }
+
+      let notifications = [];
+
+      try {
+        const savedNotifications =
+          localStorage.getItem("notifications");
+
+        const parsedNotifications = savedNotifications
+          ? JSON.parse(savedNotifications)
+          : [];
+
+        notifications = Array.isArray(parsedNotifications)
+          ? parsedNotifications
+          : [];
+      } catch {
+        notifications = [];
+      }
+
+      const newNotification = {
+        id: `${Date.now()}-${Math.random()
+          .toString(36)
+          .slice(2, 8)}`,
+        title: notificationTitle,
+        message: notificationMessage,
+        videoId: id,
+        time: "Just now",
+        read: false,
+      };
+
+      const updatedNotifications = [
+        newNotification,
+        ...notifications,
+      ].slice(0, 20);
+
+      localStorage.setItem(
+        "notifications",
+        JSON.stringify(updatedNotifications)
+      );
+
+      // Navbar listens for this event and refreshes its notification state.
+      window.dispatchEvent(
+        new Event("notificationsUpdated")
+      );
+
+      console.log(
+        "Notification added:",
+        newNotification
+      );
+    } catch (error) {
+      console.error(
+        "Notification save error:",
+        error
+      );
     }
-
-    const settingKey = {
-      like: "likeNotifications",
-      dislike: "dislikeNotifications",
-      watchLater: "watchLaterNotifications",
-    }[notificationType];
-
-    if (
-      settingKey &&
-      localStorage.getItem(settingKey) === "false"
-    ) {
-      return;
-    }
-
-    const notifications =
-      JSON.parse(
-        localStorage.getItem("notifications")
-      ) || [];
-
-    const newNotification = {
-      id: `${Date.now()}-${Math.random()
-        .toString(36)
-        .slice(2, 8)}`,
-      title: notificationTitle,
-      message: notificationMessage,
-      videoId: id,
-      time: "Just now",
-      read: false,
-    };
-
-    const updatedNotifications = [
-      newNotification,
-      ...notifications,
-    ].slice(0, 20);
-
-    localStorage.setItem(
-      "notifications",
-      JSON.stringify(updatedNotifications)
-    );
-
-    window.dispatchEvent(
-      new Event("notificationsUpdated")
-    );
   };
-
   /* ==============================
      HISTORY
      ============================== */
