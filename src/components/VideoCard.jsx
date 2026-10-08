@@ -23,56 +23,29 @@ function VideoCard({
   const [showMenu, setShowMenu] = useState(false);
 
   const menuRef = useRef(null);
+  const moreButtonRef = useRef(null);
 
   useEffect(() => {
     const handleOutsideClick = (event) => {
-      if (
-        menuRef.current &&
-        !menuRef.current.contains(event.target)
-      ) {
+      const clickedInsideMenu =
+        menuRef.current?.contains(event.target);
+
+      const clickedMoreButton =
+        moreButtonRef.current?.contains(event.target);
+
+      if (!clickedInsideMenu && !clickedMoreButton) {
         setShowMenu(false);
       }
     };
 
     if (showMenu) {
-      document.addEventListener(
-        "mousedown",
-        handleOutsideClick
-      );
+      document.addEventListener("mousedown", handleOutsideClick);
     }
 
     return () => {
-      document.removeEventListener(
-        "mousedown",
-        handleOutsideClick
-      );
+      document.removeEventListener("mousedown", handleOutsideClick);
     };
   }, [showMenu]);
-
-  const getCurrentUserId = () => {
-    try {
-      const currentUser = JSON.parse(
-        localStorage.getItem(
-          "videoVerseCurrentUser"
-        )
-      );
-
-      return (
-        currentUser?._id ||
-        currentUser?.id ||
-        currentUser?.userId ||
-        currentUser?.email ||
-        null
-      );
-    } catch (error) {
-      console.error(
-        "Error reading current user:",
-        error
-      );
-
-      return null;
-    }
-  };
 
 const getDislikedStorageKey = () => {
   const userId = getCurrentUserId();
@@ -94,34 +67,12 @@ const getDislikedStorageKey = () => {
     notificationType
   ) => {
     try {
-      // Notification preferences are checked at the moment
-      // the action happens, so stale React state cannot block it.
-      if (
-        localStorage.getItem("notificationsEnabled") ===
-        "false"
-      ) {
-        return;
-      }
-
-      const settingKey = {
-        like: "likeNotifications",
-        dislike: "dislikeNotifications",
-        watchLater: "watchLaterNotifications",
-      }[notificationType];
-
-      if (
-        settingKey &&
-        localStorage.getItem(settingKey) === "false"
-      ) {
-        return;
-      }
+      const savedNotifications =
+        localStorage.getItem("notifications");
 
       let notifications = [];
 
       try {
-        const savedNotifications =
-          localStorage.getItem("notifications");
-
         const parsedNotifications = savedNotifications
           ? JSON.parse(savedNotifications)
           : [];
@@ -137,10 +88,17 @@ const getDislikedStorageKey = () => {
         id: `${Date.now()}-${Math.random()
           .toString(36)
           .slice(2, 8)}`,
+
         title: notificationTitle,
+
         message: notificationMessage,
+
         videoId: id,
+
+        type: notificationType,
+
         time: "Just now",
+
         read: false,
       };
 
@@ -154,15 +112,16 @@ const getDislikedStorageKey = () => {
         JSON.stringify(updatedNotifications)
       );
 
-      // Navbar listens for this event and refreshes its notification state.
+      // Immediately update Navbar / Notifications page
       window.dispatchEvent(
         new Event("notificationsUpdated")
       );
 
       console.log(
-        "Notification added:",
+        "Notification added successfully:",
         newNotification
       );
+
     } catch (error) {
       console.error(
         "Notification save error:",
@@ -235,119 +194,241 @@ const getDislikedStorageKey = () => {
 
     const token = localStorage.getItem("videoVerseToken");
 
-    // ==========================================
-    // LOCAL LIKED VIDEOS
-    // ==========================================
+    if (!token) {
+      setShowMenu(false);
 
-    const likedVideos =
-      JSON.parse(
-        localStorage.getItem("likedVideos")
-      ) || [];
+      alert("Please login to like videos.");
 
-    const alreadyLiked =
-      likedVideos.some(
+      return;
+    }
+
+    try {
+      const likedVideos =
+        JSON.parse(
+          localStorage.getItem("likedVideos")
+        ) || [];
+
+      const alreadyLiked = likedVideos.some(
         (video) =>
           typeof video === "string"
             ? video === id
             : video?.id === id
       );
 
-    if (!alreadyLiked) {
-      const updatedLikedVideos = [
-        videoData,
-        ...likedVideos.filter(
+      /* ==============================
+        UNLIKE
+        ============================== */
+
+      if (alreadyLiked) {
+        const response = await fetch(
+          `https://videoverse-content-platform.onrender.com/api/user/liked/${id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Unable to remove liked video"
+          );
+        }
+
+        const updatedLikedVideos =
+          likedVideos.filter(
+            (video) =>
+              typeof video === "string"
+                ? video !== id
+                : video?.id !== id
+          );
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(updatedLikedVideos)
+        );
+
+        window.dispatchEvent(
+          new Event("activityUpdated")
+        );
+
+        setShowMenu(false);
+
+        alert("Removed from Liked Videos");
+
+        return;
+      }
+
+      /* ==============================
+        LIKE
+        ============================== */
+
+      const response = await fetch(
+        "https://videoverse-content-platform.onrender.com/api/user/liked",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            videoId: id,
+          }),
+        }
+      );
+
+      const data = await response.json().catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || "Unable to like video"
+        );
+      }
+
+      /*
+      * Backend se liked videos mile to
+      * unhe localStorage mein rakho.
+      * Otherwise current video ko locally add karo.
+      */
+
+      const backendLikedVideos =
+        Array.isArray(data.likedVideos)
+          ? data.likedVideos
+          : null;
+
+      if (backendLikedVideos) {
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(backendLikedVideos)
+        );
+      } else {
+        const updatedLikedVideos = [
+          videoData,
+          ...likedVideos.filter(
+            (video) =>
+              typeof video === "string"
+                ? video !== id
+                : video?.id !== id
+          ),
+        ];
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(updatedLikedVideos)
+        );
+      }
+
+      /* ==============================
+        REMOVE DISLIKE
+        ============================== */
+
+      try {
+        await fetch(
+          `https://videoverse-content-platform.onrender.com/api/user/disliked/${id}`,
+          {
+            method: "DELETE",
+
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      } catch (error) {
+        console.error(
+          "Unable to remove backend dislike:",
+          error
+        );
+      }
+
+      /*
+      * Remove dislike locally.
+      * Current project can have either:
+      * dislikedVideos
+      * or dislikedVideos_userId
+      */
+
+      const currentUser = (() => {
+        try {
+          return JSON.parse(
+            localStorage.getItem(
+              "videoVerseCurrentUser"
+            )
+          );
+        } catch {
+          return null;
+        }
+      })();
+
+      const userId =
+        currentUser?._id ||
+        currentUser?.id ||
+        currentUser?.userId ||
+        currentUser?.email ||
+        null;
+
+      const dislikedStorageKey = userId
+        ? `dislikedVideos_${userId}`
+        : "dislikedVideos";
+
+      const dislikedVideos =
+        JSON.parse(
+          localStorage.getItem(
+            dislikedStorageKey
+          )
+        ) || [];
+
+      const updatedDislikedVideos =
+        dislikedVideos.filter(
           (video) =>
             typeof video === "string"
               ? video !== id
               : video?.id !== id
-        ),
-      ];
+        );
 
       localStorage.setItem(
-        "likedVideos",
-        JSON.stringify(updatedLikedVideos)
+        dislikedStorageKey,
+        JSON.stringify(updatedDislikedVideos)
       );
+
+      /* ==============================
+        NOTIFICATION
+        ============================== */
 
       addNotification(
         "Video liked",
         `"${title}" was added to your liked videos.`,
         "like"
       );
-    }
 
-    // ==========================================
-    // SAVE TO BACKEND
-    // ==========================================
-
-    if (token) {
-      try {
-        const response = await fetch(
-          "https://videoverse-content-platform.onrender.com/api/user/liked",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${token}`,
-            },
-            body: JSON.stringify({
-              videoId: id,
-            }),
-          }
-        );
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          console.error(
-            "Backend like error:",
-            data.message
-          );
-        }
-      } catch (error) {
-        console.error(
-          "Unable to save liked video to backend:",
-          error
-        );
-      }
-    }
-
-    // ==========================================
-    // REMOVE FROM DISLIKED
-    // ==========================================
-
-    const dislikedVideos =
-      JSON.parse(
-        localStorage.getItem("dislikedVideos")
-      ) || [];
-
-    const updatedDislikedVideos =
-      dislikedVideos.filter(
-        (video) =>
-          typeof video === "string"
-            ? video !== id
-            : video?.id !== id
+      window.dispatchEvent(
+        new Event("activityUpdated")
       );
 
-    localStorage.setItem(
-      "dislikedVideos",
-      JSON.stringify(updatedDislikedVideos)
-    );
+      setShowMenu(false);
 
-    window.dispatchEvent(
-      new Event("activityUpdated")
-    );
+      alert("Added to Liked Videos");
+    } catch (error) {
+      console.error(
+        "Like video error:",
+        error
+      );
 
-    setShowMenu(false);
+      setShowMenu(false);
 
-    alert("Added to Liked Videos");
+      alert(
+        error?.message ||
+          "Unable to update liked video."
+      );
+    }
   };
 
-  /* ==============================
-     DISLIKE
-     ============================== */
 
-
-  const handleDislike = () => {
+  const handleDislike = async () => {
     const savedActivityEnabled =
       localStorage.getItem("savedActivityEnabled") !== "false";
 
@@ -361,33 +442,159 @@ const getDislikedStorageKey = () => {
       return;
     }
 
-    const storageKey = getDislikedStorageKey();
+    const token = localStorage.getItem("videoVerseToken");
 
-    // Login/user ID required for private disliked videos
-    if (!storageKey) {
+    if (!token) {
       setShowMenu(false);
 
-      alert("Please login to save disliked videos.");
+      alert("Please login to dislike videos.");
 
       return;
     }
 
-    const dislikedVideos =
-      JSON.parse(
-        localStorage.getItem(storageKey)
-      ) || [];
+    try {
+      /* ==============================
+        CURRENT USER
+        ============================== */
 
-    const alreadyDisliked =
-      dislikedVideos.some(
-        (video) =>
-          typeof video === "string"
-            ? video === id
-            : video?.id === id
+      let currentUser = null;
+
+      try {
+        currentUser = JSON.parse(
+          localStorage.getItem(
+            "videoVerseCurrentUser"
+          )
+        );
+      } catch {
+        currentUser = null;
+      }
+
+      const userId =
+        currentUser?._id ||
+        currentUser?.id ||
+        currentUser?.userId ||
+        currentUser?.email ||
+        null;
+
+      const dislikedStorageKey = userId
+        ? `dislikedVideos_${userId}`
+        : "dislikedVideos";
+
+      const dislikedVideos =
+        JSON.parse(
+          localStorage.getItem(
+            dislikedStorageKey
+          )
+        ) || [];
+
+      const alreadyDisliked =
+        dislikedVideos.some(
+          (video) =>
+            typeof video === "string"
+              ? video === id
+              : video?.id === id
+        );
+
+      /* ==============================
+        REMOVE DISLIKE
+        ============================== */
+
+      if (alreadyDisliked) {
+        const response = await fetch(
+          `https://videoverse-content-platform.onrender.com/api/user/disliked/${id}`,
+          {
+            method: "DELETE",
+
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const data = await response
+          .json()
+          .catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(
+            data.message ||
+              "Unable to remove disliked video"
+          );
+        }
+
+        const updatedDislikedVideos =
+          dislikedVideos.filter(
+            (video) =>
+              typeof video === "string"
+                ? video !== id
+                : video?.id !== id
+          );
+
+        localStorage.setItem(
+          dislikedStorageKey,
+          JSON.stringify(
+            updatedDislikedVideos
+          )
+        );
+
+        window.dispatchEvent(
+          new Event("activityUpdated")
+        );
+
+        setShowMenu(false);
+
+        alert(
+          "Removed from Disliked Videos"
+        );
+
+        return;
+      }
+
+      /* ==============================
+        ADD DISLIKE
+        ============================== */
+
+      const response = await fetch(
+        "https://videoverse-content-platform.onrender.com/api/user/disliked",
+        {
+          method: "POST",
+
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+
+          body: JSON.stringify({
+            video: {
+              ...videoData,
+
+              image:
+                videoData.thumbnail ||
+                videoData.image ||
+                "",
+            },
+          }),
+        }
       );
 
-    if (!alreadyDisliked) {
+      const data = await response
+        .json()
+        .catch(() => ({}));
+
+      if (!response.ok) {
+        throw new Error(
+          data.message ||
+            "Unable to dislike video"
+        );
+      }
+
+      /* ==============================
+        SAVE DISLIKE LOCALLY
+        ============================== */
+
       const updatedDislikedVideos = [
         videoData,
+
         ...dislikedVideos.filter(
           (video) =>
             typeof video === "string"
@@ -397,43 +604,86 @@ const getDislikedStorageKey = () => {
       ];
 
       localStorage.setItem(
-        storageKey,
-        JSON.stringify(updatedDislikedVideos)
+        dislikedStorageKey,
+        JSON.stringify(
+          updatedDislikedVideos
+        )
       );
+
+      /* ==============================
+        REMOVE LIKE
+        ============================== */
+
+      try {
+        await fetch(
+          `https://videoverse-content-platform.onrender.com/api/user/liked/${id}`,
+          {
+            method: "DELETE",
+
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+      } catch (error) {
+        console.error(
+          "Unable to remove backend like:",
+          error
+        );
+      }
+
+      const likedVideos =
+        JSON.parse(
+          localStorage.getItem(
+            "likedVideos"
+          )
+        ) || [];
+
+      const updatedLikedVideos =
+        likedVideos.filter(
+          (video) =>
+            typeof video === "string"
+              ? video !== id
+              : video?.id !== id
+        );
+
+      localStorage.setItem(
+        "likedVideos",
+        JSON.stringify(
+          updatedLikedVideos
+        )
+      );
+
+      /* ==============================
+        NOTIFICATION
+        ============================== */
 
       addNotification(
         "Video disliked",
         `"${title}" was added to your disliked videos.`,
         "dislike"
       );
-    }
 
-    // Remove from liked videos
-    const likedVideos =
-      JSON.parse(
-        localStorage.getItem("likedVideos")
-      ) || [];
-
-    const updatedLikedVideos =
-      likedVideos.filter(
-        (video) =>
-          typeof video === "string"
-            ? video !== id
-            : video?.id !== id
+      window.dispatchEvent(
+        new Event("activityUpdated")
       );
 
-    localStorage.setItem(
-      "likedVideos",
-      JSON.stringify(updatedLikedVideos)
-    );
+      setShowMenu(false);
 
-    window.dispatchEvent(
-      new Event("activityUpdated")
-    );
+      alert("Added to Disliked Videos");
+    } catch (error) {
+      console.error(
+        "Dislike video error:",
+        error
+      );
 
-    setShowMenu(false);
+      setShowMenu(false);
 
-    alert("Added to Disliked Videos");
+      alert(
+        error?.message ||
+          "Unable to update disliked video."
+      );
+    }
   };
   const handleWatchLater = async () => {
     const token = localStorage.getItem("videoVerseToken");
@@ -642,10 +892,7 @@ const getDislikedStorageKey = () => {
     publishedAt || time;
 
   return (
-    <div
-      className="video-card-wrapper"
-      ref={menuRef}
-    >
+    <div className="video-card-wrapper">
       <Link
         to={`/watch/${id}`}
         className="video-link"
@@ -726,6 +973,7 @@ const getDislikedStorageKey = () => {
             </div>
 
             <button
+              ref={moreButtonRef}
               className="more-button"
               onClick={(e) => {
                 e.preventDefault();
@@ -744,7 +992,10 @@ const getDislikedStorageKey = () => {
       </Link>
 
       {showMenu && (
-        <div className="video-options-menu">
+        <div
+          ref={menuRef}
+          className="video-options-menu"
+        >
 
           <button
             onClick={
