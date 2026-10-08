@@ -13,6 +13,14 @@ import {
   Sun,
   Moon,
   Trash2,
+  Database,
+  History,
+  Heart,
+  ThumbsDown,
+  Clock3,
+  Users,
+  Mail,
+  ShieldCheck,
 } from "lucide-react";
 
 import { useNavigate } from "react-router-dom";
@@ -149,6 +157,11 @@ function Settings() {
       name: "Account",
       icon: UserCircle,
       description: "Manage your VideoVerse account",
+    },
+    {
+      name: "Your Data",
+      icon: Database,
+      description: "View your account and activity data",
     },
     {
       name: "Appearance",
@@ -474,6 +487,104 @@ function Settings() {
       );
     }
   };
+
+  /* ==============================
+     YOUR DATA
+     ============================== */
+
+  const [userData, setUserData] = useState({
+    name: "Not available",
+    email: "Not available",
+    userId: "Not available",
+  });
+
+  const [activityCounts, setActivityCounts] = useState({
+    history: 0,
+    liked: 0,
+    disliked: 0,
+    watchLater: 0,
+    subscriptions: 0,
+  });
+
+  useEffect(() => {
+    const loadYourData = () => {
+      try {
+        const storedUser = JSON.parse(
+          localStorage.getItem("videoVerseCurrentUser")
+        );
+
+        const user =
+          storedUser?.user ||
+          storedUser ||
+          currentUser ||
+          {};
+
+        setUserData({
+          name: user?.name || "Not available",
+          email: user?.email || "Not available",
+          userId:
+            user?._id ||
+            user?.id ||
+            user?.userId ||
+            "Not available",
+        });
+
+        const getArrayLength = (key) => {
+          try {
+            const value = JSON.parse(
+              localStorage.getItem(key)
+            );
+
+            return Array.isArray(value) ? value.length : 0;
+          } catch {
+            return 0;
+          }
+        };
+
+        setActivityCounts({
+          history: getArrayLength("history"),
+          liked: getArrayLength("likedVideos"),
+          disliked: getArrayLength("dislikedVideos"),
+          watchLater: getArrayLength("watchLater"),
+          subscriptions: getArrayLength("subscribedChannels"),
+        });
+      } catch (error) {
+        console.error("Unable to load your data:", error);
+      }
+    };
+
+    loadYourData();
+
+    const handleActivityUpdated = () => {
+      loadYourData();
+    };
+
+    const handleAuthUpdatedForData = () => {
+      loadYourData();
+    };
+
+    window.addEventListener(
+      "activityUpdated",
+      handleActivityUpdated
+    );
+
+    window.addEventListener(
+      "authUpdated",
+      handleAuthUpdatedForData
+    );
+
+    return () => {
+      window.removeEventListener(
+        "activityUpdated",
+        handleActivityUpdated
+      );
+
+      window.removeEventListener(
+        "authUpdated",
+        handleAuthUpdatedForData
+      );
+    };
+  }, [currentUser]);
 
   /* ==============================
      THEME
@@ -980,6 +1091,156 @@ function Settings() {
               </div>
             </>
           )}
+
+            </div>
+          )}
+
+          {/* ==============================
+              YOUR DATA
+              ============================== */}
+
+          {activeSection === "Your Data" && (
+            <div className="settings-section your-data-section">
+
+              <div className="your-data-header">
+                <div>
+                  <h2>Your Data</h2>
+                  <p>
+                    View the information associated with your VideoVerse account.
+                  </p>
+                </div>
+
+                <div className="your-data-header-icon">
+                  <Database size={28} />
+                </div>
+              </div>
+
+              <div className="your-data-card">
+                <div className="your-data-card-header">
+                  <div className="your-data-card-icon">
+                    <UserCircle size={22} />
+                  </div>
+
+                  <div>
+                    <h3>Account Information</h3>
+                    <p>Your basic VideoVerse account details.</p>
+                  </div>
+                </div>
+
+                <div className="your-data-info-grid">
+                  <div className="your-data-info-item">
+                    <div className="your-data-info-icon">
+                      <UserCircle size={19} />
+                    </div>
+                    <div>
+                      <span>Name</span>
+                      <strong>{userData.name}</strong>
+                    </div>
+                  </div>
+
+                  <div className="your-data-info-item">
+                    <div className="your-data-info-icon">
+                      <Mail size={19} />
+                    </div>
+                    <div>
+                      <span>Email</span>
+                      <strong>{userData.email}</strong>
+                    </div>
+                  </div>
+
+                  <div className="your-data-info-item">
+                    <div className="your-data-info-icon">
+                      <ShieldCheck size={19} />
+                    </div>
+                    <div>
+                      <span>User ID</span>
+                      <strong
+                        className="your-data-user-id"
+                        title={userData.userId}
+                      >
+                        {userData.userId}
+                      </strong>
+                    </div>
+                  </div>
+
+                  <div className="your-data-info-item">
+                    <div className="your-data-info-icon">
+                      <ShieldCheck size={19} />
+                    </div>
+                    <div>
+                      <span>Account Status</span>
+                      <strong className="your-data-status">
+                        {currentUser ? "Active" : "Not signed in"}
+                      </strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="your-data-card">
+                <div className="your-data-card-header">
+                  <div className="your-data-card-icon">
+                    <History size={22} />
+                  </div>
+
+                  <div>
+                    <h3>Activity</h3>
+                    <p>Your saved VideoVerse activity.</p>
+                  </div>
+                </div>
+
+                <div className="your-data-activity-grid">
+                  <div className="your-data-activity-item">
+                    <div className="your-data-activity-icon">
+                      <History size={23} />
+                    </div>
+                    <div>
+                      <span>Watch History</span>
+                      <strong>{activityCounts.history}</strong>
+                    </div>
+                  </div>
+
+                  <div className="your-data-activity-item">
+                    <div className="your-data-activity-icon">
+                      <Heart size={23} />
+                    </div>
+                    <div>
+                      <span>Liked Videos</span>
+                      <strong>{activityCounts.liked}</strong>
+                    </div>
+                  </div>
+
+                  <div className="your-data-activity-item">
+                    <div className="your-data-activity-icon">
+                      <ThumbsDown size={23} />
+                    </div>
+                    <div>
+                      <span>Disliked Videos</span>
+                      <strong>{activityCounts.disliked}</strong>
+                    </div>
+                  </div>
+
+                  <div className="your-data-activity-item">
+                    <div className="your-data-activity-icon">
+                      <Clock3 size={23} />
+                    </div>
+                    <div>
+                      <span>Watch Later</span>
+                      <strong>{activityCounts.watchLater}</strong>
+                    </div>
+                  </div>
+
+                  <div className="your-data-activity-item">
+                    <div className="your-data-activity-icon">
+                      <Users size={23} />
+                    </div>
+                    <div>
+                      <span>Subscriptions</span>
+                      <strong>{activityCounts.subscriptions}</strong>
+                    </div>
+                  </div>
+                </div>
+              </div>
 
             </div>
           )}

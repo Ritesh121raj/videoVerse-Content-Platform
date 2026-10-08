@@ -1625,40 +1625,135 @@ useEffect(() => {
       return;
     }
 
-    const token =
-      localStorage.getItem(
-        "videoVerseToken"
-      );
+    const token = localStorage.getItem("videoVerseToken");
 
     if (!token) {
-      alert(
-        "Please login to like videos."
-      );
-
+      alert("Please login to like videos.");
       return;
     }
+
+    // Save previous state for rollback
+    const previousLiked = liked;
+    const previousLikeCount = likeCount;
+    const previousDisliked = disliked;
+    const previousDislikeCount = dislikeCount;
+
+    // ==================================================
+    // OPTIMISTIC UI UPDATE
+    // ==================================================
+
+    if (liked) {
+      // UNLIKE -> instantly remove like
+      setLiked(false);
+
+      setLikeCount((prev) =>
+        Math.max(0, prev - 1)
+      );
+    } else {
+      // LIKE -> instantly add like
+      setLiked(true);
+
+      setLikeCount((prev) => prev + 1);
+
+      // If disliked, instantly remove dislike
+      if (disliked) {
+        setDisliked(false);
+
+        setDislikeCount((prev) =>
+          Math.max(0, prev - 1)
+        );
+      }
+    }
+
+    // ==================================================
+    // UPDATE LOCAL STORAGE IMMEDIATELY
+    // ==================================================
+
+    try {
+      const likedVideos =
+        JSON.parse(
+          localStorage.getItem("likedVideos")
+        ) || [];
+
+      let updatedLikedVideos;
+
+      if (previousLiked) {
+        // Remove from liked
+        updatedLikedVideos =
+          likedVideos.filter(
+            (item) =>
+              getVideoId(item) !== video.id
+          );
+      } else {
+        // Add to liked
+        updatedLikedVideos = [
+          video,
+          ...likedVideos.filter(
+            (item) =>
+              getVideoId(item) !== video.id
+          ),
+        ];
+      }
+
+      localStorage.setItem(
+        "likedVideos",
+        JSON.stringify(updatedLikedVideos)
+      );
+
+      // Remove from local disliked videos
+      if (!previousLiked && previousDisliked) {
+        const dislikedVideos =
+          JSON.parse(
+            localStorage.getItem(
+              "dislikedVideos"
+            )
+          ) || [];
+
+        const updatedDislikedVideos =
+          dislikedVideos.filter(
+            (item) =>
+              getVideoId(item) !== video.id
+          );
+
+        localStorage.setItem(
+          "dislikedVideos",
+          JSON.stringify(
+            updatedDislikedVideos
+          )
+        );
+      }
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
+    } catch (error) {
+      console.error(
+        "Local activity update error:",
+        error
+      );
+    }
+
+    // ==================================================
+    // BACKEND UPDATE
+    // ==================================================
 
     try {
       // ==================================================
       // UNLIKE
       // ==================================================
 
-      if (liked) {
-        const response =
-          await fetch(
-            `${API_BASE_URL}/user/liked/${video.id}`,
-            {
-              method: "DELETE",
+      if (previousLiked) {
+        const response = await fetch(
+          `${API_BASE_URL}/user/liked/${video.id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
-          );
-
-        const data =
-          await response.json();
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -1667,34 +1762,15 @@ useEffect(() => {
           );
         }
 
-        setLiked(false);
-
-        setLikeCount(
-          (prev) =>
-            Math.max(
-              0,
-              prev - 1
-            )
-        );
-
-        const likedIds =
-          Array.isArray(
-            data.likedVideos
-          )
-            ? data.likedVideos
-            : [];
-
-        localStorage.setItem(
-          "likedVideos",
-          JSON.stringify(
-            likedIds
-          )
-        );
+        if (Array.isArray(data.likedVideos)) {
+          localStorage.setItem(
+            "likedVideos",
+            JSON.stringify(data.likedVideos)
+          );
+        }
 
         window.dispatchEvent(
-          new Event(
-            "activityUpdated"
-          )
+          new Event("activityUpdated")
         );
 
         return;
@@ -1704,28 +1780,23 @@ useEffect(() => {
       // LIKE
       // ==================================================
 
-      const response =
-        await fetch(
-          `${API_BASE_URL}/user/liked`,
-          {
-            method: "POST",
+      const response = await fetch(
+        `${API_BASE_URL}/user/liked`,
+        {
+          method: "POST",
 
-            headers: {
-              "Content-Type":
-                "application/json",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
 
-              Authorization:
-                `Bearer ${token}`,
-            },
+          body: JSON.stringify({
+            videoId: video.id,
+          }),
+        }
+      );
 
-            body: JSON.stringify({
-              videoId: video.id,
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -1734,30 +1805,55 @@ useEffect(() => {
         );
       }
 
-      setLiked(true);
+      if (Array.isArray(data.likedVideos)) {
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(data.likedVideos)
+        );
+      }
 
-      setLikeCount(
-        (prev) => prev + 1
-      );
+      // ==================================================
+      // REMOVE DISLIKE FROM BACKEND
+      // ==================================================
 
-      const likedIds =
-        Array.isArray(
-          data.likedVideos
-        )
-          ? data.likedVideos
-          : [];
+      if (previousDisliked) {
+        const dislikeResponse = await fetch(
+          `${API_BASE_URL}/user/disliked/${video.id}`,
+          {
+            method: "DELETE",
 
-      localStorage.setItem(
-        "likedVideos",
-        JSON.stringify(
-          likedIds
-        )
-      );
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
+
+        const dislikeData =
+          await dislikeResponse.json();
+
+        if (!dislikeResponse.ok) {
+          throw new Error(
+            dislikeData.message ||
+              "Unable to remove disliked video"
+          );
+        }
+
+        if (
+          Array.isArray(
+            dislikeData.dislikedVideos
+          )
+        ) {
+          localStorage.setItem(
+            "dislikedVideos",
+            JSON.stringify(
+              dislikeData.dislikedVideos
+            )
+          );
+        }
+      }
 
       window.dispatchEvent(
-        new Event(
-          "activityUpdated"
-        )
+        new Event("activityUpdated")
       );
 
       // ==================================================
@@ -1770,64 +1866,72 @@ useEffect(() => {
         "like"
       );
 
-      // ==================================================
-      // REMOVE DISLIKE
-      // ==================================================
-
-      if (disliked) {
-        try {
-          const dislikedVideos =
-            JSON.parse(
-              localStorage.getItem(
-                "dislikedVideos"
-              )
-            ) || [];
-
-          const updatedDislikedVideos =
-            dislikedVideos.filter(
-              (item) =>
-                getVideoId(item) !==
-                video.id
-            );
-
-          localStorage.setItem(
-            "dislikedVideos",
-            JSON.stringify(
-              updatedDislikedVideos
-            )
-          );
-
-          setDisliked(false);
-
-          setDislikeCount(
-            (prev) =>
-              Math.max(
-                0,
-                prev - 1
-              )
-          );
-
-          window.dispatchEvent(
-            new Event(
-              "activityUpdated"
-            )
-          );
-        } catch (error) {
-          console.error(
-            "Dislike update error:",
-            error
-          );
-        }
-      }
     } catch (error) {
       console.error(
         "Like video error:",
         error
       );
 
+      // ==================================================
+      // ROLLBACK
+      // ==================================================
+
+      setLiked(previousLiked);
+      setLikeCount(previousLikeCount);
+
+      setDisliked(previousDisliked);
+      setDislikeCount(previousDislikeCount);
+
+      // Restore liked videos
+      try {
+        const likedVideos =
+          JSON.parse(
+            localStorage.getItem(
+              "likedVideos"
+            )
+          ) || [];
+
+        let restoredLikedVideos;
+
+        if (previousLiked) {
+          restoredLikedVideos = [
+            video,
+            ...likedVideos.filter(
+              (item) =>
+                getVideoId(item) !==
+                video.id
+            ),
+          ];
+        } else {
+          restoredLikedVideos =
+            likedVideos.filter(
+              (item) =>
+                getVideoId(item) !==
+                video.id
+            );
+        }
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(
+            restoredLikedVideos
+          )
+        );
+
+        window.dispatchEvent(
+          new Event("activityUpdated")
+        );
+
+      } catch (storageError) {
+        console.error(
+          "Rollback storage error:",
+          storageError
+        );
+      }
+
       alert(
         error?.message ||
-          "Unable to update like."
+          "Unable to update like. Please try again."
       );
     }
   };
@@ -1842,40 +1946,136 @@ useEffect(() => {
       return;
     }
 
-    const token =
-      localStorage.getItem(
-        "videoVerseToken"
-      );
+    const token = localStorage.getItem("videoVerseToken");
 
     if (!token) {
-      alert(
-        "Please login to dislike videos."
-      );
-
+      alert("Please login to dislike videos.");
       return;
     }
+
+    // Save previous state for rollback
+    const previousDisliked = disliked;
+    const previousDislikeCount = dislikeCount;
+    const previousLiked = liked;
+    const previousLikeCount = likeCount;
+
+    // ==================================================
+    // OPTIMISTIC UI UPDATE
+    // ==================================================
+
+    if (disliked) {
+      // REMOVE DISLIKE
+      setDisliked(false);
+
+      setDislikeCount((prev) =>
+        Math.max(0, prev - 1)
+      );
+    } else {
+      // ADD DISLIKE
+      setDisliked(true);
+
+      setDislikeCount((prev) => prev + 1);
+
+      // If liked, instantly remove like
+      if (liked) {
+        setLiked(false);
+
+        setLikeCount((prev) =>
+          Math.max(0, prev - 1)
+        );
+      }
+    }
+
+    // ==================================================
+    // UPDATE LOCAL STORAGE IMMEDIATELY
+    // ==================================================
+
+    try {
+      const dislikedVideos =
+        JSON.parse(
+          localStorage.getItem("dislikedVideos")
+        ) || [];
+
+      let updatedDislikedVideos;
+
+      if (previousDisliked) {
+        // Remove from disliked
+        updatedDislikedVideos =
+          dislikedVideos.filter(
+            (item) =>
+              getVideoId(item) !== video.id
+          );
+      } else {
+        // Add to disliked
+        updatedDislikedVideos = [
+          video,
+          ...dislikedVideos.filter(
+            (item) =>
+              getVideoId(item) !== video.id
+          ),
+        ];
+      }
+
+      localStorage.setItem(
+        "dislikedVideos",
+        JSON.stringify(
+          updatedDislikedVideos
+        )
+      );
+
+      // If dislike was added, remove from liked
+      if (!previousDisliked && previousLiked) {
+        const likedVideos =
+          JSON.parse(
+            localStorage.getItem("likedVideos")
+          ) || [];
+
+        const updatedLikedVideos =
+          likedVideos.filter(
+            (item) =>
+              getVideoId(item) !== video.id
+          );
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(
+            updatedLikedVideos
+          )
+        );
+      }
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
+
+    } catch (error) {
+      console.error(
+        "Local dislike update error:",
+        error
+      );
+    }
+
+    // ==================================================
+    // BACKEND UPDATE
+    // ==================================================
 
     try {
       // ==================================================
       // REMOVE DISLIKE
       // ==================================================
 
-      if (disliked) {
-        const response =
-          await fetch(
-            `${API_BASE_URL}/user/disliked/${video.id}`,
-            {
-              method: "DELETE",
+      if (previousDisliked) {
+        const response = await fetch(
+          `${API_BASE_URL}/user/disliked/${video.id}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
+        );
 
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
-          );
-
-        const data =
-          await response.json();
+        const data = await response.json();
 
         if (!response.ok) {
           throw new Error(
@@ -1884,34 +2084,21 @@ useEffect(() => {
           );
         }
 
-        setDisliked(false);
-
-        setDislikeCount(
-          (prev) =>
-            Math.max(
-              0,
-              prev - 1
-            )
-        );
-
-        const dislikedVideos =
+        if (
           Array.isArray(
             data.dislikedVideos
           )
-            ? data.dislikedVideos
-            : [];
-
-        localStorage.setItem(
-          "dislikedVideos",
-          JSON.stringify(
-            dislikedVideos
-          )
-        );
+        ) {
+          localStorage.setItem(
+            "dislikedVideos",
+            JSON.stringify(
+              data.dislikedVideos
+            )
+          );
+        }
 
         window.dispatchEvent(
-          new Event(
-            "activityUpdated"
-          )
+          new Event("activityUpdated")
         );
 
         return;
@@ -1921,35 +2108,29 @@ useEffect(() => {
       // ADD DISLIKE
       // ==================================================
 
-      const response =
-        await fetch(
-          `${API_BASE_URL}/user/disliked`,
-          {
-            method: "POST",
+      const response = await fetch(
+        `${API_BASE_URL}/user/disliked`,
+        {
+          method: "POST",
 
-            headers: {
-              "Content-Type":
-                "application/json",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
 
-              Authorization:
-                `Bearer ${token}`,
+          body: JSON.stringify({
+            video: {
+              ...video,
+              image:
+                video.thumbnail ||
+                video.image ||
+                "",
             },
+          }),
+        }
+      );
 
-            body: JSON.stringify({
-              video: {
-                ...video,
-
-                image:
-                  video.thumbnail ||
-                  video.image ||
-                  "",
-              },
-            }),
-          }
-        );
-
-      const data =
-        await response.json();
+      const data = await response.json();
 
       if (!response.ok) {
         throw new Error(
@@ -1958,89 +2139,62 @@ useEffect(() => {
         );
       }
 
-      // ==================================================
-      // UPDATE DISLIKE STATE
-      // ==================================================
-
-      setDisliked(true);
-
-      setDislikeCount(
-        (prev) => prev + 1
-      );
-
-      const dislikedVideos =
+      if (
         Array.isArray(
           data.dislikedVideos
         )
-          ? data.dislikedVideos
-          : [];
-
-      localStorage.setItem(
-        "dislikedVideos",
-        JSON.stringify(
-          dislikedVideos
-        )
-      );
+      ) {
+        localStorage.setItem(
+          "dislikedVideos",
+          JSON.stringify(
+            data.dislikedVideos
+          )
+        );
+      }
 
       // ==================================================
-      // REMOVE LIKE
+      // REMOVE LIKE FROM BACKEND
       // ==================================================
 
-      if (liked) {
-        try {
-          const likeResponse =
-            await fetch(
-              `${API_BASE_URL}/user/liked/${video.id}`,
-              {
-                method: "DELETE",
+      if (previousLiked) {
+        const likeResponse = await fetch(
+          `${API_BASE_URL}/user/liked/${video.id}`,
+          {
+            method: "DELETE",
 
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
-
-          const likeData =
-            await likeResponse.json();
-
-          if (!likeResponse.ok) {
-            throw new Error(
-              likeData.message ||
-                "Unable to remove like"
-            );
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
           }
+        );
 
-          setLiked(false);
+        const likeData =
+          await likeResponse.json();
 
-          setLikeCount(
-            (prev) =>
-              Math.max(
-                0,
-                prev - 1
-              )
+        if (!likeResponse.ok) {
+          throw new Error(
+            likeData.message ||
+              "Unable to remove liked video"
           );
+        }
 
-          const likedVideos =
-            Array.isArray(
-              likeData.likedVideos
-            )
-              ? likeData.likedVideos
-              : [];
-
+        if (
+          Array.isArray(
+            likeData.likedVideos
+          )
+        ) {
           localStorage.setItem(
             "likedVideos",
             JSON.stringify(
-              likedVideos
+              likeData.likedVideos
             )
-          );
-        } catch (error) {
-          console.error(
-            "Remove like error:",
-            error
           );
         }
       }
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
 
       // ==================================================
       // NOTIFICATION
@@ -2051,20 +2205,112 @@ useEffect(() => {
         `"${video.title}" was added to your disliked videos.`,
         "dislike"
       );
-      window.dispatchEvent(
-        new Event(
-          "activityUpdated"
-        )
-      );
+
     } catch (error) {
       console.error(
         "Dislike video error:",
         error
       );
 
+      // ==================================================
+      // ROLLBACK
+      // ==================================================
+
+      setDisliked(previousDisliked);
+      setDislikeCount(
+        previousDislikeCount
+      );
+
+      setLiked(previousLiked);
+      setLikeCount(
+        previousLikeCount
+      );
+
+      // Restore disliked videos
+      try {
+        const dislikedVideos =
+          JSON.parse(
+            localStorage.getItem(
+              "dislikedVideos"
+            )
+          ) || [];
+
+        let restoredDislikedVideos;
+
+        if (previousDisliked) {
+          restoredDislikedVideos = [
+            video,
+            ...dislikedVideos.filter(
+              (item) =>
+                getVideoId(item) !==
+                video.id
+            ),
+          ];
+        } else {
+          restoredDislikedVideos =
+            dislikedVideos.filter(
+              (item) =>
+                getVideoId(item) !==
+                video.id
+            );
+        }
+
+        localStorage.setItem(
+          "dislikedVideos",
+          JSON.stringify(
+            restoredDislikedVideos
+          )
+        );
+
+        // Restore liked video state
+        const likedVideos =
+          JSON.parse(
+            localStorage.getItem(
+              "likedVideos"
+            )
+          ) || [];
+
+        let restoredLikedVideos;
+
+        if (previousLiked) {
+          restoredLikedVideos = [
+            video,
+            ...likedVideos.filter(
+              (item) =>
+                getVideoId(item) !==
+                video.id
+            ),
+          ];
+        } else {
+          restoredLikedVideos =
+            likedVideos.filter(
+              (item) =>
+                getVideoId(item) !==
+                video.id
+            );
+        }
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(
+            restoredLikedVideos
+          )
+        );
+
+        window.dispatchEvent(
+          new Event("activityUpdated")
+        );
+
+      } catch (storageError) {
+        console.error(
+          "Rollback storage error:",
+          storageError
+        );
+      }
+
       alert(
         error?.message ||
-          "Unable to update dislike."
+          "Unable to update dislike. Please try again."
       );
     }
   };
@@ -2072,42 +2318,113 @@ useEffect(() => {
   // SUBSCRIBE
   // ==================================================
 
+
   const handleSubscribe = async () => {
     if (!video?.channelId) {
       return;
     }
 
     const token =
-      localStorage.getItem(
-        "videoVerseToken"
-      );
+      localStorage.getItem("videoVerseToken");
 
     if (!token) {
-      alert(
-        "Please login to subscribe."
-      );
-
+      alert("Please login to subscribe.");
       return;
     }
+
+    // Save previous state
+    const previousSubscribed = subscribed;
+
+    // ==================================================
+    // OPTIMISTIC UI
+    // ==================================================
+
+    setSubscribed(!previousSubscribed);
+
+    // ==================================================
+    // UPDATE LOCAL STORAGE IMMEDIATELY
+    // ==================================================
+
+    try {
+      const oldSubscriptions =
+        JSON.parse(
+          localStorage.getItem(
+            "subscribedChannels"
+          )
+        ) || [];
+
+      let updatedSubscriptions;
+
+      if (previousSubscribed) {
+        // UNSUBSCRIBE
+        updatedSubscriptions =
+          oldSubscriptions.filter(
+            (channel) =>
+              channel.id !== video.channelId
+          );
+      } else {
+        // SUBSCRIBE
+        const channelData = {
+          id: video.channelId,
+          name:
+            video.channel ||
+            video.channelName ||
+            "Unknown Channel",
+          image:
+            video.channelImage || "",
+          profileImage:
+            video.channelImage || "",
+        };
+
+        updatedSubscriptions = [
+          ...oldSubscriptions.filter(
+            (channel) =>
+              channel.id !==
+              video.channelId
+          ),
+          channelData,
+        ];
+      }
+
+      localStorage.setItem(
+        "subscribedChannels",
+        JSON.stringify(
+          updatedSubscriptions
+        )
+      );
+
+      window.dispatchEvent(
+        new Event("activityUpdated")
+      );
+
+    } catch (error) {
+      console.error(
+        "Local subscription update error:",
+        error
+      );
+    }
+
+    // ==================================================
+    // BACKEND UPDATE
+    // ==================================================
 
     try {
       // ==================================================
       // UNSUBSCRIBE
       // ==================================================
 
-      if (subscribed) {
-        const response =
-          await fetch(
-            `${API_BASE_URL}/user/subscriptions/${video.channelId}`,
-            {
-              method: "DELETE",
+      if (previousSubscribed) {
+        const response = await fetch(
+          `${API_BASE_URL}/user/subscriptions/${video.channelId}`,
+          {
+            method: "DELETE",
 
-              headers: {
-                Authorization:
-                  `Bearer ${token}`,
-              },
-            }
-          );
+            headers: {
+              Authorization:
+                `Bearer ${token}`,
+            },
+          }
+        );
 
         const data =
           await response.json();
@@ -2119,34 +2436,28 @@ useEffect(() => {
           );
         }
 
-        setSubscribed(false);
-
-        const updatedSubscriptions =
+        if (
           Array.isArray(
             data.subscribedChannels
           )
-            ? data.subscribedChannels.map(
-                (channelId) => ({
-                  id: channelId,
-                })
-              )
-            : [];
+        ) {
+          const updatedSubscriptions =
+            data.subscribedChannels.map(
+              (channelId) => ({
+                id: channelId,
+              })
+            );
 
-        localStorage.setItem(
-          "subscribedChannels",
-          JSON.stringify(
-            updatedSubscriptions
-          )
-        );
+          localStorage.setItem(
+            "subscribedChannels",
+            JSON.stringify(
+              updatedSubscriptions
+            )
+          );
+        }
 
         window.dispatchEvent(
-          new Event(
-            "activityUpdated"
-          )
-        );
-
-        alert(
-          "Unsubscribed successfully"
+          new Event("activityUpdated")
         );
 
         return;
@@ -2156,26 +2467,25 @@ useEffect(() => {
       // SUBSCRIBE
       // ==================================================
 
-      const response =
-        await fetch(
-          `${API_BASE_URL}/user/subscriptions`,
-          {
-            method: "POST",
+      const response = await fetch(
+        `${API_BASE_URL}/user/subscriptions`,
+        {
+          method: "POST",
 
-            headers: {
-              "Content-Type":
-                "application/json",
+          headers: {
+            "Content-Type":
+              "application/json",
 
-              Authorization:
-                `Bearer ${token}`,
-            },
+            Authorization:
+              `Bearer ${token}`,
+          },
 
-            body: JSON.stringify({
-              channelId:
-                video.channelId,
-            }),
-          }
-        );
+          body: JSON.stringify({
+            channelId:
+              video.channelId,
+          }),
+        }
+      );
 
       const data =
         await response.json();
@@ -2187,62 +2497,106 @@ useEffect(() => {
         );
       }
 
-      // ==================================================
-      // UPDATE SUBSCRIBE STATE
-      // ==================================================
-
-      setSubscribed(true);
-
-      const updatedSubscriptions =
+      if (
         Array.isArray(
           data.subscribedChannels
         )
-          ? data.subscribedChannels.map(
-              (channelId) => ({
-                id: channelId,
-              })
-            )
-          : [];
+      ) {
+        const updatedSubscriptions =
+          data.subscribedChannels.map(
+            (channelId) => ({
+              id: channelId,
+            })
+          );
 
-      localStorage.setItem(
-        "subscribedChannels",
-        JSON.stringify(
-          updatedSubscriptions
-        )
-      );
-
-      // ==================================================
-      // SUBSCRIPTION NOTIFICATION
-      // ==================================================
-
-      addNotification(
-        "Channel subscribed",
-        `You subscribed to "${video.channel || video.channelName || "this channel"}".`,
-        "subscription"
-      );
-
-      // ==================================================
-      // UPDATE ACTIVITY PAGES
-      // ==================================================
+        localStorage.setItem(
+          "subscribedChannels",
+          JSON.stringify(
+            updatedSubscriptions
+          )
+        );
+      }
 
       window.dispatchEvent(
-        new Event(
-          "activityUpdated"
-        )
+        new Event("activityUpdated")
       );
 
-      alert(
-        "Subscribed successfully"
-      );
     } catch (error) {
       console.error(
         "Subscription error:",
         error
       );
 
+      // ==================================================
+      // ROLLBACK
+      // ==================================================
+
+      setSubscribed(
+        previousSubscribed
+      );
+
+      // Restore localStorage
+      try {
+        const subscriptions =
+          JSON.parse(
+            localStorage.getItem(
+              "subscribedChannels"
+            )
+          ) || [];
+
+        let restoredSubscriptions;
+
+        if (previousSubscribed) {
+          const channelData = {
+            id: video.channelId,
+            name:
+              video.channel ||
+              video.channelName ||
+              "Unknown Channel",
+            image:
+              video.channelImage || "",
+            profileImage:
+              video.channelImage || "",
+          };
+
+          restoredSubscriptions = [
+            channelData,
+            ...subscriptions.filter(
+              (channel) =>
+                channel.id !==
+                video.channelId
+            ),
+          ];
+        } else {
+          restoredSubscriptions =
+            subscriptions.filter(
+              (channel) =>
+                channel.id !==
+                video.channelId
+            );
+        }
+
+        localStorage.setItem(
+          "subscribedChannels",
+          JSON.stringify(
+            restoredSubscriptions
+          )
+        );
+
+        window.dispatchEvent(
+          new Event("activityUpdated")
+        );
+
+      } catch (storageError) {
+        console.error(
+          "Subscription rollback storage error:",
+          storageError
+        );
+      }
+
       alert(
         error?.message ||
-          "Unable to update subscription."
+          "Unable to update subscription. Please try again."
       );
     }
   };
@@ -2353,9 +2707,9 @@ useEffect(() => {
           )
         );
 
-        alert(
-          "Removed from Watch Later"
-        );
+        // alert(
+        //   "Removed from Watch Later"
+        // );
 
         return;
       }
@@ -2462,9 +2816,9 @@ useEffect(() => {
         )
       );
 
-      alert(
-        "Added to Watch Later"
-      );
+      // alert(
+      //   "Added to Watch Later"
+      // );
     } catch (error) {
       console.error(
         "Watch Later error:",
