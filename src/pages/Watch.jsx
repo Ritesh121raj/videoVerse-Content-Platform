@@ -148,18 +148,53 @@ function Watch() {
     notificationType
   ) => {
     try {
-      // All notifications are enabled by default
-      localStorage.setItem("notificationsEnabled", "true");
-      localStorage.setItem("likeNotifications", "true");
-      localStorage.setItem("dislikeNotifications", "true");
-      localStorage.setItem("watchLaterNotifications", "true");
+      // ==========================================
+      // GLOBAL NOTIFICATION SETTING
+      // ==========================================
 
-      const savedNotifications =
-        localStorage.getItem("notifications");
+      const notificationsEnabled =
+        localStorage.getItem("notificationsEnabled") !== "false";
+
+      if (!notificationsEnabled) {
+        console.log(
+          "Notifications are disabled from Settings."
+        );
+
+        return;
+      }
+
+      // ==========================================
+      // TYPE-SPECIFIC SETTING
+      // ==========================================
+
+      const settingKey = {
+        like: "likeNotifications",
+        dislike: "dislikeNotifications",
+        watchLater: "watchLaterNotifications",
+        subscription: "notificationsEnabled",
+      }[notificationType];
+
+      if (
+        settingKey &&
+        localStorage.getItem(settingKey) === "false"
+      ) {
+        console.log(
+          `${notificationType} notification is disabled from Settings.`
+        );
+
+        return;
+      }
+
+      // ==========================================
+      // GET EXISTING NOTIFICATIONS
+      // ==========================================
 
       let notifications = [];
 
       try {
+        const savedNotifications =
+          localStorage.getItem("notifications");
+
         const parsed = savedNotifications
           ? JSON.parse(savedNotifications)
           : [];
@@ -171,17 +206,31 @@ function Watch() {
         notifications = [];
       }
 
+      // ==========================================
+      // CREATE NOTIFICATION
+      // ==========================================
+
       const newNotification = {
         id: `${Date.now()}-${Math.random()
           .toString(36)
           .slice(2, 8)}`,
+
         title: notificationTitle,
+
         message: notificationMessage,
+
         videoId: video?.id || id,
+
         type: notificationType,
+
         time: "Just now",
+
         read: false,
       };
+
+      // ==========================================
+      // SAVE
+      // ==========================================
 
       const updatedNotifications = [
         newNotification,
@@ -1715,46 +1764,10 @@ useEffect(() => {
       // NOTIFICATION
       // ==================================================
 
-      const notifications =
-        JSON.parse(
-          localStorage.getItem(
-            "notifications"
-          )
-        ) || [];
-
-      const newNotification = {
-        id: `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 8)}`,
-
-        title: "Video liked",
-
-        message:
-          `"${video.title}" was added to your liked videos.`,
-
-        videoId: video.id,
-
-        type: "like",
-
-        time: "Just now",
-
-        read: false,
-      };
-
-      localStorage.setItem(
-        "notifications",
-        JSON.stringify(
-          [
-            newNotification,
-            ...notifications,
-          ].slice(0, 20)
-        )
-      );
-
-      window.dispatchEvent(
-        new Event(
-          "notificationsUpdated"
-        )
+      addNotification(
+        "Video liked",
+        `"${video.title}" was added to your liked videos.`,
+        "like"
       );
 
       // ==================================================
@@ -2033,48 +2046,11 @@ useEffect(() => {
       // NOTIFICATION
       // ==================================================
 
-      const notifications =
-        JSON.parse(
-          localStorage.getItem(
-            "notifications"
-          )
-        ) || [];
-
-      const newNotification = {
-        id: `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 8)}`,
-
-        title: "Video disliked",
-
-        message:
-          `"${video.title}" was added to your disliked videos.`,
-
-        videoId: video.id,
-
-        type: "dislike",
-
-        time: "Just now",
-
-        read: false,
-      };
-
-      localStorage.setItem(
-        "notifications",
-        JSON.stringify(
-          [
-            newNotification,
-            ...notifications,
-          ].slice(0, 20)
-        )
+      addNotification(
+        "Video disliked",
+        `"${video.title}" was added to your disliked videos.`,
+        "dislike"
       );
-
-      window.dispatchEvent(
-        new Event(
-          "notificationsUpdated"
-        )
-      );
-
       window.dispatchEvent(
         new Event(
           "activityUpdated"
@@ -2239,50 +2215,10 @@ useEffect(() => {
       // SUBSCRIPTION NOTIFICATION
       // ==================================================
 
-      const notifications =
-        JSON.parse(
-          localStorage.getItem(
-            "notifications"
-          )
-        ) || [];
-
-      const newNotification = {
-        id: `${Date.now()}-${Math.random()
-          .toString(36)
-          .slice(2, 8)}`,
-
-        title: "Channel subscribed",
-
-        message:
-          `You subscribed to "${video.channel || video.channelName || "this channel"}".`,
-
-        channelId:
-          video.channelId,
-
-        videoId:
-          video.id,
-
-        type: "subscription",
-
-        time: "Just now",
-
-        read: false,
-      };
-
-      localStorage.setItem(
-        "notifications",
-        JSON.stringify(
-          [
-            newNotification,
-            ...notifications,
-          ].slice(0, 20)
-        )
-      );
-
-      window.dispatchEvent(
-        new Event(
-          "notificationsUpdated"
-        )
+      addNotification(
+        "Channel subscribed",
+        `You subscribed to "${video.channel || video.channelName || "this channel"}".`,
+        "subscription"
       );
 
       // ==================================================
