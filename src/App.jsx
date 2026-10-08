@@ -934,6 +934,8 @@ function Subscriptions() {
                         {image ? (
                           <img
                             src={image}
+                    loading="lazy"
+                    decoding="async"
                             alt={
                               displayName
                             }
@@ -1055,6 +1057,8 @@ function Subscriptions() {
                             {image ? (
                               <img
                                 src={image}
+                    loading="lazy"
+                    decoding="async"
                                 alt={
                                   displayName
                                 }

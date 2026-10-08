@@ -549,6 +549,8 @@ function Channel() {
 
             <img
               src={banner}
+                    loading="lazy"
+                    decoding="async"
               alt={`${channelName} banner`}
               onError={() =>
                 setBannerError(true)
@@ -585,6 +587,8 @@ function Channel() {
 
               <img
                 src={channelImage}
+                    loading="lazy"
+                    decoding="async"
                 alt={channelName}
                 onError={() =>
                   setChannelImageError(true)
@@ -872,6 +876,8 @@ function Channel() {
                             src={
                               short.thumbnail
                             }
+                    loading="lazy"
+                    decoding="async"
                             alt={
                               short.title
                             }

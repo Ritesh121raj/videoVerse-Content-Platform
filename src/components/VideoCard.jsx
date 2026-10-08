@@ -657,6 +657,8 @@ const getDislikedStorageKey = () => {
             {videoThumbnail ? (
               <img
                 src={videoThumbnail}
+                    loading="lazy"
+                    decoding="async"
                 alt={title || "Video thumbnail"}
                 className="thumbnail"
                 onError={(event) => {
@@ -693,6 +695,8 @@ const getDislikedStorageKey = () => {
               {channelImage ? (
                 <img
                   src={channelImage}
+                    loading="lazy"
+                    decoding="async"
                   alt={channel}
                 />
               ) : (

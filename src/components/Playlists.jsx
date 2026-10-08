@@ -188,6 +188,8 @@ function Playlists() {
                       playlist.videos[0]?.image ||
                       ""
                     }
+                    loading="lazy"
+                    decoding="async"
                     alt={playlist.name}
                   />
                 ) : (

@@ -11,31 +11,89 @@ const BACKEND_URL =
 
 const API_CACHE = new Map();
 
+// Prevent duplicate requests when the same data is requested
+// multiple times before the first request finishes.
+const IN_FLIGHT_REQUESTS = new Map();
+
+function dedupeRequest(cacheKey, requestFn) {
+  if (IN_FLIGHT_REQUESTS.has(cacheKey)) {
+    return IN_FLIGHT_REQUESTS.get(cacheKey);
+  }
+
+  const request = Promise.resolve()
+    .then(requestFn)
+    .finally(() => {
+      IN_FLIGHT_REQUESTS.delete(cacheKey);
+    });
+
+  IN_FLIGHT_REQUESTS.set(cacheKey, request);
+  return request;
+}
+
 const CACHE_DURATION = 5 * 60 * 1000; // 5 minutes
 
 function getCachedData(cacheKey) {
   const cached = API_CACHE.get(cacheKey);
 
-  if (!cached) {
-    return null;
-  }
+  if (cached) {
+    const isExpired =
+      Date.now() - cached.timestamp > CACHE_DURATION;
 
-  const isExpired =
-    Date.now() - cached.timestamp > CACHE_DURATION;
+    if (!isExpired) {
+      return cached.data;
+    }
 
-  if (isExpired) {
     API_CACHE.delete(cacheKey);
-    return null;
   }
 
-  return cached.data;
+  // Keep the short-lived cache across page refreshes in the
+  // same browser tab. This avoids repeating expensive YouTube
+  // requests when a user refreshes the SPA within 5 minutes.
+  try {
+    const stored =
+      sessionStorage.getItem(`videoVerseApiCache:${cacheKey}`);
+
+    if (!stored) {
+      return null;
+    }
+
+    const parsed = JSON.parse(stored);
+
+    if (
+      !parsed ||
+      typeof parsed.timestamp !== "number" ||
+      Date.now() - parsed.timestamp > CACHE_DURATION
+    ) {
+      sessionStorage.removeItem(
+        `videoVerseApiCache:${cacheKey}`
+      );
+      return null;
+    }
+
+    API_CACHE.set(cacheKey, parsed);
+    return parsed.data;
+  } catch {
+    return null;
+  }
 }
 
 function setCachedData(cacheKey, data) {
-  API_CACHE.set(cacheKey, {
+  const cached = {
     data,
     timestamp: Date.now(),
-  });
+  };
+
+  API_CACHE.set(cacheKey, cached);
+
+  try {
+    sessionStorage.setItem(
+      `videoVerseApiCache:${cacheKey}`,
+      JSON.stringify(cached)
+    );
+  } catch {
+    // Storage can fail when the browser quota is full.
+    // In-memory caching still works in that case.
+  }
 }
 const getApiErrorMessage = (status) => {
   switch (status) {
@@ -220,7 +278,7 @@ export async function getVideos() {
 // Get Video By ID
 // ======================================================
 
-export async function getVideoById(videoId) {
+async function getVideoByIdFresh(videoId) {
   const cacheKey = `video-${videoId}`;
 
   // ==========================================
@@ -397,15 +455,25 @@ export async function getVideoById(videoId) {
   }
 }
 
-// ======================================================
-// Search Videos
-// ======================================================
+// Public wrapper: share an in-flight request between components/tabs
+// that ask for the same video at the same time.
+export function getVideoById(videoId) {
+  if (!videoId) return Promise.resolve(null);
+
+  return dedupeRequest(`video-request-${videoId}`, () =>
+    getVideoByIdFresh(videoId)
+  );
+}
 
 // ======================================================
 // Search Videos
 // ======================================================
 
-export async function searchVideos(
+// ======================================================
+// Search Videos
+// ======================================================
+
+async function searchVideosFresh(
   query,
   {
     uploadDate = "any",
@@ -746,6 +814,31 @@ export async function searchVideos(
     // Pass actual API error to caller
     throw error;
   }
+}
+
+// Public wrapper: avoid duplicate YouTube searches when multiple
+// components request the same query/filter combination together.
+export function searchVideos(query, options = {}) {
+  const normalizedQuery = String(query || "").trim().toLowerCase();
+  const {
+    uploadDate = "any",
+    duration = "any",
+    sortBy = "relevance",
+  } = options || {};
+
+  const requestKey =
+    `search-request-${normalizedQuery}` +
+    `-date-${uploadDate}` +
+    `-duration-${duration}` +
+    `-sort-${sortBy}`;
+
+  return dedupeRequest(requestKey, () =>
+    searchVideosFresh(query, {
+      uploadDate,
+      duration,
+      sortBy,
+    })
+  );
 }
 
 // ======================================================

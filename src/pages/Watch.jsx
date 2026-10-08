@@ -636,41 +636,35 @@ function Watch() {
       // ==================================================
       // RECOMMENDED VIDEOS
       // ==================================================
+      // Start recommendations immediately, but do not block
+      // the main video/activity UI while YouTube search runs.
 
-      try {
-        setRecommendedError(null);
+      setRecommendedError(null);
 
-        const recommended =
-          await searchVideos(
-            data.title
+      searchVideos(data.title)
+        .then((recommended) => {
+          const filtered =
+            Array.isArray(recommended)
+              ? recommended.filter(
+                  (item) => item?.id !== data.id
+                )
+              : [];
+
+          setRecommendedVideos(filtered);
+        })
+        .catch((error) => {
+          console.error(
+            "Error loading recommendations:",
+            error
           );
 
-        const filtered =
-          Array.isArray(
-            recommended
-          )
-            ? recommended.filter(
-                (item) =>
-                  item?.id !== data.id
-              )
-            : [];
+          setRecommendedVideos([]);
 
-        setRecommendedVideos(
-          filtered
-        );
-      } catch (error) {
-        console.error(
-          "Error loading recommendations:",
-          error
-        );
-
-        setRecommendedVideos([]);
-
-        setRecommendedError(
-          error?.message ||
-            "Unable to load recommended videos."
-        );
-      }
+          setRecommendedError(
+            error?.message ||
+              "Unable to load recommended videos."
+          );
+        });
 
       // ==================================================
       // SUBSCRIPTION
@@ -726,212 +720,229 @@ function Watch() {
         );
 
       // ==================================================
-      // LOAD LIKED VIDEOS
+      // USER ACTIVITY DATA
       // ==================================================
+      // These three requests are independent. Running them
+      // together removes two extra network round trips from
+      // the Watch-page critical path.
 
       if (token) {
-        try {
-          const response =
-            await fetch(
-              `${API_BASE_URL}/user/liked`,
+        const authHeaders = {
+          Authorization: `Bearer ${token}`,
+        };
+
+        const fetchActivity = async (endpoint) => {
+          try {
+            const response = await fetch(
+              `${API_BASE_URL}${endpoint}`,
               {
                 method: "GET",
-
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
+                headers: authHeaders,
               }
             );
 
-          const likedData =
-            await response.json();
+            const data =
+              await response.json().catch(() => null);
 
-          if (response.ok) {
-            const likedIds =
-              Array.isArray(
-                likedData.likedVideos
-              )
-                ? likedData.likedVideos
-                : [];
+            return {
+              ok: response.ok,
+              data,
+            };
+          } catch (error) {
+            console.error(
+              `Load ${endpoint} error:`,
+              error
+            );
+
+            return {
+              ok: false,
+              data: null,
+            };
+          }
+        };
+
+        const [likedResult, dislikedResult, watchLaterResult] =
+          await Promise.all([
+            fetchActivity("/user/liked"),
+            fetchActivity("/user/disliked"),
+            fetchActivity("/user/watch-later"),
+          ]);
+
+        // ==================================================
+        // LIKED VIDEOS
+        // ==================================================
+
+        if (likedResult.ok) {
+          const likedIds =
+            Array.isArray(
+              likedResult.data?.likedVideos
+            )
+              ? likedResult.data.likedVideos
+              : [];
+
+          setLiked(
+            likedIds.some(
+              (item) =>
+                getVideoId(item) === data.id
+            )
+          );
+
+          localStorage.setItem(
+            "likedVideos",
+            JSON.stringify(likedIds)
+          );
+        } else {
+          // Keep the current local value if the backend
+          // request temporarily fails.
+          try {
+            const localLiked =
+              JSON.parse(
+                localStorage.getItem("likedVideos")
+              ) || [];
 
             setLiked(
-              likedIds.includes(
-                data.id
+              localLiked.some(
+                (item) =>
+                  getVideoId(item) === data.id
               )
             );
-
-            localStorage.setItem(
-              "likedVideos",
-              JSON.stringify(
-                likedIds
-              )
-            );
+          } catch {
+            setLiked(false);
           }
-        } catch (error) {
-          console.error(
-            "Load liked videos error:",
-            error
+        }
+
+        // ==================================================
+        // DISLIKED VIDEOS
+        // ==================================================
+
+        if (dislikedResult.ok) {
+          const dislikedVideos =
+            Array.isArray(
+              dislikedResult.data?.dislikedVideos
+            )
+              ? dislikedResult.data.dislikedVideos
+              : [];
+
+          setDisliked(
+            dislikedVideos.some(
+              (item) =>
+                getVideoId(item) === data.id
+            )
           );
+
+          localStorage.setItem(
+            "dislikedVideos",
+            JSON.stringify(dislikedVideos)
+          );
+        } else {
+          try {
+            const localDisliked =
+              JSON.parse(
+                localStorage.getItem("dislikedVideos")
+              ) || [];
+
+            setDisliked(
+              localDisliked.some(
+                (item) =>
+                  getVideoId(item) === data.id
+              )
+            );
+          } catch {
+            setDisliked(false);
+          }
+        }
+
+        // ==================================================
+        // WATCH LATER
+        // ==================================================
+
+        if (watchLaterResult.ok) {
+          const watchLaterIds =
+            Array.isArray(
+              watchLaterResult.data?.watchLater
+            )
+              ? watchLaterResult.data.watchLater
+              : [];
+
+          setWatchLater(
+            watchLaterIds.some(
+              (item) =>
+                getVideoId(item) === data.id
+            )
+          );
+
+          localStorage.setItem(
+            "watchLater",
+            JSON.stringify(watchLaterIds)
+          );
+        } else {
+          try {
+            const localWatchLater =
+              JSON.parse(
+                localStorage.getItem("watchLater")
+              ) || [];
+
+            setWatchLater(
+              localWatchLater.some(
+                (item) =>
+                  getVideoId(item) === data.id
+              )
+            );
+          } catch {
+            setWatchLater(false);
+          }
         }
       } else {
         // ==================================================
-        // LOCAL LIKE FALLBACK
+        // LOCAL ACTIVITY FALLBACK
         // ==================================================
 
         try {
           const localLiked =
             JSON.parse(
-              localStorage.getItem(
-                "likedVideos"
-              )
+              localStorage.getItem("likedVideos")
             ) || [];
 
           setLiked(
             localLiked.some(
               (item) =>
-                getVideoId(item) ===
-                data.id
+                getVideoId(item) === data.id
             )
           );
-        } catch (error) {
-          console.error(
-            "Local liked videos error:",
-            error
-          );
+        } catch {
+          setLiked(false);
         }
-      }
 
-
-      // ==================================================
-      // DISLIKE
-      // ==================================================
-
-      if (token) {
         try {
-          const response =
-            await fetch(
-              `${API_BASE_URL}/user/disliked`,
-              {
-                method: "GET",
+          const localDisliked =
+            JSON.parse(
+              localStorage.getItem("dislikedVideos")
+            ) || [];
 
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
-
-          const dislikedData =
-            await response.json();
-
-          if (response.ok) {
-            const dislikedVideos =
-              Array.isArray(
-                dislikedData.dislikedVideos
-              )
-                ? dislikedData.dislikedVideos
-                : [];
-
-            setDisliked(
-              dislikedVideos.some(
-                (item) =>
-                  getVideoId(item) ===
-                  data.id
-              )
-            );
-
-            localStorage.setItem(
-              "dislikedVideos",
-              JSON.stringify(
-                dislikedVideos
-              )
-            );
-          } else {
-            setDisliked(false);
-          }
-        } catch (error) {
-          console.error(
-            "Load disliked videos error:",
-            error
+          setDisliked(
+            localDisliked.some(
+              (item) =>
+                getVideoId(item) === data.id
+            )
           );
-
+        } catch {
           setDisliked(false);
         }
-      } else {
-        setDisliked(false);
-      }
 
-      // ==================================================
-      // WATCH LATER
-      // ==================================================
-
-      if (token) {
-        try {
-          const response =
-            await fetch(
-              `${API_BASE_URL}/user/watch-later`,
-              {
-                method: "GET",
-
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
-
-          const watchLaterData =
-            await response.json();
-
-          if (response.ok) {
-            const watchLaterIds =
-              Array.isArray(
-                watchLaterData.watchLater
-              )
-                ? watchLaterData.watchLater
-                : [];
-
-            setWatchLater(
-              watchLaterIds.includes(
-                data.id
-              )
-            );
-
-            localStorage.setItem(
-              "watchLater",
-              JSON.stringify(
-                watchLaterIds
-              )
-            );
-          }
-        } catch (error) {
-          console.error(
-            "Load watch later error:",
-            error
-          );
-        }
-      } else {
         try {
           const localWatchLater =
             JSON.parse(
-              localStorage.getItem(
-                "watchLater"
-              )
+              localStorage.getItem("watchLater")
             ) || [];
 
           setWatchLater(
             localWatchLater.some(
               (item) =>
-                getVideoId(item) ===
-                data.id
+                getVideoId(item) === data.id
             )
           );
-        } catch (error) {
-          console.error(
-            "Local watch later error:",
-            error
-          );
+        } catch {
+          setWatchLater(false);
         }
       }
 
@@ -3394,6 +3405,8 @@ useEffect(() => {
                         src={
                           video.channelImage
                         }
+                    loading="lazy"
+                    decoding="async"
                         alt={
                           video.channel ||
                           "Channel"

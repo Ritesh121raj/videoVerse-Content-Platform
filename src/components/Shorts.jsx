@@ -83,6 +83,8 @@ function Shorts() {
 
                   <img
                     src={short.thumbnail}
+                    loading="lazy"
+                    decoding="async"
                     alt={short.title}
                     className="short-video-image"
                   />
