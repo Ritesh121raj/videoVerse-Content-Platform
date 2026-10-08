@@ -67,12 +67,52 @@ const getDislikedStorageKey = () => {
     notificationType
   ) => {
     try {
-      const savedNotifications =
-        localStorage.getItem("notifications");
+      // ==========================================
+      // GLOBAL NOTIFICATION SETTING
+      // ==========================================
+
+      const notificationsEnabled =
+        localStorage.getItem("notificationsEnabled") !== "false";
+
+      if (!notificationsEnabled) {
+        console.log(
+          "Notifications are disabled from Settings."
+        );
+
+        return;
+      }
+
+      // ==========================================
+      // TYPE-SPECIFIC NOTIFICATION SETTING
+      // ==========================================
+
+      const settingKey = {
+        like: "likeNotifications",
+        dislike: "dislikeNotifications",
+        watchLater: "watchLaterNotifications",
+      }[notificationType];
+
+      if (
+        settingKey &&
+        localStorage.getItem(settingKey) === "false"
+      ) {
+        console.log(
+          `${notificationType} notifications are disabled from Settings.`
+        );
+
+        return;
+      }
+
+      // ==========================================
+      // GET EXISTING NOTIFICATIONS
+      // ==========================================
 
       let notifications = [];
 
       try {
+        const savedNotifications =
+          localStorage.getItem("notifications");
+
         const parsedNotifications = savedNotifications
           ? JSON.parse(savedNotifications)
           : [];
@@ -80,9 +120,18 @@ const getDislikedStorageKey = () => {
         notifications = Array.isArray(parsedNotifications)
           ? parsedNotifications
           : [];
-      } catch {
+      } catch (error) {
+        console.error(
+          "Unable to read notifications:",
+          error
+        );
+
         notifications = [];
       }
+
+      // ==========================================
+      // CREATE NEW NOTIFICATION
+      // ==========================================
 
       const newNotification = {
         id: `${Date.now()}-${Math.random()
@@ -102,6 +151,10 @@ const getDislikedStorageKey = () => {
         read: false,
       };
 
+      // ==========================================
+      // SAVE NOTIFICATION
+      // ==========================================
+
       const updatedNotifications = [
         newNotification,
         ...notifications,
@@ -112,16 +165,18 @@ const getDislikedStorageKey = () => {
         JSON.stringify(updatedNotifications)
       );
 
-      // Immediately update Navbar / Notifications page
+      // ==========================================
+      // UPDATE NOTIFICATION UI
+      // ==========================================
+
       window.dispatchEvent(
         new Event("notificationsUpdated")
       );
 
       console.log(
-        "Notification added successfully:",
+        "Notification added:",
         newNotification
       );
-
     } catch (error) {
       console.error(
         "Notification save error:",
