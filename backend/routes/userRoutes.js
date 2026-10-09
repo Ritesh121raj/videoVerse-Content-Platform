@@ -267,106 +267,76 @@ router.post("/disliked", protect, async (req, res) => {
 // REMOVE ONE DISLIKED VIDEO
 // ======================================================
 
-router.delete(
-  "/disliked/:videoId",
-  protect,
-  async (req, res) => {
-    try {
-      const { videoId } =
-        req.params;
 
-      if (!videoId) {
-        return res.status(400).json({
-          message: "Video ID is required",
-        });
-      }
+/* ==========================================
+   REMOVE ONE DISLIKED VIDEO
+========================================== */
 
-      const user = await User.findById(
-        req.user.userId
-      );
+router.delete("/disliked/:videoId", protect, async (req, res) => {
+  try {
+    const { videoId } = req.params;
 
-      if (!user) {
-        return res.status(404).json({
-          message: "User not found",
-        });
-      }
-
-      user.dislikedVideos =
-        (user.dislikedVideos || []).filter(
-          (item) => {
-            const itemId =
-              typeof item === "string"
-                ? item
-                : item?.id;
-
-            return itemId !== videoId;
-          }
-        );
-
-      await user.save();
-
-      res.status(200).json({
-        message:
-          "Video removed from disliked videos",
-
-        dislikedVideos:
-          user.dislikedVideos,
-      });
-    } catch (error) {
-      console.error(
-        "Remove disliked video error:",
-        error
-      );
-
-      res.status(500).json({
-        message: "Server error",
+    if (!videoId) {
+      return res.status(400).json({
+        message: "Video ID is required",
       });
     }
-  }
-);
 
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $pull: { dislikedVideos: videoId } },
+      { new: true }
+    ).select("dislikedVideos");
 
-// ======================================================
-// CLEAR ALL DISLIKED VIDEOS
-// ======================================================
-
-router.delete(
-  "/disliked",
-  protect,
-  async (req, res) => {
-    try {
-      const user = await User.findById(
-        req.user.userId
-      );
-
-      if (!user) {
-        return res.status(404).json({
-          message: "User not found",
-        });
-      }
-
-      user.dislikedVideos = [];
-
-      await user.save();
-
-      res.status(200).json({
-        message:
-          "All disliked videos cleared",
-
-        dislikedVideos: [],
-      });
-    } catch (error) {
-      console.error(
-        "Clear disliked videos error:",
-        error
-      );
-
-      res.status(500).json({
-        message: "Server error",
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
       });
     }
+
+    return res.status(200).json({
+      message: "Video removed from disliked videos",
+      dislikedVideos: user.dislikedVideos || [],
+    });
+  } catch (error) {
+    console.error("Remove disliked video error:", error);
+
+    return res.status(500).json({
+      message: "Server error while removing disliked video",
+    });
   }
-);
+});
+
+/* ==========================================
+   CLEAR ALL DISLIKED VIDEOS
+========================================== */
+
+router.delete("/disliked", protect, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: { dislikedVideos: [] } },
+      { new: true }
+    ).select("dislikedVideos");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "All disliked videos cleared successfully",
+      dislikedVideos: [],
+    });
+  } catch (error) {
+    console.error("Clear disliked videos error:", error);
+
+    return res.status(500).json({
+      message: "Server error while clearing disliked videos",
+    });
+  }
+});
 // ======================================================
 // GET WATCH LATER
 // ======================================================

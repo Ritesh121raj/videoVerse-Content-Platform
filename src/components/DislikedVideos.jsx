@@ -181,145 +181,111 @@ function DislikedVideos() {
   // REMOVE ONE DISLIKED VIDEO
   // ======================================================
 
-  const removeFromDisliked = async (
-    videoId
-  ) => {
-    const token =
-      localStorage.getItem(
-        "videoVerseToken"
-      );
+  
+  // REMOVE ONE DISLIKED VIDEO
+  const removeFromDisliked = async (videoId) => {
+    const token = localStorage.getItem("videoVerseToken");
 
     if (!token) {
+      alert("Please login to manage disliked videos.");
       return;
     }
 
     try {
       const response = await fetch(
-        `${API_BASE_URL}/user/disliked/${videoId}`,
+        `${API_BASE_URL}/user/disliked/${encodeURIComponent(videoId)}`,
         {
           method: "DELETE",
-
           headers: {
-            Authorization:
-              `Bearer ${token}`,
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
           },
         }
       );
 
-      const text =
-        await response.text();
-
+      const responseText = await response.text();
       let data = {};
 
       try {
-        data = text
-          ? JSON.parse(text)
-          : {};
+        data = responseText ? JSON.parse(responseText) : {};
       } catch {
         throw new Error(
-          "Backend returned invalid response"
+          `Backend returned HTML instead of JSON (HTTP ${response.status}). Check the deployed backend URL and routes.`
         );
       }
 
       if (!response.ok) {
         throw new Error(
-          data.message ||
-            "Unable to remove video"
+          data.message || `Unable to remove video (HTTP ${response.status})`
         );
       }
 
-      setDislikedVideos(
-        (prev) =>
-          prev.filter(
-            (video) =>
-              video.id !== videoId
-          )
+      setDislikedVideos((previous) =>
+        previous.filter(
+          (video) => String(getVideoId(video)) !== String(videoId)
+        )
       );
 
-      window.dispatchEvent(
-        new Event("activityUpdated")
-      );
-
+      window.dispatchEvent(new Event("activityUpdated"));
     } catch (error) {
-      console.error(
-        "Remove disliked video error:",
-        error
-      );
-
-      alert(
-        error.message ||
-          "Unable to remove video"
-      );
+      console.error("Remove disliked video error:", error);
+      alert(error.message || "Unable to remove disliked video.");
     }
   };
-  // ======================================================
+
   // CLEAR ALL DISLIKED VIDEOS
-  // ======================================================
+  const clearAllDislikedVideos = async () => {
+    if (dislikedVideos.length === 0) return;
 
-  const clearAllDislikedVideos =
-    async () => {
-      const token =
-        localStorage.getItem(
-          "videoVerseToken"
-        );
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all disliked videos?"
+    );
 
-      if (!token) {
-        return;
-      }
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("videoVerseToken");
+
+    if (!token) {
+      alert("Please login to manage disliked videos.");
+      return;
+    }
+
+    try {
+      const response = await fetch(
+        `${API_BASE_URL}/user/disliked`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            Accept: "application/json",
+          },
+        }
+      );
+
+      const responseText = await response.text();
+      let data = {};
 
       try {
-        const response = await fetch(
-          `${API_BASE_URL}/user/disliked`,
-          {
-            method: "DELETE",
-
-            headers: {
-              Authorization:
-                `Bearer ${token}`,
-            },
-          }
-        );
-
-        const text =
-          await response.text();
-
-        let data = {};
-
-        try {
-          data = text
-            ? JSON.parse(text)
-            : {};
-        } catch {
-          throw new Error(
-            "Backend returned invalid response"
-          );
-        }
-
-        if (!response.ok) {
-          throw new Error(
-            data.message ||
-              "Unable to clear disliked videos"
-          );
-        }
-
-        setDislikedVideos([]);
-
-        window.dispatchEvent(
-          new Event("activityUpdated")
-        );
-
-      } catch (error) {
-        console.error(
-          "Clear disliked videos error:",
-          error
-        );
-
-        alert(
-          error.message ||
-            "Unable to clear disliked videos"
+        data = responseText ? JSON.parse(responseText) : {};
+      } catch {
+        throw new Error(
+          `Backend returned HTML instead of JSON (HTTP ${response.status}). Check the deployed backend URL and routes.`
         );
       }
-    };
+
+      if (!response.ok) {
+        throw new Error(
+          data.message || `Unable to clear disliked videos (HTTP ${response.status})`
+        );
+      }
+
+      setDislikedVideos([]);
+      window.dispatchEvent(new Event("activityUpdated"));
+    } catch (error) {
+      console.error("Clear disliked videos error:", error);
+      alert(error.message || "Unable to clear disliked videos.");
+    }
+  };
 
   // ======================================================
   // UI
