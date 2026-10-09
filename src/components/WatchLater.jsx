@@ -240,217 +240,126 @@ function WatchLater() {
   // REMOVE FROM WATCH LATER
   // ======================================================
 
-  const removeFromWatchLater =
-    async (videoId) => {
-      const token =
-        localStorage.getItem(
-          "videoVerseToken"
+  
+  // ======================================================
+  // REMOVE ONE VIDEO FROM WATCH LATER
+  // ======================================================
+
+  const removeFromWatchLater = async (videoId) => {
+    const token = localStorage.getItem("videoVerseToken");
+
+    try {
+      if (token) {
+        const response = await fetch(
+          `${API_BASE_URL}/user/watch-later/${encodeURIComponent(videoId)}`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+            },
+          }
         );
 
-      // ==================================================
-      // LOGGED IN USER
-      // REMOVE FROM BACKEND
-      // ==================================================
+        const data = await response.json();
 
-      if (token) {
-        try {
-          const response =
-            await fetch(
-              `${API_BASE_URL}/user/watch-later/${videoId}`,
-              {
-                method: "DELETE",
-
-                headers: {
-                  Authorization:
-                    `Bearer ${token}`,
-                },
-              }
-            );
-
-          const data =
-            await response.json();
-
-          if (!response.ok) {
-            throw new Error(
-              data.message ||
-                "Unable to remove video from Watch Later"
-            );
-          }
-
-          // Backend returns updated IDs
-          const updatedWatchLater =
-            Array.isArray(
-              data.watchLater
-            )
-              ? data.watchLater
-              : [];
-
-          localStorage.setItem(
-            "watchLater",
-            JSON.stringify(
-              updatedWatchLater
-            )
+        if (!response.ok) {
+          throw new Error(
+            data.message || "Unable to remove video"
           );
-        } catch (error) {
-          console.error(
-            "Remove Watch Later error:",
-            error
-          );
-
-          return;
         }
-      } else {
-        // =================================================
-        // LOGGED OUT / LOCAL FALLBACK
-        // =================================================
-
-        const savedVideos =
-          JSON.parse(
-            localStorage.getItem(
-              "watchLater"
-            )
-          ) || [];
-
-        const updatedVideos =
-          savedVideos.filter(
-            (item) => {
-              if (
-                typeof item ===
-                "string"
-              ) {
-                return (
-                  item !==
-                  videoId
-                );
-              }
-
-              return (
-                item?.id !==
-                videoId
-              );
-            }
-          );
 
         localStorage.setItem(
           "watchLater",
-          JSON.stringify(
-            updatedVideos
-          )
+          JSON.stringify(data.watchLater || [])
+        );
+      } else {
+        const savedVideos = JSON.parse(
+          localStorage.getItem("watchLater") || "[]"
+        );
+
+        const updatedVideos = savedVideos.filter((item) => {
+          const id =
+            typeof item === "string" ? item : item?.id;
+          return id !== videoId;
+        });
+
+        localStorage.setItem(
+          "watchLater",
+          JSON.stringify(updatedVideos)
         );
       }
 
-      // ==================================================
-      // UPDATE UI IMMEDIATELY
-      // ==================================================
-
-      setWatchLaterVideos(
-        (prevVideos) =>
-          prevVideos.filter(
-            (video) =>
-              video.id !==
-              videoId
-          )
+      setWatchLaterVideos((prev) =>
+        prev.filter((video) => video.id !== videoId)
       );
 
-      window.dispatchEvent(
-        new Event(
-          "activityUpdated"
-        )
-      );
-    };
+      window.dispatchEvent(new Event("activityUpdated"));
+    } catch (error) {
+      console.error("Remove Watch Later error:", error);
+      alert(error.message || "Could not remove this video.");
+    }
+  };
+
 
   // ======================================================
   // CLEAR ALL WATCH LATER
   // ======================================================
 
-  const clearAllWatchLater =
-    async () => {
-      const token =
-        localStorage.getItem(
-          "videoVerseToken"
+  
+  const clearAllWatchLater = async () => {
+    if (watchLaterVideos.length === 0) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all Watch Later videos?"
+    );
+
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("videoVerseToken");
+
+    try {
+      // Logged-in user: clear videos from backend first
+      if (token) {
+        const response = await fetch(
+          `${API_BASE_URL}/user/watch-later`,
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          }
         );
 
-      // ==================================================
-      // LOGGED IN USER
-      // REMOVE ALL BACKEND ITEMS
-      // ==================================================
+        // Safely handle JSON and HTML responses
+        const responseText = await response.text();
+        let data = {};
 
-      if (token) {
         try {
-          const savedVideos =
-            JSON.parse(
-              localStorage.getItem(
-                "watchLater"
-              )
-            ) || [];
-
-          // Remove every saved video
-          await Promise.all(
-            savedVideos.map(
-              async (item) => {
-                const videoId =
-                  typeof item ===
-                  "string"
-                    ? item
-                    : item?.id;
-
-                if (!videoId) {
-                  return;
-                }
-
-                try {
-                  await fetch(
-                    `${API_BASE_URL}/user/watch-later/${videoId}`,
-                    {
-                      method:
-                        "DELETE",
-
-                      headers: {
-                        Authorization:
-                          `Bearer ${token}`,
-                      },
-                    }
-                  );
-                } catch (
-                  deleteError
-                ) {
-                  console.error(
-                    `Error removing ${videoId}:`,
-                    deleteError
-                  );
-                }
-              }
-            )
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          throw new Error(
+            `Backend returned HTML instead of JSON (HTTP ${response.status}). Check API URL and redeploy the backend.`
           );
-        } catch (error) {
-          console.error(
-            "Clear Watch Later error:",
-            error
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || `Failed to clear Watch Later (HTTP ${response.status})`
           );
         }
       }
 
-      // ==================================================
-      // CLEAR LOCAL DATA
-      // ==================================================
-
-      localStorage.removeItem(
-        "watchLater"
-      );
-
-      // ==================================================
-      // UPDATE UI
-      // ==================================================
-
+      // Update frontend only after backend succeeds
+      localStorage.setItem("watchLater", JSON.stringify([]));
       setWatchLaterVideos([]);
 
-      window.dispatchEvent(
-        new Event(
-          "activityUpdated"
-        )
-      );
-    };
-
+      window.dispatchEvent(new Event("activityUpdated"));
+    } catch (error) {
+      console.error("Clear Watch Later error:", error);
+      alert(error.message || "Could not clear Watch Later.");
+    }
+  };
   // ======================================================
   // UI
   // ======================================================

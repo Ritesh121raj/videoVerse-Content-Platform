@@ -116,6 +116,7 @@ function Watch() {
   const recommendedVideosRef = useRef([]);
 
   const playlistVideosRef = useRef([]);
+  const endedHandledRef = useRef(false);
 
   // ==================================================
   // FORMAT NUMBER
@@ -1044,6 +1045,7 @@ function Watch() {
   // ==================================================
 
   useEffect(() => {
+    endedHandledRef.current = false;
     loadVideo();
 
     setShowPlaylistModal(false);
@@ -1147,332 +1149,298 @@ useEffect(() => {
   // YOUTUBE IFRAME PLAYER
   // ==================================================
 
+
   useEffect(() => {
-    if (
-      !video?.id ||
-      !iframeRef.current
-    ) {
-      return;
-    }
+    if (!video?.id || !iframeRef.current) return;
 
     let cancelled = false;
+    let previousApiReady = null;
+    let apiReadyHandler = null;
 
     const initializePlayer = () => {
       if (
         cancelled ||
-        !window.YT ||
-        !window.YT.Player ||
-        !iframeRef.current
+        !window.YT?.Player ||
+        !iframeRef.current ||
+        !iframeRef.current.isConnected
       ) {
         return;
       }
 
-      // Destroy previous player
+      // Destroy the previous player safely
       if (playerRef.current) {
         try {
           playerRef.current.destroy();
         } catch (error) {
-          console.log(
-            "Previous player cleanup:",
-            error
-          );
+          console.warn("Previous player cleanup:", error);
         }
 
         playerRef.current = null;
       }
 
       try {
-        playerRef.current =
-          new window.YT.Player(
-            iframeRef.current,
-            {
-              videoId: video.id,
+        playerRef.current = new window.YT.Player(
+          iframeRef.current,
+          {
+            videoId: video.id,
 
-              playerVars: {
-                autoplay: 0,
-                controls: 1,
-                rel: 0,
-                modestbranding: 1,
-                playsinline: 1,
-                enablejsapi: 1,
-                origin:
-                  window.location.origin,
-              },
+            playerVars: {
+              autoplay: 0,
+              controls: 1,
+              rel: 0,
+              modestbranding: 1,
+              playsinline: 1,
+              enablejsapi: 1,
+              origin: window.location.origin,
+            },
 
-              events: {
-                // ======================================
-                // PLAYER READY
-                // ======================================
+            events: {
+              // PLAYER READY
+              onReady: (event) => {
+                if (cancelled) return;
 
-                onReady: (event) => {
-                  try {
-                    saveHistory();
+                try {
+                  const defaultMuteEnabled =
+                    localStorage.getItem("defaultMute") === "true";
+                  const shouldAutoplayThisVideo =
+                    searchParams.get("autoplay") === "1";
 
-                    // ==================================
-                    // RESUME CONTINUE WATCHING
-                    // ==================================
+                  // Default mute applies when a video starts; Autoplay controls
+                  // only whether the next video starts after the current one ends.
+                  if (defaultMuteEnabled) {
+                    event.target.mute();
+                  } else {
+                    event.target.unMute();
+                  }
 
-                    const saved =
-                      JSON.parse(
-                        localStorage.getItem(
-                          "continueWatching"
-                        )
-                      ) || [];
-
-                    const savedVideo =
-                      saved.find(
-                        (item) =>
-                          item?.id ===
-                          video.id
-                      );
-
-                    if (
-                      savedVideo &&
-                      Number(
-                        savedVideo.currentTime
-                      ) > 5
-                    ) {
-                      event.target.seekTo(
-                        Number(
-                          savedVideo.currentTime
-                        ),
-                        true
-                      );
+                  // Apply the selected quality when the YouTube player supports it.
+                  const qualityMap = {
+                    "1080p": "hd1080",
+                    "720p": "hd720",
+                    "480p": "large",
+                    "360p": "medium",
+                  };
+                  const preferredQuality = localStorage.getItem("videoQuality") || "Auto";
+                  if (preferredQuality !== "Auto" && qualityMap[preferredQuality]) {
+                    try {
+                      event.target.setPlaybackQuality(qualityMap[preferredQuality]);
+                    } catch (qualityError) {
+                      console.warn("Unable to apply preferred video quality:", qualityError);
                     }
-                  } catch (error) {
-                    console.error(
-                      "Player ready error:",
-                      error
+                  }
+
+                  // Only videos explicitly opened by the end-of-video Autoplay
+                  // flow should start automatically (browser policies still apply).
+                  if (shouldAutoplayThisVideo) {
+                    if (defaultMuteEnabled) event.target.mute();
+                    event.target.playVideo();
+                  }
+
+                  // Restore saved playback progress.
+                  const saved = JSON.parse(
+                    localStorage.getItem("continueWatching") || "[]"
+                  );
+
+                  const savedVideo = Array.isArray(saved)
+                    ? saved.find((item) => item?.id === video.id)
+                    : null;
+
+                  if (Number(savedVideo?.currentTime) > 5) {
+                    event.target.seekTo(
+                      Number(savedVideo.currentTime),
+                      true
                     );
                   }
-                },
 
-                // ======================================
-                // PLAYER STATE CHANGE
-                // ======================================
-
-                onStateChange: (event) => {
-                  // PLAYING
-                  if (
-                    event.data ===
-                    window.YT.PlayerState
-                      .PLAYING
-                  ) {
-                    saveHistory();
-                    return;
-                  }
-
-                  // PAUSED
-                  if (
-                    event.data ===
-                    window.YT.PlayerState
-                      .PAUSED
-                  ) {
-                    saveHistory();
-                    saveContinueWatching();
-                    return;
-                  }
-
-                  // ENDED
-                  if (
-                    event.data ===
-                    window.YT.PlayerState
-                      .ENDED
-                  ) {
-                    saveHistory();
-
-                    // Remove completed video
-                    try {
-                      const saved =
-                        JSON.parse(
-                          localStorage.getItem(
-                            "continueWatching"
-                          )
-                        ) || [];
-
-                      const updated =
-                        saved.filter(
-                          (item) =>
-                            item?.id !==
-                            video.id
-                        );
-
-                      localStorage.setItem(
-                        "continueWatching",
-                        JSON.stringify(
-                          updated
-                        )
-                      );
-
-                      window.dispatchEvent(
-                        new Event(
-                          "activityUpdated"
-                        )
-                      );
-                    } catch (error) {
-                      console.error(
-                        "Continue Watching cleanup error:",
-                        error
-                      );
-                    }
-
-                    // ==================================
-                    // AUTOPLAY CHECK
-                    // ==================================
-
-                    if (
-                      localStorage.getItem(
-                        "autoplay"
-                      ) === "false"
-                    ) {
-                      return;
-                    }
-
-                    // ==================================
-                    // PLAYLIST NEXT
-                    // ==================================
-
-                    const playlistVideos =
-                      playlistVideosRef.current;
-
-                    if (
-                      playlistVideos.length >
-                      0
-                    ) {
-                      const currentIndex =
-                        playlistVideos.findIndex(
-                          (item) =>
-                            item?.id ===
-                            video.id
-                        );
-
-                      const nextVideo =
-                        playlistVideos[
-                          currentIndex + 1
-                        ];
-
-                      if (
-                        nextVideo?.id
-                      ) {
-                        navigate(
-                          `/watch/${nextVideo.id}?playlist=${playlistId}`
-                        );
-
-                        return;
-                      }
-                    }
-
-                    // ==================================
-                    // RECOMMENDED NEXT
-                    // ==================================
-
-                    const nextVideo =
-                      recommendedVideosRef
-                        .current[0];
-
-                    if (
-                      nextVideo?.id
-                    ) {
-                      navigate(
-                        `/watch/${nextVideo.id}`
-                      );
-                    }
-                  }
-                },
-
-                // ======================================
-                // PLAYER ERROR
-                // ======================================
-
-                onError: (event) => {
-                  console.error(
-                    "YouTube Player Error:",
-                    event.data
-                  );
-                },
+                  saveHistory();
+                } catch (error) {
+                  console.error("Player ready error:", error);
+                }
               },
-            }
-          );
-      } catch (error) {
-        console.error(
-          "YouTube player initialization error:",
-          error
+
+              // PLAYER STATE CHANGE
+              onStateChange: (event) => {
+                if (cancelled) return;
+
+                const playerState = window.YT.PlayerState;
+
+                if (event.data === playerState.PLAYING) {
+                  // Do not force mute/unmute here: that would override the
+                  // user's manual mute control every time playback starts.
+                  const preferredQuality = localStorage.getItem("videoQuality") || "Auto";
+                  const qualityMap = {
+                    "1080p": "hd1080",
+                    "720p": "hd720",
+                    "480p": "large",
+                    "360p": "medium",
+                  };
+                  if (preferredQuality !== "Auto" && qualityMap[preferredQuality]) {
+                    try {
+                      event.target.setPlaybackQuality(qualityMap[preferredQuality]);
+                    } catch (qualityError) {
+                      console.warn("Unable to apply preferred video quality:", qualityError);
+                    }
+                  }
+                  saveHistory();
+                  return;
+                }
+
+                if (event.data === playerState.PAUSED) {
+                  saveHistory();
+                  saveContinueWatching();
+                  return;
+                }
+
+                if (event.data !== playerState.ENDED) return;
+
+                // YouTube may emit ENDED more than once. Handle it once per video.
+                if (endedHandledRef.current) return;
+                endedHandledRef.current = true;
+
+                saveHistory();
+
+                // Remove completed videos from Continue Watching.
+                try {
+                  const saved = JSON.parse(
+                    localStorage.getItem("continueWatching") || "[]"
+                  );
+                  const updated = Array.isArray(saved)
+                    ? saved.filter((item) => item?.id !== video.id)
+                    : [];
+                  localStorage.setItem("continueWatching", JSON.stringify(updated));
+                  window.dispatchEvent(new Event("activityUpdated"));
+                } catch (error) {
+                  console.error("Continue Watching cleanup error:", error);
+                }
+
+                // Autoplay OFF means stay on the completed video.
+                if (localStorage.getItem("autoplay") === "false") return;
+
+                const navigateToVideo = (nextVideo, keepPlaylist = false) => {
+                  const nextId =
+                    typeof nextVideo?.id === "string"
+                      ? nextVideo.id
+                      : nextVideo?.id?.videoId || nextVideo?.videoId;
+                  if (!nextId || nextId === video.id) return false;
+
+                  const playlistQuery =
+                    keepPlaylist && playlistId
+                      ? `&playlist=${encodeURIComponent(playlistId)}`
+                      : "";
+                  navigate(`/watch/${encodeURIComponent(nextId)}?autoplay=1${playlistQuery}`);
+                  return true;
+                };
+
+                // 1) If this video is inside a playlist, play its next item.
+                const playlistVideos = playlistVideosRef.current;
+                if (Array.isArray(playlistVideos) && playlistVideos.length > 0) {
+                  const currentIndex = playlistVideos.findIndex(
+                    (item) => (item?.id?.videoId || item?.id) === video.id
+                  );
+                  const nextPlaylistVideo =
+                    currentIndex >= 0 ? playlistVideos[currentIndex + 1] : null;
+
+                  if (navigateToVideo(nextPlaylistVideo, true)) return;
+                }
+
+                // 2) Use already-loaded recommendations.
+                const recommendations = recommendedVideosRef.current;
+                const nextRecommendedVideo = Array.isArray(recommendations)
+                  ? recommendations.find((item) => {
+                      const candidateId =
+                        typeof item?.id === "string"
+                          ? item.id
+                          : item?.id?.videoId || item?.videoId;
+                      return candidateId && candidateId !== video.id;
+                    })
+                  : null;
+
+                if (navigateToVideo(nextRecommendedVideo)) return;
+
+                // 3) Recommendations may still be loading (or may have failed).
+                // Fetch again at the end so Autoplay still has a next-video fallback.
+                searchVideos(video?.title || "")
+                  .then((results) => {
+                    if (cancelled) return;
+                    const fallback = Array.isArray(results)
+                      ? results.find((item) => {
+                          const candidateId =
+                            typeof item?.id === "string"
+                              ? item.id
+                              : item?.id?.videoId || item?.videoId;
+                          return candidateId && candidateId !== video.id;
+                        })
+                      : null;
+
+                    if (!navigateToVideo(fallback)) {
+                      console.warn(
+                        "Autoplay could not find another playable video. Check searchVideos API results."
+                      );
+                    }
+                  })
+                  .catch((error) => {
+                    console.error("Autoplay next-video lookup failed:", error);
+                  });
+              },
+
+              // PLAYER ERROR
+              onError: (event) => {
+                console.error("YouTube Player Error:", event.data);
+              },
+            },
+          }
         );
+      } catch (error) {
+        console.error("YouTube player initialization error:", error);
       }
     };
 
-    // ==================================================
-    // YOUTUBE API ALREADY LOADED
-    // ==================================================
-
-    if (
-      window.YT &&
-      window.YT.Player
-    ) {
+    if (window.YT?.Player) {
       initializePlayer();
     } else {
-      // ==================================================
-      // LOAD YOUTUBE IFRAME API
-      // ==================================================
-
-      let script =
-        document.getElementById(
-          "youtube-iframe-api"
-        );
+      let script = document.getElementById("youtube-iframe-api");
 
       if (!script) {
-        script =
-          document.createElement(
-            "script"
-          );
-
-        script.id =
-          "youtube-iframe-api";
-
-        script.src =
-          "https://www.youtube.com/iframe_api";
-
+        script = document.createElement("script");
+        script.id = "youtube-iframe-api";
+        script.src = "https://www.youtube.com/iframe_api";
         script.async = true;
-
-        document.body.appendChild(
-          script
-        );
+        document.head.appendChild(script);
       }
 
-      const previousCallback =
-        window.onYouTubeIframeAPIReady;
+      previousApiReady = window.onYouTubeIframeAPIReady;
 
-      window.onYouTubeIframeAPIReady =
-        () => {
-          if (previousCallback) {
-            previousCallback();
+      apiReadyHandler = () => {
+        try {
+          if (typeof previousApiReady === "function") {
+            previousApiReady();
           }
-
+        } catch (error) {
+          console.warn("Previous YouTube API-ready callback failed:", error);
+        } finally {
           initializePlayer();
-        };
-    }
+        }
+      };
 
-    // ==================================================
-    // CLEANUP
-    // ==================================================
+      window.onYouTubeIframeAPIReady = apiReadyHandler;
+    }
 
     return () => {
       cancelled = true;
 
-      saveHistory();
+      if (window.onYouTubeIframeAPIReady === apiReadyHandler) {
+        window.onYouTubeIframeAPIReady = previousApiReady;
+      }
 
+      // Save progress before destroying the player.
+      saveHistory();
       saveContinueWatching();
 
-      if (
-        playerRef.current
-      ) {
+      if (playerRef.current) {
         try {
           playerRef.current.destroy();
         } catch (error) {
-          console.log(
-            "Player destroy error:",
-            error
-          );
+          console.warn("Player destroy error:", error);
         }
 
         playerRef.current = null;
@@ -1485,6 +1453,39 @@ useEffect(() => {
     saveContinueWatching,
     saveHistory,
   ]);
+
+
+  // Apply playback setting changes immediately while the Watch page is open.
+  useEffect(() => {
+    const applyPlaybackSettings = () => {
+      const player = playerRef.current;
+      if (!player) return;
+
+      try {
+        if (localStorage.getItem("defaultMute") === "true") {
+          player.mute?.();
+        }
+
+        const preferredQuality = localStorage.getItem("videoQuality") || "Auto";
+        const qualityMap = {
+          "1080p": "hd1080",
+          "720p": "hd720",
+          "480p": "large",
+          "360p": "medium",
+        };
+        if (preferredQuality === "Auto") {
+          player.setPlaybackQuality?.("default");
+        } else if (qualityMap[preferredQuality]) {
+          player.setPlaybackQuality?.(qualityMap[preferredQuality]);
+        }
+      } catch (error) {
+        console.warn("Unable to update playback settings:", error);
+      }
+    };
+
+    window.addEventListener("playbackSettingsUpdated", applyPlaybackSettings);
+    return () => window.removeEventListener("playbackSettingsUpdated", applyPlaybackSettings);
+  }, [video?.id]);
 
   // ==================================================
   // AUTO SAVE EVERY 5 SECONDS
@@ -3649,17 +3650,20 @@ useEffect(() => {
             <div className="video-player-wrapper">
               <div className="video-player">
 
-                <iframe
-                  ref={iframeRef}
-                  id="youtube-player"
-                  title={video.title}
-                  src={`https://www.youtube.com/embed/${video.id}?enablejsapi=1&origin=${encodeURIComponent(
-                    window.location.origin
-                  )}&rel=0&modestbranding=1&playsinline=1`}
-                  frameBorder="0"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
-                  allowFullScreen
-                />
+                {/* YouTube IFrame API creates the iframe inside this container. */}
+                  <iframe
+                    ref={iframeRef}
+                    id="youtube-player"
+                    className="youtube-player-container"
+                    title={video.title}
+                    src={`https://www.youtube.com/embed/${video.id}?enablejsapi=1&origin=${encodeURIComponent(window.location.origin)}`}
+                    width="100%"
+                    height="100%"
+                    style={{ border: 0 }}
+                    allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share"
+                    allowFullScreen
+                  />
+
 
               </div>
             </div>

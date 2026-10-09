@@ -9002,119 +9002,148 @@ body.light-theme .auth-divider::after {
 .short-watch-later.active:hover {
   background: #1d4ed8;
 }
-/* =========================================
+/* =========================================================
    YOUR DATA
-   ========================================= */
+   ========================================================= */
 
 .your-data-section {
   width: 100%;
+  max-width: 1050px;
+  margin: 0 auto;
+  padding: 10px 0 50px;
+  color: #fff;
+  box-sizing: border-box;
 }
 
-.your-data-header {
+/* =========================================================
+   PAGE HEADER
+   ========================================================= */
+
+.your-data-section .your-data-header {
+  width: 100%;
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: 20px;
+
   margin-bottom: 28px;
+  padding-bottom: 22px;
+
+  border-bottom: 1px solid #2b2b2b;
 }
 
-.your-data-header h2 {
+.your-data-section .your-data-header h2 {
   margin: 0 0 7px;
+  color: #fff;
+
   font-size: 30px;
   font-weight: 700;
+  line-height: 1.2;
 }
 
-.your-data-header p {
+.your-data-section .your-data-header p {
   margin: 0;
-  color: #aaa;
-  font-size: 15px;
+  color: #9e9e9e;
+
+  font-size: 14px;
   line-height: 1.5;
 }
 
 .your-data-header-icon {
-  width: 56px;
-  height: 56px;
-  min-width: 56px;
-  border-radius: 14px;
+  width: 52px;
+  height: 52px;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  background: rgba(255, 0, 0, 0.08);
-  color: #ff4d4d;
+  flex-shrink: 0;
 
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: 14px;
+
+  background: #1f1f1f;
+  border: 1px solid #333;
+
+  color: #ff3333;
 }
 
-/* =========================================
-   MAIN DATA CARD
-   ========================================= */
+/* =========================================================
+   MAIN CARDS
+   ========================================================= */
 
-.your-data-card {
+.your-data-section .your-data-card {
   width: 100%;
   box-sizing: border-box;
 
-  padding: 26px;
   margin-bottom: 22px;
+  padding: 24px;
 
-  border-radius: 18px;
+  background: #181818;
 
-  background: #1f1f1f;
+  border: 1px solid #2b2b2b;
+  border-radius: 14px;
 
-  border: 1px solid #383838;
-
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 4px 18px rgba(0, 0, 0, 0.22);
 }
+
+/* =========================================================
+   CARD HEADER
+   ========================================================= */
 
 .your-data-card-header {
   display: flex;
   align-items: center;
   gap: 14px;
 
-  margin-bottom: 24px;
+  margin-bottom: 22px;
 }
 
 .your-data-card-icon {
   width: 44px;
   height: 44px;
-  min-width: 44px;
-
-  border-radius: 12px;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  background: rgba(255, 255, 255, 0.06);
-  color: #f1f1f1;
+  flex-shrink: 0;
+
+  border-radius: 11px;
+
+  background: #242424;
+  border: 1px solid #333;
+
+  color: #ff3b3b;
 }
 
 .your-data-card-header h3 {
-  margin: 0 0 5px;
+  margin: 0 0 4px;
 
-  font-size: 20px;
+  color: #fff;
+
+  font-size: 18px;
   font-weight: 650;
+  line-height: 1.3;
 }
 
 .your-data-card-header p {
   margin: 0;
 
-  color: #999;
+  color: #888;
 
-  font-size: 14px;
+  font-size: 13px;
+  line-height: 1.4;
 }
 
-/* =========================================
+/* =========================================================
    ACCOUNT INFORMATION
-   ========================================= */
+   ========================================================= */
 
 .your-data-info-grid {
-  display: grid;
+  width: 100%;
 
-  grid-template-columns:
-    repeat(2, minmax(0, 1fr));
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
 
   gap: 14px;
 }
@@ -9128,73 +9157,129 @@ body.light-theme .auth-divider::after {
 
   padding: 17px;
 
-  border-radius: 13px;
+  box-sizing: border-box;
 
-  background: #181818;
+  background: #202020;
 
-  border: 1px solid #303030;
+  border: 1px solid #2d2d2d;
+  border-radius: 11px;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease;
+}
+
+.your-data-info-item:hover {
+  background: #242424;
+  border-color: #3b3b3b;
 }
 
 .your-data-info-icon {
-  width: 38px;
-  height: 38px;
-  min-width: 38px;
+  width: 40px;
+  height: 40px;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
+  flex-shrink: 0;
+
   border-radius: 10px;
 
-  background: rgba(255, 255, 255, 0.06);
-  color: #bdbdbd;
+  background: #292929;
+
+  color: #aaa;
 }
 
 .your-data-info-item > div:last-child {
   min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
+  flex: 1;
 }
 
 .your-data-info-item span {
-  color: #8f8f8f;
+  display: block;
 
-  font-size: 13px;
-  font-weight: 500;
+  margin: 0 0 5px;
+
+  color: #888;
+
+  font-size: 11px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
 }
 
 .your-data-info-item strong {
-  color: #f4f4f4;
+  display: block;
+
+  margin: 0;
+
+  color: #f5f5f5;
 
   font-size: 15px;
   font-weight: 600;
+
+  line-height: 1.4;
 
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
+/* =========================================================
+   USER ID
+   ========================================================= */
+
 .your-data-user-id {
-  font-family: monospace;
-  font-size: 13px !important;
-  color: #c9c9c9 !important;
+  font-family:
+    "SFMono-Regular",
+    Consolas,
+    "Liberation Mono",
+    monospace !important;
+
+  font-size: 12px !important;
+  color: #b5b5b5 !important;
 }
+
+/* =========================================================
+   ACCOUNT STATUS
+   ========================================================= */
 
 .your-data-status {
-  color: #5ee68a !important;
+  display: inline-flex !important;
+  align-items: center;
+
+  gap: 7px;
+
+  color: #4ade80 !important;
 }
 
-/* =========================================
+.your-data-status::before {
+  content: "";
+
+  width: 7px;
+  height: 7px;
+
+  flex-shrink: 0;
+
+  border-radius: 50%;
+
+  background: #4ade80;
+
+  box-shadow: 0 0 7px rgba(74, 222, 128, 0.5);
+}
+
+/* =========================================================
    ACTIVITY GRID
-   ========================================= */
+   ========================================================= */
 
 .your-data-activity-grid {
+  width: 100%;
+
   display: grid;
 
-  grid-template-columns:
-    repeat(3, minmax(0, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
 
   gap: 14px;
 }
@@ -9202,161 +9287,464 @@ body.light-theme .auth-divider::after {
 .your-data-activity-item {
   min-width: 0;
 
-  padding: 20px;
-
   display: flex;
   align-items: center;
-  gap: 15px;
+  gap: 14px;
 
-  border-radius: 14px;
+  min-height: 82px;
 
-  background: #181818;
+  padding: 17px;
 
-  border: 1px solid #303030;
+  box-sizing: border-box;
+
+  background: #202020;
+
+  border: 1px solid #2d2d2d;
+  border-radius: 11px;
 
   transition:
-    transform 0.2s ease,
+    background 0.2s ease,
     border-color 0.2s ease,
-    background 0.2s ease;
+    transform 0.2s ease;
 }
 
 .your-data-activity-item:hover {
+  background: #242424;
+  border-color: #3b3b3b;
+
   transform: translateY(-2px);
-
-  border-color: #4a4a4a;
-
-  background: #202020;
 }
 
 .your-data-activity-icon {
-  width: 46px;
-  height: 46px;
-  min-width: 46px;
+  width: 44px;
+  height: 44px;
 
   display: flex;
   align-items: center;
   justify-content: center;
 
-  border-radius: 12px;
+  flex-shrink: 0;
 
-  background: rgba(255, 255, 255, 0.06);
+  border-radius: 10px;
 
-  color: #ddd;
+  background: #292929;
+
+  color: #ff4b4b;
 }
 
 .your-data-activity-item > div:last-child {
   min-width: 0;
-
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
 }
 
 .your-data-activity-item span {
+  display: block;
+
+  margin: 0 0 6px;
+
   color: #999;
 
-  font-size: 13px;
+  font-size: 12px;
+  font-weight: 500;
+
+  line-height: 1.2;
 }
 
 .your-data-activity-item strong {
+  display: block;
+
+  margin: 0;
+
   color: #fff;
 
-  font-size: 25px;
-  line-height: 1;
-
+  font-size: 24px;
   font-weight: 700;
+
+  line-height: 1;
 }
 
-/* =========================================
-   LIGHT THEME
-   ========================================= */
-
-body.light-theme .your-data-card {
-  background: #ffffff;
-  border-color: #dddddd;
-
-  box-shadow:
-    0 8px 24px rgba(0, 0, 0, 0.06);
-}
-
-body.light-theme .your-data-card-header h3 {
-  color: #171717;
-}
-
-body.light-theme .your-data-card-header p,
-body.light-theme .your-data-header p {
-  color: #666;
-}
-
-body.light-theme .your-data-info-item,
-body.light-theme .your-data-activity-item {
-  background: #f7f7f7;
-  border-color: #e2e2e2;
-}
-
-body.light-theme .your-data-info-item strong {
-  color: #222;
-}
-
-body.light-theme .your-data-info-item span,
-body.light-theme .your-data-activity-item span {
-  color: #707070;
-}
-
-body.light-theme .your-data-activity-item strong {
-  color: #171717;
-}
-
-body.light-theme .your-data-activity-item:hover {
-  background: #f1f1f1;
-  border-color: #d0d0d0;
-}
-
-body.light-theme .your-data-card-icon,
-body.light-theme .your-data-info-icon,
-body.light-theme .your-data-activity-icon {
-  background: #ededed;
-  color: #333;
-}
-
-/* =========================================
+/* =========================================================
    TABLET
-   ========================================= */
+   ========================================================= */
 
 @media (max-width: 900px) {
+
+  .your-data-section {
+    max-width: 100%;
+  }
+
   .your-data-activity-grid {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+/* =========================================================
+   MOBILE
+   ========================================================= */
+
+@media (max-width: 600px) {
+
+  .your-data-section {
+    padding: 5px 0 30px;
+  }
+
+  .your-data-section .your-data-header {
+    margin-bottom: 20px;
+    padding-bottom: 17px;
+  }
+
+  .your-data-section .your-data-header h2 {
+    font-size: 24px;
+  }
+
+  .your-data-section .your-data-header p {
+    font-size: 13px;
+  }
+
+  .your-data-header-icon {
+    width: 44px;
+    height: 44px;
+
+    border-radius: 11px;
+  }
+
+  .your-data-section .your-data-card {
+    padding: 17px;
+    margin-bottom: 16px;
+  }
+
+  .your-data-card-header {
+    margin-bottom: 18px;
+  }
+
+  .your-data-info-grid,
+  .your-data-activity-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .your-data-info-item,
+  .your-data-activity-item {
+    padding: 15px;
+  }
+}
+/* =========================================================
+   YOUR DATA PAGE
+========================================================= */
+
+.your-data-page {
+  width: 100%;
+  max-width: 1100px;
+  margin: 0 auto;
+
+  padding: 35px 40px 60px;
+
+  box-sizing: border-box;
+  color: #fff;
+}
+
+
+/* =========================================================
+   PAGE TITLE
+========================================================= */
+
+.your-data-page > h1 {
+  margin: 0 0 32px;
+
+  font-size: 34px;
+  font-weight: 700;
+
+  line-height: 1.2;
+
+  color: #fff;
+}
+
+
+/* =========================================================
+   DATA SECTIONS
+========================================================= */
+
+.your-data-page .your-data-section {
+  width: 100%;
+
+  margin-bottom: 24px;
+  padding: 25px;
+
+  box-sizing: border-box;
+
+  background: #181818;
+
+  border: 1px solid #2b2b2b;
+  border-radius: 14px;
+
+  box-shadow:
+    0 4px 18px rgba(0, 0, 0, 0.2);
+}
+
+
+/* =========================================================
+   SECTION TITLE
+========================================================= */
+
+.your-data-page .your-data-section h2 {
+  margin: 0 0 22px;
+
+  font-size: 21px;
+  font-weight: 650;
+
+  color: #fff;
+
+  line-height: 1.3;
+}
+
+
+/* =========================================================
+   ACCOUNT INFORMATION
+========================================================= */
+
+.your-data-page .your-data-info {
+  display: grid;
+
+  grid-template-columns:
+    repeat(2, minmax(0, 1fr));
+
+  gap: 15px;
+
+  width: 100%;
+}
+
+
+/* =========================================================
+   ACCOUNT INFO CARD
+========================================================= */
+
+.your-data-page .your-data-info > div {
+  min-width: 0;
+
+  padding: 18px;
+
+  box-sizing: border-box;
+
+  background: #202020;
+
+  border: 1px solid #303030;
+  border-radius: 11px;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.your-data-page .your-data-info > div:hover {
+  background: #252525;
+
+  border-color: #3b3b3b;
+
+  transform: translateY(-2px);
+}
+
+
+/* =========================================================
+   INFO LABEL
+========================================================= */
+
+.your-data-page .your-data-info span {
+  display: block;
+
+  margin-bottom: 8px;
+
+  color: #8f8f8f;
+
+  font-size: 12px;
+  font-weight: 600;
+
+  text-transform: uppercase;
+  letter-spacing: 0.6px;
+}
+
+
+/* =========================================================
+   INFO VALUE
+========================================================= */
+
+.your-data-page .your-data-info strong {
+  display: block;
+
+  color: #f5f5f5;
+
+  font-size: 16px;
+  font-weight: 600;
+
+  line-height: 1.4;
+
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+
+/* =========================================================
+   ACTIVITY
+========================================================= */
+
+.your-data-page .your-data-activity {
+  display: grid;
+
+  grid-template-columns:
+    repeat(3, minmax(0, 1fr));
+
+  gap: 15px;
+
+  width: 100%;
+}
+
+
+/* =========================================================
+   ACTIVITY CARD
+========================================================= */
+
+.your-data-page .your-data-activity > div {
+  min-height: 105px;
+
+  display: flex;
+
+  flex-direction: column;
+  justify-content: center;
+
+  padding: 18px;
+
+  box-sizing: border-box;
+
+  background: #202020;
+
+  border: 1px solid #303030;
+  border-radius: 11px;
+
+  transition:
+    background 0.2s ease,
+    border-color 0.2s ease,
+    transform 0.2s ease;
+}
+
+.your-data-page .your-data-activity > div:hover {
+  background: #252525;
+
+  border-color: #3b3b3b;
+
+  transform: translateY(-3px);
+}
+
+
+/* =========================================================
+   ACTIVITY LABEL
+========================================================= */
+
+.your-data-page .your-data-activity span {
+  display: block;
+
+  margin-bottom: 10px;
+
+  color: #999;
+
+  font-size: 13px;
+  font-weight: 500;
+}
+
+
+/* =========================================================
+   ACTIVITY NUMBER
+========================================================= */
+
+.your-data-page .your-data-activity strong {
+  display: block;
+
+  color: #fff;
+
+  font-size: 28px;
+  font-weight: 700;
+
+  line-height: 1;
+}
+
+
+/* =========================================================
+   LOADING MESSAGE
+========================================================= */
+
+.your-data-page .page-message {
+  margin: 0;
+
+  padding: 25px;
+
+  color: #aaa;
+
+  font-size: 14px;
+
+  text-align: center;
+
+  background: #202020;
+
+  border: 1px solid #2d2d2d;
+  border-radius: 10px;
+}
+
+
+/* =========================================================
+   MOBILE / TABLET
+========================================================= */
+
+@media (max-width: 900px) {
+
+  .your-data-page {
+    padding: 30px 25px 50px;
+  }
+
+  .your-data-page .your-data-activity {
     grid-template-columns:
       repeat(2, minmax(0, 1fr));
   }
 }
 
-/* =========================================
+
+/* =========================================================
    MOBILE
-   ========================================= */
+========================================================= */
 
-@media (max-width: 650px) {
-  .your-data-header {
-    align-items: flex-start;
+@media (max-width: 600px) {
+
+  .your-data-page {
+    padding: 22px 15px 40px;
   }
 
-  .your-data-header h2 {
-    font-size: 25px;
+  .your-data-page > h1 {
+    margin-bottom: 22px;
+
+    font-size: 28px;
   }
 
-  .your-data-card {
+  .your-data-page .your-data-section {
     padding: 18px;
-    border-radius: 15px;
+
+    margin-bottom: 16px;
+
+    border-radius: 12px;
   }
 
-  .your-data-info-grid {
+  .your-data-page .your-data-section h2 {
+    margin-bottom: 17px;
+
+    font-size: 19px;
+  }
+
+  .your-data-page .your-data-info {
     grid-template-columns: 1fr;
   }
 
-  .your-data-activity-grid {
+  .your-data-page .your-data-activity {
     grid-template-columns: 1fr;
   }
 
-  .your-data-activity-item {
-    padding: 17px;
+  .your-data-page .your-data-info > div,
+  .your-data-page .your-data-activity > div {
+    padding: 16px;
   }
 }

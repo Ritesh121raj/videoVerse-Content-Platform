@@ -395,9 +395,44 @@ router.post("/watch-later", protect, async (req, res) => {
   }
 });
 
-// ======================================================
-// REMOVE WATCH LATER
-// ======================================================
+
+/* ======================================================
+   CLEAR ALL WATCH LATER
+   DELETE /api/user/watch-later
+====================================================== */
+
+router.delete("/watch-later", protect, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: { watchLater: [] } },
+      { new: true, projection: { watchLater: 1 } }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "Watch Later cleared successfully",
+      watchLater: [],
+    });
+  } catch (error) {
+    console.error("Clear Watch Later error:", error);
+
+    return res.status(500).json({
+      message: "Unable to clear Watch Later",
+    });
+  }
+});
+
+
+/* ======================================================
+   REMOVE ONE VIDEO FROM WATCH LATER
+   DELETE /api/user/watch-later/:videoId
+====================================================== */
 
 router.delete(
   "/watch-later/:videoId",
@@ -406,7 +441,21 @@ router.delete(
     try {
       const { videoId } = req.params;
 
-      const user = await User.findById(req.user.userId);
+      if (!videoId) {
+        return res.status(400).json({
+          message: "Video ID is required",
+        });
+      }
+
+      const user = await User.findByIdAndUpdate(
+        req.user.userId,
+        {
+          $pull: {
+            watchLater: videoId,
+          },
+        },
+        { new: true, projection: { watchLater: 1 } }
+      );
 
       if (!user) {
         return res.status(404).json({
@@ -414,24 +463,15 @@ router.delete(
         });
       }
 
-      user.watchLater = user.watchLater.filter(
-        (id) => id !== videoId
-      );
-
-      await user.save();
-
-      res.status(200).json({
+      return res.status(200).json({
         message: "Video removed from Watch Later",
-        watchLater: user.watchLater,
+        watchLater: user.watchLater || [],
       });
     } catch (error) {
-      console.error(
-        "Remove watch later video error:",
-        error
-      );
+      console.error("Remove Watch Later error:", error);
 
-      res.status(500).json({
-        message: "Server error",
+      return res.status(500).json({
+        message: "Unable to remove video from Watch Later",
       });
     }
   }
@@ -440,11 +480,13 @@ router.delete(
 // GET WATCH HISTORY
 // ======================================================
 
+
+
 router.get("/history", protect, async (req, res) => {
   try {
-    const user = await User.findById(
-      req.user.userId
-    ).select("history");
+    const user = await User.findById(req.user.userId)
+      .select("history")
+      .lean();
 
     if (!user) {
       return res.status(404).json({
@@ -452,25 +494,22 @@ router.get("/history", protect, async (req, res) => {
       });
     }
 
-    res.status(200).json({
-      history: user.history || [],
+    return res.status(200).json({
+      history: Array.isArray(user.history) ? user.history : [],
     });
   } catch (error) {
-    console.error(
-      "Get watch history error:",
-      error
-    );
+    console.error("Get watch history error:", error);
 
-    res.status(500).json({
-      message: "Server error",
+    return res.status(500).json({
+      message: "Unable to load watch history",
     });
   }
 });
 
 
-// ======================================================
-// ADD / UPDATE WATCH HISTORY
-// ======================================================
+/* ======================================================
+   ADD / UPDATE WATCH HISTORY
+====================================================== */
 
 router.post("/history", protect, async (req, res) => {
   try {
@@ -482,8 +521,50 @@ router.post("/history", protect, async (req, res) => {
       });
     }
 
-    const user = await User.findById(
-      req.user.userId
+    const historyItem = {
+      ...video,
+      image: video.thumbnail || video.image || "",
+      watchedAt: video.watchedAt || Date.now(),
+    };
+
+    // Atomically remove the previous copy and add the latest one.
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      [
+        {
+          $set: {
+            history: {
+              $slice: [
+                {
+                  $concatArrays: [
+                    [historyItem],
+                    {
+                      $filter: {
+                        input: { $ifNull: ["$history", []] },
+                        as: "item",
+                        cond: {
+                          $ne: [
+                            {
+                              $cond: [
+                                { $eq: [{ $type: "$$item" }, "string"] },
+                                "$$item",
+                                "$$item.id",
+                              ],
+                            },
+                            video.id,
+                          ],
+                        },
+                      },
+                    },
+                  ],
+                },
+                50,
+              ],
+            },
+          },
+        },
+      ],
+      { new: true, projection: { history: 1 } }
     );
 
     if (!user) {
@@ -492,65 +573,31 @@ router.post("/history", protect, async (req, res) => {
       });
     }
 
-    const historyItem = {
-      ...video,
-
-      image:
-        video.thumbnail ||
-        video.image ||
-        "",
-
-      watchedAt:
-        video.watchedAt ||
-        Date.now(),
-    };
-
-    // Remove old copy of same video
-    user.history = (
-      user.history || []
-    ).filter((item) => {
-      const itemId =
-        typeof item === "string"
-          ? item
-          : item?.id;
-
-      return itemId !== video.id;
-    });
-
-    // Add latest watched video at beginning
-    user.history.unshift(historyItem);
-
-    // Keep maximum 50 history items
-    user.history =
-      user.history.slice(0, 50);
-
-    await user.save();
-
-    res.status(200).json({
+    return res.status(200).json({
       message: "Watch history updated",
-      history: user.history,
+      history: user.history || [],
     });
   } catch (error) {
-    console.error(
-      "Add watch history error:",
-      error
-    );
+    console.error("Add watch history error:", error);
 
-    res.status(500).json({
-      message: "Server error",
+    return res.status(500).json({
+      message: "Unable to update watch history",
     });
   }
 });
 
 
-// ======================================================
-// CLEAR WATCH HISTORY
-// ======================================================
+/* ======================================================
+   CLEAR ALL WATCH HISTORY
+====================================================== */
 
 router.delete("/history", protect, async (req, res) => {
   try {
-    const user = await User.findById(
-      req.user.userId
+    // Atomic update avoids saving a stale Mongoose document.
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: { history: [] } },
+      { new: true, projection: { history: 1 } }
     );
 
     if (!user) {
@@ -559,30 +606,23 @@ router.delete("/history", protect, async (req, res) => {
       });
     }
 
-    user.history = [];
-
-    await user.save();
-
-    res.status(200).json({
-      message: "Watch history cleared",
+    return res.status(200).json({
+      message: "Watch history cleared successfully",
       history: [],
     });
   } catch (error) {
-    console.error(
-      "Clear watch history error:",
-      error
-    );
+    console.error("Clear watch history error:", error);
 
-    res.status(500).json({
-      message: "Server error",
+    return res.status(500).json({
+      message: "Unable to clear watch history",
     });
   }
 });
 
 
-// ======================================================
-// REMOVE SINGLE HISTORY ITEM
-// ======================================================
+/* ======================================================
+   REMOVE ONE VIDEO FROM WATCH HISTORY
+====================================================== */
 
 router.delete(
   "/history/:videoId",
@@ -597,8 +637,15 @@ router.delete(
         });
       }
 
-      const user = await User.findById(
-        req.user.userId
+      // Atomic removal: does not save a stale User document.
+      const user = await User.findByIdAndUpdate(
+        req.user.userId,
+        {
+          $pull: {
+            history: { id: videoId },
+          },
+        },
+        { new: true, projection: { history: 1 } }
       );
 
       if (!user) {
@@ -607,32 +654,15 @@ router.delete(
         });
       }
 
-      user.history = (
-        user.history || []
-      ).filter((item) => {
-        const itemId =
-          typeof item === "string"
-            ? item
-            : item?.id;
-
-        return itemId !== videoId;
-      });
-
-      await user.save();
-
-      res.status(200).json({
-        message:
-          "History item removed",
-        history: user.history,
+      return res.status(200).json({
+        message: "History item removed successfully",
+        history: user.history || [],
       });
     } catch (error) {
-      console.error(
-        "Remove history item error:",
-        error
-      );
+      console.error("Remove history item error:", error);
 
-      res.status(500).json({
-        message: "Server error",
+      return res.status(500).json({
+        message: "Unable to remove video from history",
       });
     }
   }

@@ -3,7 +3,7 @@ import {
   Settings as SettingsIcon,
   Palette,
   Bell,
-  PlayCircle,
+  //PlayCircle,
   Lock,
   Info,
   UserCircle,
@@ -89,6 +89,21 @@ function Settings() {
   const [isLightTheme, setIsLightTheme] = useState(() => {
     return localStorage.getItem("theme") === "light";
   });
+  useEffect(() => {
+    document.body.classList.toggle("light-theme", isLightTheme);
+  }, [isLightTheme]);
+
+  // const [autoplay, setAutoplay] = useState(
+  //   () => localStorage.getItem("autoplay") !== "false"
+  // );
+
+  // const [defaultMute, setDefaultMute] = useState(
+  //   () => localStorage.getItem("defaultMute") === "true"
+  // );
+
+  // const [videoQuality, setVideoQuality] = useState(
+  //   () => localStorage.getItem("videoQuality") || "Auto"
+  // );
 
   /* ==============================
      NOTIFICATIONS
@@ -173,11 +188,11 @@ function Settings() {
       icon: Bell,
       description: "Manage your notification preferences",
     },
-    {
-      name: "Playback",
-      icon: PlayCircle,
-      description: "Control video playback settings",
-    },
+    // {
+    //   name: "Playback",
+    //   icon: PlayCircle,
+    //   description: "Control video playback settings",
+    // },
     {
       name: "Privacy",
       icon: Lock,
@@ -507,84 +522,159 @@ function Settings() {
   });
 
   useEffect(() => {
-    const loadYourData = () => {
+    /*
+     * IMPORTANT:
+     * Your Account section already uses currentUser.
+     * Your Data must use the SAME authenticated user object.
+     * This avoids getting "Not available" because of a
+     * different localStorage response shape.
+     */
+
+    const getUserFromStorage = () => {
       try {
-        const storedUser = JSON.parse(
-          localStorage.getItem("videoVerseCurrentUser")
+        const stored = JSON.parse(
+          localStorage.getItem("videoVerseCurrentUser") || "null"
         );
 
-        const user =
-          storedUser?.user ||
-          storedUser ||
-          currentUser ||
-          {};
-
-        setUserData({
-          name: user?.name || "Not available",
-          email: user?.email || "Not available",
-          userId:
-            user?._id ||
-            user?.id ||
-            user?.userId ||
-            "Not available",
-        });
-
-        const getArrayLength = (key) => {
-          try {
-            const value = JSON.parse(
-              localStorage.getItem(key)
-            );
-
-            return Array.isArray(value) ? value.length : 0;
-          } catch {
-            return 0;
-          }
-        };
-
-        setActivityCounts({
-          history: getArrayLength("history"),
-          liked: getArrayLength("likedVideos"),
-          disliked: getArrayLength("dislikedVideos"),
-          watchLater: getArrayLength("watchLater"),
-          subscriptions: getArrayLength("subscribedChannels"),
-        });
-      } catch (error) {
-        console.error("Unable to load your data:", error);
+        return (
+          stored?.user ||
+          stored?.data?.user ||
+          stored?.data ||
+          stored ||
+          null
+        );
+      } catch {
+        return null;
       }
     };
 
-    loadYourData();
+    const user = currentUser || getUserFromStorage();
 
-    const handleActivityUpdated = () => {
-      loadYourData();
+    const getValue = (...values) => {
+      const value = values.find(
+        (item) =>
+          item !== undefined &&
+          item !== null &&
+          String(item).trim() !== ""
+      );
+
+      return value !== undefined
+        ? String(value)
+        : "Not available";
     };
 
-    const handleAuthUpdatedForData = () => {
-      loadYourData();
+    setUserData({
+      name: getValue(
+        user?.name,
+        user?.fullName,
+        user?.username,
+        user?.displayName
+      ),
+      email: getValue(
+        user?.email,
+        user?.emailAddress
+      ),
+      userId: getValue(
+        user?._id,
+        user?.id,
+        user?.userId,
+        user?.uid
+      ),
+    });
+
+    const readArray = (key) => {
+      try {
+        const value = JSON.parse(
+          localStorage.getItem(key) || "[]"
+        );
+
+        return Array.isArray(value) ? value : [];
+      } catch {
+        return [];
+      }
+    };
+
+    const history = readArray("history");
+    const liked = readArray("likedVideos");
+    const disliked = readArray("dislikedVideos");
+    const watchLater = readArray("watchLater");
+    const subscriptions = readArray("subscribedChannels");
+
+    /*
+     * Subscription data can be stored either as channel IDs
+     * or as channel objects. Count unique IDs only.
+     */
+    const subscriptionIds = new Set();
+
+    subscriptions.forEach((item) => {
+      const id =
+        typeof item === "string"
+          ? item
+          : item?.id || item?.channelId;
+
+      if (id !== undefined && id !== null && String(id).trim()) {
+        subscriptionIds.add(String(id));
+      }
+    });
+
+    setActivityCounts({
+      history: history.length,
+      liked: liked.length,
+      disliked: disliked.length,
+      watchLater: watchLater.length,
+      subscriptions: subscriptionIds.size,
+    });
+  }, [currentUser]);
+
+  useEffect(() => {
+    const refreshActivityCounts = () => {
+      const readArray = (key) => {
+        try {
+          const value = JSON.parse(
+            localStorage.getItem(key) || "[]"
+          );
+
+          return Array.isArray(value) ? value : [];
+        } catch {
+          return [];
+        }
+      };
+
+      const subscriptions = readArray("subscribedChannels");
+      const subscriptionIds = new Set();
+
+      subscriptions.forEach((item) => {
+        const id =
+          typeof item === "string"
+            ? item
+            : item?.id || item?.channelId;
+
+        if (id !== undefined && id !== null && String(id).trim()) {
+          subscriptionIds.add(String(id));
+        }
+      });
+
+      setActivityCounts({
+        history: readArray("history").length,
+        liked: readArray("likedVideos").length,
+        disliked: readArray("dislikedVideos").length,
+        watchLater: readArray("watchLater").length,
+        subscriptions: subscriptionIds.size,
+      });
     };
 
     window.addEventListener(
       "activityUpdated",
-      handleActivityUpdated
-    );
-
-    window.addEventListener(
-      "authUpdated",
-      handleAuthUpdatedForData
+      refreshActivityCounts
     );
 
     return () => {
       window.removeEventListener(
         "activityUpdated",
-        handleActivityUpdated
-      );
-
-      window.removeEventListener(
-        "authUpdated",
-        handleAuthUpdatedForData
+        refreshActivityCounts
       );
     };
-  }, [currentUser]);
+  }, []);
 
   /* ==============================
      THEME
@@ -700,73 +790,49 @@ function Settings() {
      CLEAR ACTIVITY
      ============================== */
 
-  const clearHistory = () => {
+  
+  
+  const clearActivityList = (key, label) => {
     const confirmed = window.confirm(
-      "Are you sure you want to clear your entire watch history?"
+      `Are you sure you want to clear ${label}?`
     );
 
-    if (!confirmed) {
-      return;
+    if (!confirmed) return;
+
+    try {
+      // Clear the saved list
+      localStorage.setItem(key, "[]");
+
+      // Refresh Settings activity counts and listening pages
+      window.dispatchEvent(new Event("activityUpdated"));
+
+      // Verify the saved value
+      const remaining = JSON.parse(
+        localStorage.getItem(key) || "[]"
+      );
+
+      if (!Array.isArray(remaining) || remaining.length !== 0) {
+        throw new Error(`Failed to clear ${key}`);
+      }
+
+      alert(`${label} cleared successfully.`);
+    } catch (error) {
+      console.error(`Failed to clear ${label}:`, error);
+      alert(`Unable to clear ${label}. Check the browser console.`);
     }
-
-    localStorage.removeItem("history");
-    window.dispatchEvent(
-      new Event("activityUpdated")
-    );
-
-    alert("Watch history cleared successfully.");
   };
 
-  const clearWatchLater = () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to remove all videos from Watch Later?"
-    );
+  const clearHistory = () =>
+    clearActivityList("history", "watch history");
 
-    if (!confirmed) {
-      return;
-    }
+  const clearWatchLater = () =>
+    clearActivityList("watchLater", "Watch Later");
 
-    localStorage.removeItem("watchLater");
-    window.dispatchEvent(
-      new Event("activityUpdated")
-    );
+  const clearLikedVideos = () =>
+    clearActivityList("likedVideos", "liked videos");
 
-    alert("Watch Later list cleared successfully.");
-  };
-
-  const clearLikedVideos = () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to remove all liked videos?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    localStorage.removeItem("likedVideos");
-        window.dispatchEvent(
-      new Event("activityUpdated")
-    );
-
-    alert("Liked videos cleared successfully.");
-  };
-  const clearDislikedVideos = () => {
-    const confirmed = window.confirm(
-      "Are you sure you want to clear all disliked videos?"
-    );
-
-    if (!confirmed) {
-      return;
-    }
-
-    localStorage.removeItem("dislikedVideos");
-
-    window.dispatchEvent(
-      new Event("activityUpdated")
-    );
-
-    alert("Disliked videos cleared.");
-  };
+  const clearDislikedVideos = () =>
+    clearActivityList("dislikedVideos", "disliked videos");
 
   return (
     <div className="settings-page">
@@ -1465,7 +1531,7 @@ function Settings() {
               PLAYBACK
               ============================== */}
 
-          {activeSection === "Playback" && (
+          {/* {activeSection === "Playback" && (
             <div className="settings-section">
 
               <h2>Playback</h2>
@@ -1491,24 +1557,15 @@ function Settings() {
 
                   <button
                     className={
-                      localStorage.getItem(
-                        "autoplay"
-                      ) !== "false"
-                        ? "settings-toggle active"
-                        : "settings-toggle"
+                      autoplay ? "settings-toggle active" : "settings-toggle"
                     }
+                    aria-label="Toggle autoplay"
+                    aria-pressed={autoplay}
                     onClick={() => {
-                      const current =
-                        localStorage.getItem(
-                          "autoplay"
-                        ) !== "false";
-
-                      localStorage.setItem(
-                        "autoplay",
-                        String(!current)
-                      );
-
-                      window.location.reload();
+                      const nextValue = !autoplay;
+                      setAutoplay(nextValue);
+                      localStorage.setItem("autoplay", String(nextValue));
+                      window.dispatchEvent(new Event("playbackSettingsUpdated"));
                     }}
                   >
                     <span />
@@ -1533,24 +1590,15 @@ function Settings() {
 
                   <button
                     className={
-                      localStorage.getItem(
-                        "defaultMute"
-                      ) === "true"
-                        ? "settings-toggle active"
-                        : "settings-toggle"
+                      defaultMute ? "settings-toggle active" : "settings-toggle"
                     }
+                    aria-label="Toggle default mute"
+                    aria-pressed={defaultMute}
                     onClick={() => {
-                      const current =
-                        localStorage.getItem(
-                          "defaultMute"
-                        ) === "true";
-
-                      localStorage.setItem(
-                        "defaultMute",
-                        String(!current)
-                      );
-
-                      window.location.reload();
+                      const nextValue = !defaultMute;
+                      setDefaultMute(nextValue);
+                      localStorage.setItem("defaultMute", String(nextValue));
+                      window.dispatchEvent(new Event("playbackSettingsUpdated"));
                     }}
                   >
                     <span />
@@ -1577,35 +1625,19 @@ function Settings() {
 
                   <select
                     className="settings-quality-select"
-                    value={
-                      localStorage.getItem(
-                        "videoQuality"
-                      ) || "Auto"
-                    }
-                    onChange={(e) => {
-                      localStorage.setItem(
-                        "videoQuality",
-                        e.target.value
-                      );
-
-                      window.location.reload();
+                    value={videoQuality}
+                    onChange={(event) => {
+                      const value = event.target.value;
+                      setVideoQuality(value);
+                      localStorage.setItem("videoQuality", value);
+                      window.dispatchEvent(new Event("playbackSettingsUpdated"));
                     }}
                   >
-                    <option value="Auto">
-                      Auto
-                    </option>
-                    <option value="1080p">
-                      1080p
-                    </option>
-                    <option value="720p">
-                      720p
-                    </option>
-                    <option value="480p">
-                      480p
-                    </option>
-                    <option value="360p">
-                      360p
-                    </option>
+                    <option value="Auto">Auto</option>
+                    <option value="1080p">1080p</option>
+                    <option value="720p">720p</option>
+                    <option value="480p">480p</option>
+                    <option value="360p">360p</option>
                   </select>
 
                 </div>
@@ -1613,7 +1645,7 @@ function Settings() {
               </div>
 
             </div>
-          )}
+          )} */}
 
           {/* ==============================
               PRIVACY
