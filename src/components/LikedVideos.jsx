@@ -115,124 +115,121 @@ function LikedVideos() {
   // REMOVE FROM LIKED
   // ==========================================
 
+  
+  // REMOVE ONE VIDEO FROM LIKED VIDEOS
   const removeFromLiked = async (videoId) => {
-    try {
-      const token =
-        localStorage.getItem("videoVerseToken");
+    const token = localStorage.getItem("videoVerseToken");
 
+    try {
       if (token) {
         const response = await fetch(
-          `https://videoverse-content-platform.onrender.com/api/user/liked/${videoId}`,
+          `https://videoverse-content-platform.onrender.com/api/user/liked/${encodeURIComponent(videoId)}`,
           {
             method: "DELETE",
             headers: {
               Authorization: `Bearer ${token}`,
+              Accept: "application/json",
             },
           }
         );
 
-        const data = await response.json();
+        const responseText = await response.text();
+        let data;
+
+        try {
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          throw new Error(
+            `Backend returned HTML instead of JSON (HTTP ${response.status}). Check the deployed API URL and backend routes.`
+          );
+        }
 
         if (!response.ok) {
           throw new Error(
-            data.message ||
-              "Unable to remove liked video"
+            data.message || `Unable to unlike video (HTTP ${response.status})`
+          );
+        }
+
+        localStorage.setItem(
+          "likedVideos",
+          JSON.stringify(data.likedVideos || [])
+        );
+      } else {
+        // Guest/local-only fallback
+        const saved = JSON.parse(
+          localStorage.getItem("likedVideos") || "[]"
+        );
+
+        const updated = saved.filter((item) => {
+          const id = typeof item === "string" ? item : item?.id;
+          return String(id) !== String(videoId);
+        });
+
+        localStorage.setItem("likedVideos", JSON.stringify(updated));
+      }
+
+      setLikedVideos((previous) =>
+        previous.filter((video) => String(video.id) !== String(videoId))
+      );
+
+      window.dispatchEvent(new Event("activityUpdated"));
+    } catch (error) {
+      console.error("Remove liked video error:", error);
+      alert(error.message || "Unable to remove liked video.");
+    }
+  };
+
+  // CLEAR ALL LIKED VIDEOS
+  const clearAllLikedVideos = async () => {
+    if (likedVideos.length === 0) return;
+
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all liked videos?"
+    );
+
+    if (!confirmed) return;
+
+    const token = localStorage.getItem("videoVerseToken");
+
+    try {
+      if (token) {
+        const response = await fetch(
+          "https://videoverse-content-platform.onrender.com/api/user/liked",
+          {
+            method: "DELETE",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              Accept: "application/json",
+            },
+          }
+        );
+
+        const responseText = await response.text();
+        let data;
+
+        try {
+          data = responseText ? JSON.parse(responseText) : {};
+        } catch {
+          throw new Error(
+            `Backend returned HTML instead of JSON (HTTP ${response.status}). Check the deployed API URL and backend routes.`
+          );
+        }
+
+        if (!response.ok) {
+          throw new Error(
+            data.message || `Unable to clear liked videos (HTTP ${response.status})`
           );
         }
       }
 
-      // Update local UI
-      setLikedVideos((prevVideos) =>
-        prevVideos.filter(
-          (video) => video.id !== videoId
-        )
-      );
-
-      // Update localStorage
-      const savedLikedVideos =
-        JSON.parse(
-          localStorage.getItem("likedVideos")
-        ) || [];
-
-      const updatedVideos =
-        savedLikedVideos.filter(
-          (video) =>
-            typeof video === "string"
-              ? video !== videoId
-              : video?.id !== videoId
-        );
-
-      localStorage.setItem(
-        "likedVideos",
-        JSON.stringify(updatedVideos)
-      );
-
-      window.dispatchEvent(
-        new Event("activityUpdated")
-      );
-    } catch (error) {
-      console.error(
-        "Remove liked video error:",
-        error
-      );
-
-      alert(
-        "Unable to remove liked video."
-      );
-    }
-  };
-
-  // ==========================================
-  // CLEAR ALL
-  // ==========================================
-
-  const clearAllLikedVideos = async () => {
-    try {
-      const token =
-        localStorage.getItem("videoVerseToken");
-
-      if (token) {
-        // Remove every liked video from backend
-        await Promise.all(
-          likedVideos.map(async (video) => {
-            try {
-              await fetch(
-                `https://videoverse-content-platform.onrender.com/api/user/liked/${video.id}`,
-                {
-                  method: "DELETE",
-                  headers: {
-                    Authorization: `Bearer ${token}`,
-                  },
-                }
-              );
-            } catch (error) {
-              console.error(
-                "Delete liked video error:",
-                error
-              );
-            }
-          })
-        );
-      }
-
-      localStorage.removeItem(
-        "likedVideos"
-      );
-
+      // Update the UI only after backend confirms success
+      localStorage.setItem("likedVideos", JSON.stringify([]));
       setLikedVideos([]);
 
-      window.dispatchEvent(
-        new Event("activityUpdated")
-      );
+      window.dispatchEvent(new Event("activityUpdated"));
     } catch (error) {
-      console.error(
-        "Clear liked videos error:",
-        error
-      );
-
-      alert(
-        "Unable to clear liked videos."
-      );
+      console.error("Clear liked videos error:", error);
+      alert(error.message || "Unable to clear liked videos.");
     }
   };
 

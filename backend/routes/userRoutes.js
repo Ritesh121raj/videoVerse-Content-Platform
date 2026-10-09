@@ -76,11 +76,26 @@ router.post("/liked", protect, async (req, res) => {
 // REMOVE VIDEO FROM LIKED VIDEOS
 // ======================================================
 
+
+/* ==========================================
+   REMOVE ONE VIDEO FROM LIKED VIDEOS
+========================================== */
+
 router.delete("/liked/:videoId", protect, async (req, res) => {
   try {
     const { videoId } = req.params;
 
-    const user = await User.findById(req.user.userId);
+    if (!videoId) {
+      return res.status(400).json({
+        message: "Video ID is required",
+      });
+    }
+
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $pull: { likedVideos: videoId } },
+      { new: true }
+    ).select("likedVideos");
 
     if (!user) {
       return res.status(404).json({
@@ -88,21 +103,46 @@ router.delete("/liked/:videoId", protect, async (req, res) => {
       });
     }
 
-    user.likedVideos = user.likedVideos.filter(
-      (id) => id !== videoId
-    );
-
-    await user.save();
-
-    res.status(200).json({
+    return res.status(200).json({
       message: "Video removed from liked videos",
-      likedVideos: user.likedVideos,
+      likedVideos: user.likedVideos || [],
     });
   } catch (error) {
     console.error("Remove liked video error:", error);
 
-    res.status(500).json({
-      message: "Server error",
+    return res.status(500).json({
+      message: "Server error while removing liked video",
+    });
+  }
+});
+
+/* ==========================================
+   CLEAR ALL LIKED VIDEOS
+========================================== */
+
+router.delete("/liked", protect, async (req, res) => {
+  try {
+    const user = await User.findByIdAndUpdate(
+      req.user.userId,
+      { $set: { likedVideos: [] } },
+      { new: true }
+    ).select("likedVideos");
+
+    if (!user) {
+      return res.status(404).json({
+        message: "User not found",
+      });
+    }
+
+    return res.status(200).json({
+      message: "All liked videos cleared successfully",
+      likedVideos: [],
+    });
+  } catch (error) {
+    console.error("Clear liked videos error:", error);
+
+    return res.status(500).json({
+      message: "Server error while clearing liked videos",
     });
   }
 });
