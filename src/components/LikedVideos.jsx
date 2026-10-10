@@ -46,8 +46,9 @@ function LikedVideos() {
         );
       }
 
-      const likedIds =
-        data.likedVideos || [];
+      const likedIds = Array.isArray(data.likedVideos)
+      ? [...data.likedVideos].reverse()
+      : [];
 
       // ==========================================
       // GET VIDEO DETAILS

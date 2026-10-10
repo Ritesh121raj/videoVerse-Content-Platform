@@ -49,21 +49,19 @@ function DislikedVideos() {
   // GET VIDEO ID
   // ======================================================
 
+  
   const getVideoId = (item) => {
-    if (typeof item === "string") {
-      return item;
-    }
-
-    return item?.id || null;
+    if (typeof item === "string") return item;
+    return item?.id || item?.videoId || null;
   };
 
   // ======================================================
   // LOAD DISLIKED VIDEOS
   // ======================================================
 
-  const loadDislikedVideos = async () => {
+  const loadDislikedVideos = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
 
       const token =
         localStorage.getItem(
@@ -127,7 +125,7 @@ function DislikedVideos() {
       setDislikedVideos([]);
 
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
@@ -143,16 +141,12 @@ function DislikedVideos() {
     // ----------------------------------------------------
 
     const handleActivityUpdate = () => {
-      loadDislikedVideos();
-    };
+        loadDislikedVideos(false);
+      };
 
-    // ----------------------------------------------------
-    // WATCH FOR LOGIN / LOGOUT
-    // ----------------------------------------------------
-
-    const handleAuthUpdate = () => {
-      loadDislikedVideos();
-    };
+      const handleAuthUpdate = () => {
+        loadDislikedVideos(false);
+      };
 
     window.addEventListener(
       "activityUpdated",
@@ -183,6 +177,7 @@ function DislikedVideos() {
 
   
   // REMOVE ONE DISLIKED VIDEO
+  
   const removeFromDisliked = async (videoId) => {
     const token = localStorage.getItem("videoVerseToken");
 
@@ -203,36 +198,37 @@ function DislikedVideos() {
         }
       );
 
-      const responseText = await response.text();
+      const text = await response.text();
       let data = {};
 
       try {
-        data = responseText ? JSON.parse(responseText) : {};
+        data = text ? JSON.parse(text) : {};
       } catch {
         throw new Error(
-          `Backend returned HTML instead of JSON (HTTP ${response.status}). Check the deployed backend URL and routes.`
+          `Invalid backend response (HTTP ${response.status}).`
         );
       }
 
       if (!response.ok) {
         throw new Error(
-          data.message || `Unable to remove video (HTTP ${response.status})`
+          data.message || `Remove failed (HTTP ${response.status})`
         );
       }
 
+      // Remove immediately from the current UI.
       setDislikedVideos((previous) =>
         previous.filter(
           (video) => String(getVideoId(video)) !== String(videoId)
         )
       );
 
-      window.dispatchEvent(new Event("activityUpdated"));
+      // Do not dispatch activityUpdated here.
+      // It triggers another fetch and can cause flickering.
     } catch (error) {
       console.error("Remove disliked video error:", error);
-      alert(error.message || "Unable to remove disliked video.");
+      alert(error.message || "Unable to remove video.");
     }
   };
-
   // CLEAR ALL DISLIKED VIDEOS
   const clearAllDislikedVideos = async () => {
     if (dislikedVideos.length === 0) return;

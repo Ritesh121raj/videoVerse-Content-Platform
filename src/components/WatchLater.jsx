@@ -63,8 +63,8 @@ function WatchLater() {
             Array.isArray(
               data.watchLater
             )
-              ? data.watchLater
-              : [];
+               ? [...data.watchLater].reverse()
+                : [];
 
           // Keep localStorage synchronized
           localStorage.setItem(

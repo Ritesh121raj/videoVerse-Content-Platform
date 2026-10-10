@@ -455,9 +455,9 @@ function Subscriptions() {
   // LOAD SUBSCRIPTIONS
   // ======================================================
 
-  const loadSubscriptions = async () => {
+  const loadSubscriptions = async (showLoader = true) => {
     try {
-      setLoading(true);
+      if (showLoader) setLoading(true);
       setError(null);
 
       const token =
@@ -735,7 +735,7 @@ function Subscriptions() {
       );
 
     } finally {
-      setLoading(false);
+      if (showLoader) setLoading(false);
     }
   };
 
@@ -744,26 +744,23 @@ function Subscriptions() {
   // LOAD + LISTEN FOR SUBSCRIPTION CHANGES
   // ======================================================
 
+  
   useEffect(() => {
     loadSubscriptions();
 
-    const handleSubscriptionUpdate =
-      () => {
-        loadSubscriptions();
-      };
-
+    const handleSubscriptionUpdate = () => {
+      loadSubscriptions(false);
+    };
 
     window.addEventListener(
       "subscriptionsUpdated",
       handleSubscriptionUpdate
     );
 
-
     window.addEventListener(
       "authUpdated",
       handleSubscriptionUpdate
     );
-
 
     return () => {
       window.removeEventListener(
@@ -838,11 +835,11 @@ function Subscriptions() {
             LOADING
         ================================================== */}
 
-        {loading && (
+        {/* {loading && (
           <p className="page-message">
             Loading subscriptions...
           </p>
-        )}
+        )} */}
 
 
         {/* ==================================================
@@ -885,10 +882,8 @@ function Subscriptions() {
             CHANNEL LIST
         ================================================== */}
 
-        {!loading &&
-          !error &&
-          subscribedChannels.length >
-            0 && (
+        {!error &&
+          subscribedChannels.length > 0 && (
 
             <div className="subscribed-channels">
 
@@ -974,16 +969,11 @@ function Subscriptions() {
             EMPTY
         ================================================== */}
 
-        {!loading &&
-          !error &&
-          subscribedChannels.length ===
-            0 && (
-
-            <p className="page-message">
-              You haven't subscribed to
-              any channels yet.
-            </p>
-          )}
+        {loading && subscribedChannels.length === 0 && (
+          <p className="page-message">
+            Loading subscriptions...
+          </p>
+        )}
 
 
         {/* ==================================================
