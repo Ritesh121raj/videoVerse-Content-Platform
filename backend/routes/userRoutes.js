@@ -517,6 +517,7 @@ router.get("/history", protect, async (req, res) => {
 });
 
 
+
 /* ======================================================
    ADD / UPDATE WATCH HISTORY
 ====================================================== */
@@ -537,45 +538,8 @@ router.post("/history", protect, async (req, res) => {
       watchedAt: video.watchedAt || Date.now(),
     };
 
-    // Atomically remove the previous copy and add the latest one.
-    const user = await User.findByIdAndUpdate(
-      req.user.userId,
-      [
-        {
-          $set: {
-            history: {
-              $slice: [
-                {
-                  $concatArrays: [
-                    [historyItem],
-                    {
-                      $filter: {
-                        input: { $ifNull: ["$history", []] },
-                        as: "item",
-                        cond: {
-                          $ne: [
-                            {
-                              $cond: [
-                                { $eq: [{ $type: "$$item" }, "string"] },
-                                "$$item",
-                                "$$item.id",
-                              ],
-                            },
-                            video.id,
-                          ],
-                        },
-                      },
-                    },
-                  ],
-                },
-                50,
-              ],
-            },
-          },
-        },
-      ],
-      { new: true, projection: { history: 1 } }
-    );
+    // Find the logged-in user
+    const user = await User.findById(req.user.userId);
 
     if (!user) {
       return res.status(404).json({
@@ -583,9 +547,26 @@ router.post("/history", protect, async (req, res) => {
       });
     }
 
+    // Remove the previous copy of this video
+    const existingHistory = Array.isArray(user.history)
+      ? user.history
+      : [];
+
+    const updatedHistory = existingHistory.filter((item) => {
+      const existingId =
+        typeof item === "string" ? item : item?.id;
+
+      return String(existingId) !== String(video.id);
+    });
+
+    // Put the latest watched video first; keep at most 50
+    user.history = [historyItem, ...updatedHistory].slice(0, 50);
+
+    await user.save();
+
     return res.status(200).json({
-      message: "Watch history updated",
-      history: user.history || [],
+      message: "Watch history updated successfully",
+      history: user.history,
     });
   } catch (error) {
     console.error("Add watch history error:", error);
@@ -595,6 +576,8 @@ router.post("/history", protect, async (req, res) => {
     });
   }
 });
+
+
 
 
 /* ======================================================
