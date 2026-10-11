@@ -131,4 +131,5 @@ The frontend and backend can be deployed separately. Configure the production fr
 
 ## License
 
-Add the license that applies to this project before distributing it under an open-source license.
+This project is licensed under the MIT License.
+See the [LICENSE](LICENSE) file for details.
