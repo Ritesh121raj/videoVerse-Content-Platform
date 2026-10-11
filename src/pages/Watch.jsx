@@ -1755,27 +1755,26 @@ useEffect(() => {
       );
 
       // Remove from local disliked videos
-      if (!previousLiked && previousDisliked) {
+      
+      // Remove this video from disliked videos whenever Like is added
+      if (!previousLiked) {
         const dislikedVideos =
           JSON.parse(
-            localStorage.getItem(
-              "dislikedVideos"
-            )
+            localStorage.getItem("dislikedVideos")
           ) || [];
 
         const updatedDislikedVideos =
           dislikedVideos.filter(
             (item) =>
-              getVideoId(item) !== video.id
+              String(getVideoId(item)) !== String(video.id)
           );
 
         localStorage.setItem(
           "dislikedVideos",
-          JSON.stringify(
-            updatedDislikedVideos
-          )
+          JSON.stringify(updatedDislikedVideos)
         );
       }
+
 
       window.dispatchEvent(
         new Event("activityUpdated")
@@ -2078,7 +2077,9 @@ useEffect(() => {
       );
 
       // If dislike was added, remove from liked
-      if (!previousDisliked && previousLiked) {
+      
+      // Remove this video from liked videos whenever Dislike is added
+      if (!previousDisliked) {
         const likedVideos =
           JSON.parse(
             localStorage.getItem("likedVideos")
@@ -2087,16 +2088,15 @@ useEffect(() => {
         const updatedLikedVideos =
           likedVideos.filter(
             (item) =>
-              getVideoId(item) !== video.id
+              String(getVideoId(item)) !== String(video.id)
           );
 
         localStorage.setItem(
           "likedVideos",
-          JSON.stringify(
-            updatedLikedVideos
-          )
+          JSON.stringify(updatedLikedVideos)
         );
       }
+
 
       window.dispatchEvent(
         new Event("activityUpdated")

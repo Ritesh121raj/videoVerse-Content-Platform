@@ -8,10 +8,11 @@ const router = express.Router();
 // GET LOGGED-IN USER'S LIKED VIDEOS
 // ======================================================
 
+
 router.get("/liked", protect, async (req, res) => {
   try {
     const user = await User.findById(req.user.userId).select(
-      "likedVideos"
+      "likedVideos dislikedVideos"
     );
 
     if (!user) {
@@ -20,13 +21,24 @@ router.get("/liked", protect, async (req, res) => {
       });
     }
 
-    res.status(200).json({
-      likedVideos: user.likedVideos || [],
-    });
+    // Disliked videos take priority if old data contains duplicates.
+    const dislikedIds = new Set(
+      (user.dislikedVideos || []).map((item) =>
+        String(
+          typeof item === "string" ? item : item?.id
+        )
+      )
+    );
+
+    const likedVideos = (user.likedVideos || []).filter(
+      (item) => !dislikedIds.has(String(item))
+    );
+
+    return res.status(200).json({ likedVideos });
   } catch (error) {
     console.error("Get liked videos error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
@@ -35,6 +47,8 @@ router.get("/liked", protect, async (req, res) => {
 // ======================================================
 // ADD VIDEO TO LIKED VIDEOS
 // ======================================================
+
+
 
 router.post("/liked", protect, async (req, res) => {
   try {
@@ -54,19 +68,36 @@ router.post("/liked", protect, async (req, res) => {
       });
     }
 
-    if (!user.likedVideos.includes(videoId)) {
-      user.likedVideos.push(videoId);
-      await user.save();
+    const id = String(videoId);
+
+    // Add to Liked Videos only once
+    const alreadyLiked = (user.likedVideos || []).some(
+      (item) => String(typeof item === "string" ? item : item?.id) === id
+    );
+
+    if (!alreadyLiked) {
+      user.likedVideos.push(id);
     }
 
-    res.status(200).json({
-      message: "Video added to liked videos",
+    // IMPORTANT: Remove same video from Disliked Videos
+    user.dislikedVideos = (user.dislikedVideos || []).filter(
+      (item) => {
+        const itemId = typeof item === "string" ? item : item?.id;
+        return String(itemId) !== id;
+      }
+    );
+
+    await user.save();
+
+    return res.status(200).json({
+      message: "Video liked; removed from disliked videos",
       likedVideos: user.likedVideos,
+      dislikedVideos: user.dislikedVideos,
     });
   } catch (error) {
     console.error("Add liked video error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
@@ -185,6 +216,7 @@ router.get("/disliked", protect, async (req, res) => {
 // LOGGED-IN USER ONLY
 // ======================================================
 
+
 router.post("/disliked", protect, async (req, res) => {
   try {
     const { video } = req.body;
@@ -195,9 +227,7 @@ router.post("/disliked", protect, async (req, res) => {
       });
     }
 
-    const user = await User.findById(
-      req.user.userId
-    );
+    const user = await User.findById(req.user.userId);
 
     if (!user) {
       return res.status(404).json({
@@ -205,58 +235,41 @@ router.post("/disliked", protect, async (req, res) => {
       });
     }
 
-    // Remove old copy if it already exists
-    user.dislikedVideos =
-      (user.dislikedVideos || []).filter(
-        (item) => {
-          const itemId =
-            typeof item === "string"
-              ? item
-              : item?.id;
+    const videoId = String(video.id);
 
-          return itemId !== video.id;
-        }
-      );
-
-    // Store complete video object
-    const dislikedVideo = {
-      ...video,
-
-      image:
-        video.image ||
-        video.thumbnail ||
-        "",
-
-      thumbnail:
-        video.thumbnail ||
-        video.image ||
-        "",
-    };
-
-    user.dislikedVideos.unshift(
-      dislikedVideo
+    // Remove this video from Liked Videos.
+    user.likedVideos = (user.likedVideos || []).filter(
+      (item) => String(item) !== videoId
     );
 
-    // Keep latest 50
-    user.dislikedVideos =
-      user.dislikedVideos.slice(0, 50);
+    // Remove any existing copy from Disliked Videos.
+    user.dislikedVideos = (user.dislikedVideos || []).filter(
+      (item) => {
+        const id = typeof item === "string" ? item : item?.id;
+        return String(id) !== videoId;
+      }
+    );
+
+    const dislikedVideo = {
+      ...video,
+      id: videoId,
+      image: video.image || video.thumbnail || "",
+      thumbnail: video.thumbnail || video.image || "",
+    };
+
+    user.dislikedVideos.unshift(dislikedVideo);
+    user.dislikedVideos = user.dislikedVideos.slice(0, 50);
 
     await user.save();
 
-    res.status(200).json({
-      message:
-        "Video added to disliked videos",
-
-      dislikedVideos:
-        user.dislikedVideos,
+    return res.status(200).json({
+      message: "Video added to disliked videos",
+      dislikedVideos: user.dislikedVideos,
     });
   } catch (error) {
-    console.error(
-      "Add disliked video error:",
-      error
-    );
+    console.error("Add disliked video error:", error);
 
-    res.status(500).json({
+    return res.status(500).json({
       message: "Server error",
     });
   }
@@ -272,21 +285,12 @@ router.post("/disliked", protect, async (req, res) => {
    REMOVE ONE DISLIKED VIDEO
 ========================================== */
 
+
 router.delete("/disliked/:videoId", protect, async (req, res) => {
   try {
     const { videoId } = req.params;
 
-    if (!videoId) {
-      return res.status(400).json({
-        message: "Video ID is required",
-      });
-    }
-
-    const user = await User.findByIdAndUpdate(
-      req.user.userId,
-      { $pull: { dislikedVideos: videoId } },
-      { new: true }
-    ).select("dislikedVideos");
+    const user = await User.findById(req.user.userId);
 
     if (!user) {
       return res.status(404).json({
@@ -294,9 +298,20 @@ router.delete("/disliked/:videoId", protect, async (req, res) => {
       });
     }
 
+    user.dislikedVideos = (user.dislikedVideos || []).filter(
+      (item) => {
+        const itemId =
+          typeof item === "string" ? item : item?.id;
+
+        return String(itemId) !== String(videoId);
+      }
+    );
+
+    await user.save();
+
     return res.status(200).json({
       message: "Video removed from disliked videos",
-      dislikedVideos: user.dislikedVideos || [],
+      dislikedVideos: user.dislikedVideos,
     });
   } catch (error) {
     console.error("Remove disliked video error:", error);
