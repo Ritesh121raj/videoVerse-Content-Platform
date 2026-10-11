@@ -173,11 +173,11 @@ function Settings() {
       icon: UserCircle,
       description: "Manage your VideoVerse account",
     },
-    {
-      name: "Your Data",
-      icon: Database,
-      description: "View your account and activity data",
-    },
+    // {
+    //   name: "Your Data",
+    //   icon: Database,
+    //   description: "View your account and activity data",
+    // },
     {
       name: "Appearance",
       icon: Palette,
@@ -1189,7 +1189,7 @@ function Settings() {
               YOUR DATA
               ============================== */}
 
-          {activeSection === "Your Data" && (
+          {/* {activeSection === "Your Data" && (
             <div className="settings-section your-data-section">
 
               <div className="your-data-header">
@@ -1333,7 +1333,7 @@ function Settings() {
               </div>
 
             </div>
-          )}
+          )} */}
 
           {activeSection === "Appearance" && (
             <div className="settings-section">
