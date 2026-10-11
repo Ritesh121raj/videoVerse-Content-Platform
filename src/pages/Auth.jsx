@@ -84,7 +84,7 @@ function Auth() {
 
 
   // Backend URL
-  const API_URL = "http://localhost:5000/api";
+  const API_URL = "https://videoverse-content-platform.onrender.com";
 
   // ==============================
   // LOGIN
