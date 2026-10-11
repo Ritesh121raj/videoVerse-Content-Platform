@@ -93,17 +93,17 @@ function Settings() {
     document.body.classList.toggle("light-theme", isLightTheme);
   }, [isLightTheme]);
 
-  // const [autoplay, setAutoplay] = useState(
-  //   () => localStorage.getItem("autoplay") !== "false"
-  // );
+  const [autoplay, setAutoplay] = useState(
+    () => localStorage.getItem("autoplay") !== "false"
+  );
 
-  // const [defaultMute, setDefaultMute] = useState(
-  //   () => localStorage.getItem("defaultMute") === "true"
-  // );
+  const [defaultMute, setDefaultMute] = useState(
+    () => localStorage.getItem("defaultMute") === "true"
+  );
 
-  // const [videoQuality, setVideoQuality] = useState(
-  //   () => localStorage.getItem("videoQuality") || "Auto"
-  // );
+  const [videoQuality, setVideoQuality] = useState(
+    () => localStorage.getItem("videoQuality") || "Auto"
+  );
 
   /* ==============================
      NOTIFICATIONS
@@ -790,49 +790,73 @@ function Settings() {
      CLEAR ACTIVITY
      ============================== */
 
-  
-  
-  const clearActivityList = (key, label) => {
+  const clearHistory = () => {
     const confirmed = window.confirm(
-      `Are you sure you want to clear ${label}?`
+      "Are you sure you want to clear your entire watch history?"
     );
 
-    if (!confirmed) return;
-
-    try {
-      // Clear the saved list
-      localStorage.setItem(key, "[]");
-
-      // Refresh Settings activity counts and listening pages
-      window.dispatchEvent(new Event("activityUpdated"));
-
-      // Verify the saved value
-      const remaining = JSON.parse(
-        localStorage.getItem(key) || "[]"
-      );
-
-      if (!Array.isArray(remaining) || remaining.length !== 0) {
-        throw new Error(`Failed to clear ${key}`);
-      }
-
-      alert(`${label} cleared successfully.`);
-    } catch (error) {
-      console.error(`Failed to clear ${label}:`, error);
-      alert(`Unable to clear ${label}. Check the browser console.`);
+    if (!confirmed) {
+      return;
     }
+
+    localStorage.removeItem("history");
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
+
+    alert("Watch history cleared successfully.");
   };
 
-  const clearHistory = () =>
-    clearActivityList("history", "watch history");
+  const clearWatchLater = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to remove all videos from Watch Later?"
+    );
 
-  const clearWatchLater = () =>
-    clearActivityList("watchLater", "Watch Later");
+    if (!confirmed) {
+      return;
+    }
 
-  const clearLikedVideos = () =>
-    clearActivityList("likedVideos", "liked videos");
+    localStorage.removeItem("watchLater");
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
 
-  const clearDislikedVideos = () =>
-    clearActivityList("dislikedVideos", "disliked videos");
+    alert("Watch Later list cleared successfully.");
+  };
+
+  const clearLikedVideos = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to remove all liked videos?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    localStorage.removeItem("likedVideos");
+        window.dispatchEvent(
+      new Event("activityUpdated")
+    );
+
+    alert("Liked videos cleared successfully.");
+  };
+  const clearDislikedVideos = () => {
+    const confirmed = window.confirm(
+      "Are you sure you want to clear all disliked videos?"
+    );
+
+    if (!confirmed) {
+      return;
+    }
+
+    localStorage.removeItem("dislikedVideos");
+
+    window.dispatchEvent(
+      new Event("activityUpdated")
+    );
+
+    alert("Disliked videos cleared.");
+  };
 
   return (
     <div className="settings-page">
@@ -1531,7 +1555,7 @@ function Settings() {
               PLAYBACK
               ============================== */}
 
-          {/* {activeSection === "Playback" && (
+          {activeSection === "Playback" && (
             <div className="settings-section">
 
               <h2>Playback</h2>
@@ -1645,7 +1669,7 @@ function Settings() {
               </div>
 
             </div>
-          )} */}
+          )}
 
           {/* ==============================
               PRIVACY
@@ -1838,6 +1862,10 @@ function Settings() {
                   <span>YouTube Data API</span>
                   <span>CSS</span>
                   <span>LocalStorage</span>
+                  <span>Node.js</span>
+                  <span>Express.js</span>
+                  <span>MongoDB</span>
+                  <span>JWT Authentication</span>
 
                 </div>
 
@@ -1894,6 +1922,18 @@ function Settings() {
                     Responsive design
                   </li>
 
+                  <li>
+                    User registration and login
+                  </li>
+
+                  <li>
+                    Profile and account settings
+                  </li>
+
+                  <li>
+                    Change password and account deletion options
+                  </li>
+
                 </ul>
 
               </div>
@@ -1937,6 +1977,30 @@ function Settings() {
                   </div>
 
                 </div>
+
+              </div>
+
+              <div className="settings-card">
+
+                <h3>
+                  Data & Privacy
+                </h3>
+
+                <ul className="settings-about-list">
+
+                  <li>
+                    Video discovery uses the YouTube Data API and playback uses YouTube's player.
+                  </li>
+
+                  <li>
+                    Account features use the VideoVerse backend when you are signed in.
+                  </li>
+
+                  <li>
+                    Some preferences and activity may be stored in your browser, depending on the feature and your Privacy settings.
+                  </li>
+
+                </ul>
 
               </div>
 

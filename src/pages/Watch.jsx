@@ -276,6 +276,10 @@ function Watch() {
   // ==================================================
 
   const saveHistory = useCallback(async () => {
+    if (localStorage.getItem("historyEnabled") === "false") {
+      return;
+    }
+
     if (!video?.id) {
       console.log("History not saved: video ID missing");
       return;
@@ -1157,6 +1161,9 @@ useEffect(() => {
     let previousApiReady = null;
     let apiReadyHandler = null;
 
+    // Each video gets its own ENDED handling cycle.
+    endedHandledRef.current = false;
+
     const initializePlayer = () => {
       if (
         cancelled ||
@@ -1185,7 +1192,20 @@ useEffect(() => {
             videoId: video.id,
 
             playerVars: {
-              autoplay: 0,
+              // Pass preferences to YouTube at creation time. Applying mute only
+              // after onReady can be too late for browser autoplay policies.
+              autoplay:
+                searchParams.get("autoplay") === "1" &&
+                localStorage.getItem("autoplay") !== "false"
+                  ? 1
+                  : 0,
+              // Autoplaying the next video must be muted initially because
+              // browsers commonly block automatic playback with sound.
+              mute:
+                searchParams.get("autoplay") === "1" ||
+                localStorage.getItem("defaultMute") === "true"
+                  ? 1
+                  : 0,
               controls: 1,
               rel: 0,
               modestbranding: 1,
@@ -1203,11 +1223,14 @@ useEffect(() => {
                   const defaultMuteEnabled =
                     localStorage.getItem("defaultMute") === "true";
                   const shouldAutoplayThisVideo =
-                    searchParams.get("autoplay") === "1";
+                    searchParams.get("autoplay") === "1" &&
+                    localStorage.getItem("autoplay") !== "false";
 
                   // Default mute applies when a video starts; Autoplay controls
                   // only whether the next video starts after the current one ends.
-                  if (defaultMuteEnabled) {
+                  if (shouldAutoplayThisVideo || defaultMuteEnabled) {
+                    // Muted playback is the most compatible way to start the
+                    // next video automatically under browser autoplay policies.
                     event.target.mute();
                   } else {
                     event.target.unMute();
@@ -1232,7 +1255,9 @@ useEffect(() => {
                   // Only videos explicitly opened by the end-of-video Autoplay
                   // flow should start automatically (browser policies still apply).
                   if (shouldAutoplayThisVideo) {
-                    if (defaultMuteEnabled) event.target.mute();
+                    // Always start an automatically-opened next video muted;
+                    // the viewer can unmute it manually after playback begins.
+                    event.target.mute();
                     event.target.playVideo();
                   }
 
@@ -1383,6 +1408,19 @@ useEffect(() => {
                   });
               },
 
+              // Browser may block scripted autoplay, especially with sound.
+              // Retry muted and leave the player ready for a manual click if the
+              // browser still requires user interaction.
+              onAutoplayBlocked: (event) => {
+                if (cancelled) return;
+                try {
+                  event?.target?.mute?.();
+                  event?.target?.playVideo?.();
+                } catch (autoplayError) {
+                  console.warn("Browser blocked autoplay; manual playback may be required:", autoplayError);
+                }
+              },
+
               // PLAYER ERROR
               onError: (event) => {
                 console.error("YouTube Player Error:", event.data);
@@ -1462,8 +1500,13 @@ useEffect(() => {
       if (!player) return;
 
       try {
+        // Apply the preference in both directions; turning Default mute OFF
+        // must actively unmute the player rather than leaving it muted.
         if (localStorage.getItem("defaultMute") === "true") {
           player.mute?.();
+        } else {
+          player.unMute?.();
+          // Do not force volume to 100%; just unmute the existing volume.
         }
 
         const preferredQuality = localStorage.getItem("videoQuality") || "Auto";
@@ -1626,6 +1669,17 @@ useEffect(() => {
       return;
     }
 
+    // Privacy guard: when Saved Activity is OFF, block only new likes.
+    // Keep unlike available so users can remove an existing saved like.
+    const previousLiked = liked;
+    const savedActivityEnabled =
+      localStorage.getItem("savedActivityEnabled") !== "false";
+
+    if (!savedActivityEnabled && !previousLiked) {
+      alert("Saved activity is disabled. Enable it from Settings → Privacy to save likes.");
+      return;
+    }
+
     const token = localStorage.getItem("videoVerseToken");
 
     if (!token) {
@@ -1634,7 +1688,6 @@ useEffect(() => {
     }
 
     // Save previous state for rollback
-    const previousLiked = liked;
     const previousLikeCount = likeCount;
     const previousDisliked = disliked;
     const previousDislikeCount = dislikeCount;

@@ -189,6 +189,10 @@ const getDislikedStorageKey = () => {
      ============================== */
 
   const saveToHistory = () => {
+    if (localStorage.getItem("historyEnabled") === "false") {
+      return;
+    }
+
     const history =
       JSON.parse(
         localStorage.getItem("history")
@@ -541,6 +545,12 @@ const getDislikedStorageKey = () => {
     }
   };
   const handleWatchLater = async () => {
+    if (localStorage.getItem("savedActivityEnabled") === "false") {
+      setShowMenu(false);
+      alert("Saved activity is disabled. Enable it from Settings → Privacy.");
+      return;
+    }
+
     const token =
       localStorage.getItem("videoVerseToken");
 
