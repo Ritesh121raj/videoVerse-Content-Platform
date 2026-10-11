@@ -1884,9 +1884,9 @@ function Settings() {
                     YouTube Data API
                   </li>
 
-                  <li>
+                  {/* <li>
                     Video playback
-                  </li>
+                  </li> */}
 
                   <li>
                     Liked and disliked

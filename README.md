@@ -1,16 +1,134 @@
-# React + Vite
+# VideoVerse — Content Platform
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+VideoVerse is a video-sharing web application inspired by YouTube. It provides a platform to explore videos, search for content, watch videos, and manage personal video activity through a React frontend and a Node.js backend.
 
-Currently, two official plugins are available:
+## Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- **Video Discovery:** Browse video feeds and explore content by category.
+- **Search:** Search for videos and filter results.
+- **Shorts and Music:** Explore short-form videos and music content.
+- **User Authentication:** Register, log in, and access protected account features.
+- **Profile Management:** Update account details, change passwords, and manage your account.
+- **Liked Videos:** Save and manage liked videos.
+- **Watch Later:** Save videos to watch later.
+- **Watch History:** View and manage previously watched videos.
+- **Comments:** Add and delete comments.
+- **Subscriptions:** Manage subscribed channels.
 
-## React Compiler
+## Tech Stack
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+### Frontend
+- React 19
+- Vite 8
+- React Router DOM
+- Lucide React
+- JavaScript and CSS
 
-## Expanding the Oxlint configuration
+### Backend
+- Node.js
+- Express 5
+- MongoDB with Mongoose
+- JSON Web Tokens (JWT)
+- bcryptjs for password hashing
+- CORS
+- dotenv
 
-If you are developing a production application, we recommend using TypeScript with type-aware lint rules enabled. Check out the [TS template](https://github.com/vitejs/vite/tree/main/packages/create-vite/template-react-ts) for information on how to integrate TypeScript and Oxlint's TypeScript related rules in your project.
+## Project Structure
+
+The application has separate frontend and backend components. Update the example paths below to match the actual repository structure.
+
+VideoVerse-Content-Platform/
+├── frontend/
+│   ├── package.json
+│   └── src/
+└── backend/
+    ├── package.json
+    └── server.js
+
+## Getting Started
+
+### Prerequisites
+
+Install the following before running the application:
+
+- Node.js and npm
+- MongoDB connection or database instance
+- Git
+
+### 1. Clone the repository
+
+git clone https://github.com/Ritesh121raj/videoVerse-Content-Platform.git
+cd videoVerse-Content-Platform
+
+### 2. Set up the frontend
+
+Open a terminal in the frontend directory:
+
+npm install
+npm run dev
+
+
+To create and preview a production build:
+
+npm run build
+npm run preview
+
+
+Run the configured linter with:
+
+npm run lint
+
+### 3. Set up the backend
+
+Open another terminal in the backend directory:
+
+npm install
+
+Create a `.env` file using the environment-variable names expected by the backend code. Configure the database connection, JWT secret, and any other required settings.
+
+Start the backend in development mode:
+
+npm run dev
+
+To start the backend using its production start script:
+
+npm start
+
+### 4. Configure environment variables
+
+Keep environment variables in local `.env` files or your deployment provider's environment settings.
+
+Configure the variables required by the actual application, such as:
+
+- Database connection string
+- JWT signing secret
+- Backend port
+- Frontend API base URL
+- Any external video API key used by the frontend
+
+**Important:** The exact variable names must match the existing source code. Never commit real credentials, API keys, database passwords, or JWT secrets to GitHub.
+
+## Authentication and Data
+
+The backend uses Express, MongoDB/Mongoose, JWT authentication, and bcryptjs password hashing. Protected endpoints require valid authentication according to the backend middleware.
+
+User account and video-activity features should be tested using separate accounts to ensure that private data is not shared between users.
+
+## Deployment
+
+The frontend and backend can be deployed separately. Configure the production frontend API URL, backend environment variables, database connection, and allowed CORS origin according to your hosting setup.
+
+- **GitHub Repository:** https://github.com/Ritesh121raj/videoVerse-Content-Platform
+- **Live Demo:** https://videoverse-content-platform-1.onrender.com
+- **Backend URL:** https://videoverse-content-platform.onrender.com
+
+## Future Improvements
+
+- Improve accessibility and responsive layouts.
+- Add automated tests for authentication and video-related features.
+- Improve loading, empty, and error states.
+- Continue strengthening production security and documentation.
+
+## License
+
+Add the license that applies to this project before distributing it under an open-source license.
