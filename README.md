@@ -37,13 +37,33 @@ VideoVerse is a video-sharing web application inspired by YouTube. It provides a
 
 The application has separate frontend and backend components. Update the example paths below to match the actual repository structure.
 
+## Project Structure
 VideoVerse-Content-Platform/
-├── frontend/
-│   ├── package.json
-│   └── src/
-└── backend/
-    ├── package.json
-    └── server.js
+├── backend/
+│   ├── config/
+│   ├── controllers/
+│   ├── middleware/
+│   ├── models/
+│   ├── routes/
+│   ├── server.js
+│   └── package.json
+├── src/
+│   ├── components/
+│   ├── pages/
+│   ├── services/
+│   ├── App.jsx
+│   └── ...
+├── public/
+├── .env.example
+├── .gitignore
+├── index.html
+├── package.json
+├── vite.config.js
+├── LICENSE
+└── README.md
+
+*Note: This is a simplified overview of the project structure.*
+
 
 ## Getting Started
 
@@ -96,17 +116,11 @@ npm start
 
 ### 4. Configure environment variables
 
-Keep environment variables in local `.env` files or your deployment provider's environment settings.
+Refer to `.env.example` for the required environment-variable names. Create local `.env` files in the appropriate frontend/backend directories and configure the values required by each application.
 
-Configure the variables required by the actual application, such as:
+For production, set the environment variables in the respective hosting provider's dashboard.
 
-- Database connection string
-- JWT signing secret
-- Backend port
-- Frontend API base URL
-- Any external video API key used by the frontend
-
-**Important:** The exact variable names must match the existing source code. Never commit real credentials, API keys, database passwords, or JWT secrets to GitHub.
+**Security:** Never commit real API keys, database credentials, or JWT secrets to GitHub. Frontend variables prefixed with `VITE_` are exposed to the browser, so never store private secrets in them.
 
 ## Authentication and Data
 
