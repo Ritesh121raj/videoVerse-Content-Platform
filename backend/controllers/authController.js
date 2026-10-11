@@ -2,6 +2,62 @@ const User = require("../models/User");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 
+
+
+const isValidEmail = (email) => {
+  if (typeof email !== "string") return false;
+
+  const value = email.trim().toLowerCase();
+
+  if (value.length > 254 || value.includes("..")) {
+    return false;
+  }
+
+  const parts = value.split("@");
+
+  if (parts.length !== 2) return false;
+
+  const [local, domain] = parts;
+
+  if (
+    !local ||
+    local.length > 64 ||
+    !domain ||
+    !domain.includes(".")
+  ) {
+    return false;
+  }
+
+  const emailRegex =
+    /^[a-z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?(?:\.[a-z0-9](?:[a-z0-9-]{0,61}[a-z0-9])?)+$/;
+
+  if (!emailRegex.test(value)) return false;
+
+  // Reject common misspellings of popular email domains.
+  const blockedDomains = new Set([
+    "gmai.com",
+    "gmali.com",
+    "gamil.com",
+    "gmail.co",
+    "gmal.com",
+    "yaho.com",
+    "yahooo.com",
+    "hotmai.com",
+    "outlok.com",
+  ]);
+
+  if (blockedDomains.has(domain)) return false;
+
+  // Require a final domain suffix of at least 2 letters.
+  const tld = domain.split(".").pop();
+
+  if (!/^[a-z]{2,}$/.test(tld)) return false;
+
+  return true;
+};
+
+
+
 // ======================================================
 // REGISTER
 // ======================================================
@@ -13,6 +69,11 @@ const registerUser = async (req, res) => {
     if (!name || !email || !password) {
       return res.status(400).json({
         message: "Please provide name, email and password",
+      });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        message: "Please provide a valid email address",
       });
     }
 
@@ -61,6 +122,11 @@ const loginUser = async (req, res) => {
     if (!email || !password) {
       return res.status(400).json({
         message: "Please provide email and password",
+      });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        message: "Please provide a valid email address",
       });
     }
 
@@ -257,6 +323,11 @@ const updateProfile = async (req, res) => {
     if (!name || !email) {
       return res.status(400).json({
         message: "Name and email are required",
+      });
+    }
+    if (!isValidEmail(email)) {
+      return res.status(400).json({
+        message: "Please provide a valid email address",
       });
     }
 
